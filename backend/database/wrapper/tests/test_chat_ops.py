@@ -1,0 +1,530 @@
+"""
+Tests for backend.database.wrapper.chat_ops (ChatOpsMixin).
+
+Coverage:
+- ensure_chat_exists / get_chat
+- save_chat / update_chat / update_* helpers
+- rename_chat, update_chat_model, update_chat_vision_model, update_chat_max_tokens
+- mark_research_completed, update_chat_file_system_mode, update_research_state
+- delete_chat  ← FK-safety regression: file_systems + all child tables
+- delete_all_chats ← FK-safety regression: same ordering requirement
+- get_chat_full
+- workspace CRUD (create / rename / delete)
+- update_chat_workspace
+"""
+
+import os
+import sqlite3
+import pytest
+import tempfile
+import shutil
+import time
+from unittest.mock import patch
+
+from backend.database.init_db import init_db
+from backend.database.db_wrapper import DatabaseWrapper
+
+
+# ---------------------------------------------------------------------------
+# Shared helpers
+# ---------------------------------------------------------------------------
+
+def _db_path_patches(db_path):
+    """Return the three patches required to redirect DB_PATH."""
+    return (
+        patch("backend.database.db_layer.DB_PATH", db_path),
+        patch("backend.database.init_db.DB_PATH", db_path),
+        patch("backend.database.db_wrapper.DB_PATH", db_path),
+    )
+
+
+def _raw_conn(db_path: str) -> sqlite3.Connection:
+    """Open a raw SQLite connection to the temp DB with FK enforcement."""
+    conn = sqlite3.connect(db_path)
+    conn.execute("PRAGMA foreign_keys=ON")
+    return conn
+
+
+def _seed_file_attachment(db_path: str, chat_id: str, file_id: str = "f_001"):
+    """
+    Insert a row into the `files` table referencing *chat_id*.
+    This simulates a chat that has a file attachment.
+    """
+    conn = _raw_conn(db_path)
+    try:
+        conn.execute(
+            """
+            INSERT INTO files (id, chat_id, original_filename, stored_filename,
+                               mime_type, file_size, processing_status)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+            """,
+            (file_id, chat_id, "doc.pdf", "stored_doc.pdf", "application/pdf", 1024, "ready"),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _seed_file_system_with_children(
+    db_path: str,
+    chat_id: str,
+    fs_id: str = "fs_001",
+):
+    """
+    Insert rows into file_systems, file_system_versions, and
+    file_system_permissions — the three-table FK chain that caused the
+    original IntegrityError bug.
+    """
+    conn = _raw_conn(db_path)
+    try:
+        conn.execute(
+            """
+            INSERT INTO file_systems
+                (id, chat_id, workspace_id, title, filename, timestamp, file_system_type, current_version)
+            VALUES (?, ?, NULL, ?, ?, ?, 'custom', 1)
+            """,
+            (fs_id, chat_id, "Test FS", "test.md", time.time()),
+        )
+        conn.execute(
+            """
+            INSERT INTO file_system_versions
+                (file_system_id, chat_id, workspace_id, version_number, content, author, timestamp)
+            VALUES (?, ?, NULL, 1, 'hello', 'user', ?)
+            """,
+            (fs_id, chat_id, time.time()),
+        )
+        conn.execute(
+            """
+            INSERT INTO file_system_permissions
+                (file_system_id, chat_id, workspace_id, user_id, permission, timestamp)
+            VALUES (?, ?, NULL, 'user1', 'write', ?)
+            """,
+            (fs_id, chat_id, time.time()),
+        )
+        conn.commit()
+    finally:
+        conn.close()
+
+
+def _count(db_path: str, table: str, where: str, params: tuple) -> int:
+    conn = _raw_conn(db_path)
+    try:
+        cur = conn.execute(f"SELECT COUNT(*) FROM {table} WHERE {where}", params)
+        return cur.fetchone()[0]
+    finally:
+        conn.close()
+
+
+# ---------------------------------------------------------------------------
+# Fixtures
+# ---------------------------------------------------------------------------
+
+@pytest.fixture(scope="function")
+def temp_db():
+    """
+    Per-test isolated SQLite DB.  Using function scope ensures each test
+    starts from a clean slate — important for FK-safety tests that verify
+    complete row removal.
+    """
+    tmp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(tmp_dir, "test_chats.db")
+    p1, p2, p3 = _db_path_patches(db_path)
+    with p1, p2, p3:
+        init_db()
+        wrapper = DatabaseWrapper()
+        # Expose the raw path so helper functions can use it
+        wrapper._test_db_path = db_path
+        yield wrapper
+    shutil.rmtree(tmp_dir)
+
+
+# ---------------------------------------------------------------------------
+# Basic CRUD
+# ---------------------------------------------------------------------------
+
+class TestEnsureAndGetChat:
+    def test_ensure_chat_creates_record(self, temp_db):
+        temp_db.ensure_chat_exists("chat_ensure_1")
+        chat = temp_db.get_chat("chat_ensure_1")
+        assert chat is not None
+        assert chat["id"] == "chat_ensure_1"
+
+    def test_ensure_chat_is_idempotent(self, temp_db):
+        temp_db.ensure_chat_exists("chat_idem")
+        temp_db.ensure_chat_exists("chat_idem")  # second call must not raise
+        assert temp_db.get_chat("chat_idem") is not None
+
+    def test_get_chat_returns_none_for_missing(self, temp_db):
+        assert temp_db.get_chat("nonexistent_xyz") is None
+
+
+class TestSaveChat:
+    def test_save_chat_creates_and_reads_back(self, temp_db):
+        temp_db.save_chat(
+            "chat_save_1", "My Chat", time.time(),
+            enable_thinking=1, last_model="llama3", vision_model="llava",
+        )
+        chat = temp_db.get_chat("chat_save_1")
+        assert chat["title"] == "My Chat"
+        assert chat["last_model"] == "llama3"
+        assert chat["vision_model"] == "llava"
+
+    def test_save_chat_upsert_updates_fields(self, temp_db):
+        temp_db.save_chat("chat_upsert", "Original", time.time(), enable_thinking=1)
+        # Re-save with different model; title should update (not custom)
+        temp_db.save_chat("chat_upsert", "Updated", time.time(), enable_thinking=1, last_model="qwen")
+        chat = temp_db.get_chat("chat_upsert")
+        assert chat["last_model"] == "qwen"
+
+    def test_get_all_chats_includes_saved(self, temp_db):
+        temp_db.save_chat("chat_list_1", "L1", time.time(), enable_thinking=1)
+        temp_db.save_chat("chat_list_2", "L2", time.time(), enable_thinking=1)
+        all_chats = temp_db.get_all_chats()
+        ids = [c["id"] for c in all_chats]
+        assert "chat_list_1" in ids
+        assert "chat_list_2" in ids
+
+
+class TestUpdateChatHelpers:
+    def test_update_chat_title(self, temp_db):
+        temp_db.ensure_chat_exists("chat_upd")
+        temp_db.rename_chat("chat_upd", "New Title")
+        assert temp_db.get_chat("chat_upd")["title"] == "New Title"
+
+    def test_update_last_user_and_assistant_ids(self, temp_db):
+        temp_db.ensure_chat_exists("chat_ids")
+        temp_db.update_last_user_id("chat_ids", 42)
+        temp_db.update_last_assistant_id("chat_ids", 99)
+        chat = temp_db.get_chat("chat_ids")
+        assert chat["last_user_id"] == 42
+        assert chat["last_assistant_id"] == 99
+
+    def test_update_chat_model(self, temp_db):
+        temp_db.ensure_chat_exists("chat_model")
+        temp_db.update_chat_model("chat_model", "mistral")
+        assert temp_db.get_chat("chat_model")["last_model"] == "mistral"
+
+    def test_update_chat_vision_model(self, temp_db):
+        temp_db.ensure_chat_exists("chat_vision")
+        temp_db.update_chat_vision_model("chat_vision", "llava-next")
+        assert temp_db.get_chat("chat_vision")["vision_model"] == "llava-next"
+
+    def test_update_chat_max_tokens(self, temp_db):
+        temp_db.ensure_chat_exists("chat_maxtok")
+        temp_db.update_chat_max_tokens("chat_maxtok", 4096)
+        assert temp_db.get_chat("chat_maxtok")["max_tokens"] == 4096
+
+    def test_mark_research_completed(self, temp_db):
+        temp_db.ensure_chat_exists("chat_research")
+        temp_db.mark_research_completed("chat_research", 1)
+        assert temp_db.get_chat("chat_research")["research_completed"] == 1
+
+    def test_update_chat_file_system_mode(self, temp_db):
+        temp_db.ensure_chat_exists("chat_fsmode")
+        temp_db.update_chat_file_system_mode("chat_fsmode", True)
+        assert temp_db.get_chat("chat_fsmode")["file_system_mode"] == 1
+
+    def test_update_research_state(self, temp_db):
+        temp_db.ensure_chat_exists("chat_rstate")
+        temp_db.update_research_state("chat_rstate", "synthesizing")
+        assert temp_db.get_chat("chat_rstate")["research_state"] == "synthesizing"
+
+
+class TestGetChatFull:
+    def test_get_chat_full_returns_messages(self, temp_db):
+        temp_db.ensure_chat_exists("chat_full")
+        temp_db.add_message("chat_full", role="user", content="hi")
+        full = temp_db.get_chat_full("chat_full")
+        assert full["id"] == "chat_full"
+        assert any(m["content"] == "hi" for m in full["messages"])
+
+    def test_get_chat_full_returns_none_for_missing(self, temp_db):
+        assert temp_db.get_chat_full("no_such_chat") is None
+
+
+# ---------------------------------------------------------------------------
+# delete_chat — FK-safety regression tests
+# ---------------------------------------------------------------------------
+
+class TestDeleteChat:
+    """
+    These tests specifically cover the FK-safety fix applied to delete_chat.
+
+    Bug: deleting a chat that had file_system rows (with child rows in
+    file_system_versions / file_system_permissions) raised:
+        sqlite3.IntegrityError: FOREIGN KEY constraint failed
+
+    Root causes:
+    1. file_system_versions / file_system_permissions were not deleted before
+       file_systems (or at all in the case of file_system_permissions).
+    2. No explicit transaction, so partial deletes left the DB dirty.
+    """
+
+    def test_delete_plain_chat(self, temp_db):
+        """Deleting a chat with no attachments must succeed."""
+        temp_db.ensure_chat_exists("chat_del_plain")
+        temp_db.delete_chat("chat_del_plain")
+        assert temp_db.get_chat("chat_del_plain") is None
+
+    def test_delete_chat_with_file_attachment(self, temp_db):
+        """
+        Regression: deleting a chat that has rows in the `files` table must
+        not raise IntegrityError.
+        """
+        chat_id = "chat_del_file"
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists(chat_id)
+        _seed_file_attachment(db_path, chat_id, file_id="f_attach_001")
+
+        # This must not raise sqlite3.IntegrityError
+        temp_db.delete_chat(chat_id)
+
+        assert temp_db.get_chat(chat_id) is None
+        assert _count(db_path, "files", "chat_id = ?", (chat_id,)) == 0
+
+    def test_delete_chat_with_file_system_and_children(self, temp_db):
+        """
+        Core regression: chat has file_systems → file_system_versions AND
+        file_system_permissions.  All three tables must be cleaned up
+        before the chats row is removed, or FK enforcement raises.
+        """
+        chat_id = "chat_del_fs"
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists(chat_id)
+        _seed_file_system_with_children(db_path, chat_id, fs_id="fs_del_001")
+
+        # Verify seed data exists
+        assert _count(db_path, "file_systems", "chat_id = ?", (chat_id,)) == 1
+        assert _count(db_path, "file_system_versions", "chat_id = ?", (chat_id,)) == 1
+        assert _count(db_path, "file_system_permissions", "chat_id = ?", (chat_id,)) == 1
+
+        # Must not raise IntegrityError
+        temp_db.delete_chat(chat_id)
+
+        assert temp_db.get_chat(chat_id) is None
+        assert _count(db_path, "file_systems", "chat_id = ?", (chat_id,)) == 0
+        assert _count(db_path, "file_system_versions", "chat_id = ?", (chat_id,)) == 0
+        assert _count(db_path, "file_system_permissions", "chat_id = ?", (chat_id,)) == 0
+
+    def test_delete_chat_removes_messages(self, temp_db):
+        chat_id = "chat_del_msgs"
+        temp_db.ensure_chat_exists(chat_id)
+        temp_db.add_message(chat_id, role="user", content="msg1")
+        temp_db.add_message(chat_id, role="assistant", content="msg2")
+
+        temp_db.delete_chat(chat_id)
+
+        assert temp_db.get_chat(chat_id) is None
+        assert len(temp_db.get_messages(chat_id)) == 0
+
+    def test_delete_chat_removes_sub_agent_messages(self, temp_db):
+        chat_id = "chat_del_sub"
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists(chat_id)
+        # Insert a sub_agent_messages row directly via raw SQL
+        conn = _raw_conn(db_path)
+        try:
+            conn.execute(
+                """
+                INSERT INTO sub_agent_messages
+                    (chat_id, parent_message_id, parent_type, agent_name,
+                     sequence_order, role, content, timestamp)
+                VALUES (?, ?, 'main', 'file_system_agent', 1, 'assistant', 'hi', ?)
+                """,
+                (chat_id, "msg_1", time.time()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        temp_db.delete_chat(chat_id)
+
+        assert _count(db_path, "sub_agent_messages", "chat_id = ?", (chat_id,)) == 0
+
+    def test_delete_chat_removes_pending_callbacks(self, temp_db):
+        chat_id = "chat_del_cb"
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists(chat_id)
+        conn = _raw_conn(db_path)
+        try:
+            conn.execute(
+                """
+                INSERT INTO pending_callbacks
+                    (callback_id, chat_id, tool_name, status, created_at)
+                VALUES ('cb_001', ?, 'clarify', 'pending', ?)
+                """,
+                (chat_id, time.time()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        temp_db.delete_chat(chat_id)
+
+        assert _count(db_path, "pending_callbacks", "chat_id = ?", (chat_id,)) == 0
+
+    def test_delete_chat_removes_collections(self, temp_db):
+        chat_id = "chat_del_col"
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists(chat_id)
+        conn = _raw_conn(db_path)
+        try:
+            conn.execute(
+                """
+                INSERT INTO collections
+                    (chat_id, parent_message_id, parent_type, collection_type, items, timestamp)
+                VALUES (?, 'msg_1', 'main', 'search_results', '[]', ?)
+                """,
+                (chat_id, time.time()),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        temp_db.delete_chat(chat_id)
+
+        assert _count(db_path, "collections", "chat_id = ?", (chat_id,)) == 0
+
+    def test_delete_chat_does_not_affect_other_chats(self, temp_db):
+        """Deleting one chat must leave sibling chats and their rows intact."""
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists("chat_keep")
+        temp_db.ensure_chat_exists("chat_gone")
+        _seed_file_attachment(db_path, "chat_keep", file_id="f_keep")
+        _seed_file_attachment(db_path, "chat_gone", file_id="f_gone")
+
+        temp_db.delete_chat("chat_gone")
+
+        assert temp_db.get_chat("chat_keep") is not None
+        assert _count(db_path, "files", "chat_id = ?", ("chat_keep",)) == 1
+        assert _count(db_path, "files", "chat_id = ?", ("chat_gone",)) == 0
+
+    def test_delete_nonexistent_chat_is_noop(self, temp_db):
+        """Deleting a chat that doesn't exist must not raise."""
+        temp_db.delete_chat("ghost_chat_xyz")  # must not raise
+
+
+# ---------------------------------------------------------------------------
+# delete_all_chats — FK-safety regression tests
+# ---------------------------------------------------------------------------
+
+class TestDeleteAllChats:
+    """
+    Mirrors the delete_chat tests but for the nuclear delete path.
+    The same FK-ordering and missing-table bugs were present here.
+    """
+
+    def test_delete_all_chats_clears_table(self, temp_db):
+        temp_db.ensure_chat_exists("c1")
+        temp_db.ensure_chat_exists("c2")
+        temp_db.delete_all_chats()
+        assert len(temp_db.get_all_chats()) == 0
+
+    def test_delete_all_chats_with_file_attachments(self, temp_db):
+        """
+        Regression: file rows referencing chats must be removed before
+        chats rows, otherwise FK enforcement raises IntegrityError.
+        """
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists("c_file_1")
+        temp_db.ensure_chat_exists("c_file_2")
+        _seed_file_attachment(db_path, "c_file_1", "fa_001")
+        _seed_file_attachment(db_path, "c_file_2", "fa_002")
+
+        # Must not raise
+        temp_db.delete_all_chats()
+
+        assert len(temp_db.get_all_chats()) == 0
+        assert _count(db_path, "files", "1=1", ()) == 0
+
+    def test_delete_all_chats_with_file_systems_and_children(self, temp_db):
+        """
+        Core regression: file_system_versions / file_system_permissions
+        must be deleted before file_systems, before chats.
+        """
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists("c_fs_1")
+        temp_db.ensure_chat_exists("c_fs_2")
+        _seed_file_system_with_children(db_path, "c_fs_1", "fs_nuke_1")
+        _seed_file_system_with_children(db_path, "c_fs_2", "fs_nuke_2")
+
+        # Must not raise IntegrityError
+        temp_db.delete_all_chats()
+
+        assert len(temp_db.get_all_chats()) == 0
+        assert _count(db_path, "file_systems", "1=1", ()) == 0
+        assert _count(db_path, "file_system_versions", "1=1", ()) == 0
+        assert _count(db_path, "file_system_permissions", "1=1", ()) == 0
+
+    def test_delete_all_chats_removes_messages(self, temp_db):
+        temp_db.ensure_chat_exists("c_msg")
+        temp_db.add_message("c_msg", role="user", content="nuke me")
+        temp_db.delete_all_chats()
+        assert len(temp_db.get_all_chats()) == 0
+        assert len(temp_db.get_messages("c_msg")) == 0
+
+    def test_delete_all_chats_removes_pending_callbacks(self, temp_db):
+        db_path = temp_db._test_db_path
+        temp_db.ensure_chat_exists("c_cb")
+        conn = _raw_conn(db_path)
+        try:
+            conn.execute(
+                """
+                INSERT INTO pending_callbacks
+                    (callback_id, chat_id, tool_name, status, created_at)
+                VALUES ('cb_nuke_1', 'c_cb', 'clarify', 'pending', ?)
+                """,
+                (time.time(),),
+            )
+            conn.commit()
+        finally:
+            conn.close()
+
+        temp_db.delete_all_chats()
+
+        assert _count(db_path, "pending_callbacks", "1=1", ()) == 0
+
+    def test_delete_all_chats_on_empty_db_is_noop(self, temp_db):
+        """Nuclear delete on an already-empty database must not raise."""
+        temp_db.delete_all_chats()
+        assert len(temp_db.get_all_chats()) == 0
+
+
+# ---------------------------------------------------------------------------
+# Workspace operations
+# ---------------------------------------------------------------------------
+
+class TestWorkspaceOps:
+    def test_create_and_list_workspace(self, temp_db):
+        ws = temp_db.create_workspace("Alpha")
+        assert ws["id"].startswith("ws_")
+        workspaces = temp_db.get_all_workspaces()
+        assert any(w["id"] == ws["id"] for w in workspaces)
+
+    def test_rename_workspace(self, temp_db):
+        ws = temp_db.create_workspace("Beta")
+        temp_db.rename_workspace(ws["id"], "Beta Renamed")
+        workspaces = temp_db.get_all_workspaces()
+        assert any(w["name"] == "Beta Renamed" for w in workspaces)
+
+    def test_update_chat_workspace(self, temp_db):
+        ws = temp_db.create_workspace("Gamma")
+        temp_db.ensure_chat_exists("chat_ws")
+        temp_db.update_chat_workspace("chat_ws", ws["id"])
+        assert temp_db.get_chat("chat_ws")["workspace_id"] == ws["id"]
+
+    def test_delete_workspace_sets_chat_workspace_null(self, temp_db):
+        """ON DELETE SET NULL: chats keep existing but workspace_id becomes NULL."""
+        ws = temp_db.create_workspace("Delta")
+        temp_db.ensure_chat_exists("chat_delta")
+        temp_db.update_chat_workspace("chat_delta", ws["id"])
+        temp_db.delete_workspace(ws["id"])
+        chat = temp_db.get_chat("chat_delta")
+        assert chat is not None
+        assert chat["workspace_id"] is None
+
+    def test_delete_workspace_removes_it_from_list(self, temp_db):
+        ws = temp_db.create_workspace("Epsilon")
+        temp_db.delete_workspace(ws["id"])
+        workspaces = temp_db.get_all_workspaces()
+        assert not any(w["id"] == ws["id"] for w in workspaces)

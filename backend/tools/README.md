@@ -1,0 +1,57 @@
+# backend/tools
+**Role:** Manages the definition, registration, and dispatch of all system capabilities, including "pure" functional tools and complex autonomous sub-agents.
+
+## 📂 Subdirectories
+| Folder | Responsibility |
+| :--- | :--- |
+| `agents/` | Implementation logic for autonomous sub-agents (research, browsing, etc.). |
+| `scratch/` | Temporary workspace for transient tool-related data. |
+
+## 📄 Core Files
+| File | Purpose | Key Symbols/Exports |
+| :--- | :--- | :--- |
+| `__init__.py` | Central tool registry and implementation resolver. | `ToolRegistry` |
+| `browser.py` | Implementation of browser-based interaction tools. | `browser_navigate`, `browser_screenshot` |
+| `callbacks.py` | Persistence and management of pending tool clarifications. | `callback_registry` |
+| `clarify.py` | Implementation for user clarification requests. | `request_clarification` |
+| `definitions.py` | JSON-schema definitions for all system tools. | `MAIN_ASSISTANT_TOOLS`, `FILE_SYSTEM_INTERNAL_TOOLS` |
+| `files.py` | Tools for reading and searching **uploaded** files (RAG/Grep). | `read_file` |
+| `preferences.py` | Management of long-term user profile facts. | `manage_user_preferences` |
+| `prompts.py` | Specialized system prompts for tools and agents. | `USER_PREFERENCES_DIRECTIVES` |
+| `registry.json` | Static mapping of tool names to implementation paths. | N/A (JSON) |
+| `router.py` | API endpoints for interacting with tools and config. | `tools_bp` |
+| `tasks.py` | Implementation of persistent task/checklist management. | `manage_task_list` |
+| `time_utils.py` | Local date and time utilities. | `get_current_time` |
+
+## 🧪 Testing
+| Test File | Scope |
+| :--- | :--- |
+| `tests/test_init.py` | Registry loading and implementation resolution logic. |
+| `tests/test_router.py` | Flask API endpoints, preference CRUD, and config updates. |
+| `tests/test_callbacks.py` | In-memory and DB-persisted callback lifecycle. |
+| `tests/test_browser.py` | MCP-based browser tool execution and screenshot handling. |
+| `tests/test_tasks.py` | Agile task list state machine and persistence. |
+
+*   **Run Tests:** `EMBEDDING_URL="http://mock" AI_URL="http://mock" AI_API_KEY="dummy" PYTHONPATH=. ./venv/bin/python -m pytest backend/tools/tests/`
+
+## 🧩 Architectural Context
+*   **Dependencies:**
+    - `backend.database`: For persisting tool results, task lists, and memories.
+    - `backend.logging`: Detailed auditing for all tool dispatches and results.
+    - `backend.chat`: The primary consumer of tool definitions and implementations.
+*   **Flow:**
+    1. **Discovery:** The LLM is informed of tools defined in `definitions.py`.
+    2. **Invocation:** Upon a tool call, `ToolHandler` queries `ToolRegistry` to find the implementation.
+    3. **Execution:** Pure tools are executed directly; agents are initialized via `AgentHandler` for an autonomous multi-step turn.
+    4. **Persistence:** Results are stored in the database, anchored to the specific tool call ID.
+
+## 🛠️ Usage & Conventions
+*   **Patterns:** 
+    - **Registry Dispatch:** Decouples tool definition from implementation, allowing for dynamic loading and easy extension.
+    - **Schema-Driven:** All tools use standard JSON-schema definitions to ensure reliable inference across different LLM providers.
+    - **MCQ Clarifications:** Supports structured user feedback through multiple-choice options in the `request_clarification` tool.
+*   **Adding Tools:**
+    1. Define the tool schema in `definitions.py`.
+    2. Add the implementation path to `registry.json`.
+    3. Implement the function in the relevant module (or a new one).
+    4. Add the tool to the appropriate availability group (e.g., `MAIN_ASSISTANT_TOOLS`).

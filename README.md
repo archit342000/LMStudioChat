@@ -1,35 +1,38 @@
-# 🌌 My-AI v3.1.1
+# 🌌 My-AI v4.0.0
 
-A high-performance local AI orchestration layer and premium chat interface natively powered by [llama.cpp](https://github.com/ggerganov/llama.cpp). My-AI combines autonomous research capabilities, long-term semantic memory, and multimodal vision into a single, unified workspace running entirely on your local hardware.
+A high-performance, Multi-Agent AI Workspace natively powered by [llama.cpp](https://github.com/ggerganov/llama.cpp). My-AI seamlessly unifies specialized agents for research, autonomous web browsing, file management, and long-term semantic memory into a single, premium chat interface running entirely on your local hardware.
+
+## ✨ Core Logic & Features
+
+*   **Multi-Agent System**: A unified chat interface that seamlessly routes tasks to specialized agents:
+    *   **Research Agent**: A multi-pass autonomous engine that scouts context, designs a research plan, executes targeted searches, and synthesizes reports—operating entirely within the normal chat flow so conversations can continue naturally.
+    *   **Autonomous Browsing Agent**: Utilizes a headless Playwright browser for complex, multi-step web interactions and data extraction.
+    *   **Web Search & Visit Page Agents**: Upgraded tools that use an agentic architecture for autonomous summarization, significantly reducing AI context window usage.
+    *   **File System Agent**: Manages a virtualized true file system capable of handling complex file operations, local directories, multi-user workspaces, versioning, and FTS5-based searching.
+    *   **Document & File Agent**: Handles user-uploaded files, intelligent file reading, multi-modal analysis, OCR for scanned PDFs, and integrates with the RAG system (Hybrid Search with BM25 + Vector and syntax-aware code chunking) to enable semantic recall.
+*   **Performance Profiling**: Built-in LLM benchmarking tool to measure TTFT and TPS directly from the UI.
+*   **Multimodal VLM Support**: Native handling of vision payloads for image analysis, OCR, and scene description.
+*   **Thought Streaming**: Interactive rendering of model "chain-of-thought" blocks.
 
 ## 🛠️ Technical Specifications
 
 *   **Inference Engine**: [llama.cpp](https://github.com/ggerganov/llama.cpp) (Server Mode)
-*   **Vector Database**: **ChromaDB** for RAG-based long-term memory.
+*   **Retrieval**: **Hybrid Search** leveraging **ChromaDB** (Vector) and **BM25** (Lexical).
 *   **Persistent Storage**: **SQLite** for conversation metadata and history.
 *   **Research Infrastructure**: 
     *   **Tavily API** for high-precision web search and link discovery.
     *   **MCP Architecture**: Decoupled worker containers for search (`tavily_mcp`) and scraping (`playwright_mcp`).
-*   **Backend**: Python 3.12 (Flask) with asynchronous task management.
+*   **Backend**: Python 3.12 (Flask) with a modular domain-driven architecture.
 *   **Frontend**: Strictly Vanilla HTML5, CSS3, and ES6+ Javascript.
-
-## ✨ Core Logic & Features
-
-*   **Deep Research Agent**: A multi-pass autonomous engine that scouts context, designs a research plan, executes targeted searches, and performs a self-audit before synthesizing the final report.
-*   **Canvas Mode**: A mode that allows you to store text as markdown files.
-*   **Autonomous Scraping**: Utilizes a headless Playwright browser to navigate complex JS-heavy websites and extract clean markdown content.
-*   **Intelligent RAG**: Automatically embeds and retrieves facts from previous conversations to maintain long-term context without manual prompting.
-*   **Multimodal VLM Support**: Native handling of vision payloads for image analysis, OCR, and scene description.
-*   **Thought Streaming**: Interactive rendering of model "chain-of-thought" blocks with real-time markdown and syntax highlighting.
 
 ## 📋 Prerequisites
 
 *   **llama.cpp Server**: Must be running and accessible (default port `8080`).
-*   **Recommended Models**:
-    *   **Reasoning/Chat**: `NVIDIA-Nemotron-3-Nano-30B` or `Qwen 3.5`.
-    *   **Coding**: `Qwen 3 Coder Next`.
-    *   **Vision**: `Qwen 3.5 VL`.
-    *   **Embedding**: `embeddinggemma-300M-Q8_0`.
+*   **Recommended Models** (as defined in `backend/models/config.json`):
+    *   **Reasoning/Chat (Main/Research)**: `NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL`
+    *   **Coding**: `Qwen/Qwen3-Coder-Next-UD-Q4_K_XL`
+    *   **Vision**: `Qwen/Qwen3.6-35B-A3B-UD-Q4_K_XL`, `Qwen/Qwen3.5-122B-A10B-UD-Q2_K_XL`, or `Google/Gemma4-26B-A4B-it`
+    *   **Embedding**: `embeddinggemma/embeddinggemma-300M-Q8_0`
 *   **Tavily API**: Required for web search and deep research functionality.
 
 ## 🚀 Installation & Setup
@@ -45,6 +48,7 @@ mkdir -p secrets
 Map your configuration values into the `secrets/` directory. These files are securely injected as Docker Secrets:
 ```bash
 echo "http://host.docker.internal:8080" > secrets/AI_URL
+echo "http://host.docker.internal:8080" > secrets/EMBEDDING_URL
 echo "your_tavily_api_key_here" > secrets/TAVILY_API_KEY
 echo "your_mcp_key_here" > secrets/MCP_API_KEY
 echo "your_playwright_key_here" > secrets/PLAYWRIGHT_MCP_API_KEY
@@ -52,6 +56,8 @@ echo "/app/backend/data" > secrets/DATA_DIR
 echo "optional_password" > secrets/APP_PASSWORD
 cat ~/.ssh/id_rsa.pub > secrets/authorized_keys
 # Optional: echo "your_key" > secrets/AI_API_KEY
+# Optional: echo "your_key" > secrets/EMBEDDING_API_KEY
+# Optional: echo "your_hf_token" > secrets/HF_TOKEN
 ```
 
 ### 3. Deploy Stack
@@ -65,4 +71,20 @@ My-AI utilizes the **Model Context Protocol (MCP)** to isolate external tool exe
 
 ## 📄 License & Versioning
 This project follows [SemVer v2.0.0](https://semver.org/).  
-**Current Version**: `v3.1.1` (Research Persistence Audit & Task Recovery).
+**Current Version**: `v4.0.0` (Agentic Intelligence & Modular Refactor).
+
+## 📄 Core Files
+| File | Purpose | Key Symbols/Exports |
+| :--- | :--- | :--- |
+| `app.py` | Main application entry point and Flask app initialization. | `app`, `rag_manager`, `file_manager` |
+
+## 🧪 Testing
+| Test File | Scope |
+| :--- | :--- |
+| `tests/test_app.py` | Core application initialization, route testing, and WebSocket proxying. |
+
+*   **Run Application Tests:** `EMBEDDING_URL="http://mock" AI_URL="http://mock" AI_API_KEY="dummy" PYTHONPATH=. ./venv/bin/python -m pytest tests/`
+
+## 🛠️ Usage & Conventions
+*   **Patterns:** Follow domain-driven modularity. Each feature area is encapsulated in its own blueprint.
+*   **Testing:** New additions must maintain 1:1 test parity and pass without regressions.

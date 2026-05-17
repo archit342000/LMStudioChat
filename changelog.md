@@ -1,4 +1,19 @@
 # CHANGELOG
+
+## v4.0.0
+* **Multi-Agent Architecture**: Implemented a comprehensive multi-agent system for specialized task handling, including dedicated agents for file systems, browsing, and research.
+* **File System Agent**: Upgraded the simple canvas agent to a true File System Agent capable of managing local directories and files with high precision.
+* **File Handling Evolution**: Introduced a dedicated File Agent for intelligent file reading, RAG integration, and multi-modal analysis.
+* **Unified Research Architecture**: Fully unified the Research Agent with the normal chat flow, allowing for seamless transitions between research and standard conversation.
+* **Agentic Tooling**: Upgraded Web Search and Visit Page tools to use an agentic architecture, significantly reducing AI context window usage through autonomous summarization.
+* **Autonomous Browsing**: Implemented a new Autonomous Browsing Agent for complex, multi-step web interactions and data extraction.
+* **Model Speed Testing**: Added a high-fidelity benchmark endpoint (`/api/models/test-speed`) to measure LLM performance (TTFT, TPS) directly from the UI.
+* **Modular Backend Refactor**: Completed a major architectural overhaul, modularizing the backend into clean domains (chat, file_system, rag, tools, etc.) for better maintainability.
+* **Documentation & Standards**: Established rigorous development standards including comprehensive `GEMINI.md`, `CLAUDE.md`, and `AGENTS.md` directives and 1:1 test mapping requirements.
+* **Hybrid Search & RAG Enhancements**: Implemented BM25 + Vector fusion (Hybrid Search) and syntax-aware code chunking for superior retrieval quality.
+* **PDF OCR Fallback**: Integrated OCR capabilities for scanned PDF processing.
+* **Resilient Chat Persistence**: Enhanced chat state management for high compatibility with session resumes and multi-round tool interactions.
+* **Version Bump**: Major version increment to v4.0.0 reflecting the significant architectural shift.
  
 ## v3.1.1
 * **File Upload Input Block**: Fixed file upload input handling to prevent blocking issues. Implemented send button blocking while files are uploading or processing to prevent message send conflicts.

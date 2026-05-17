@@ -1,0 +1,279 @@
+from flask import Blueprint, request, jsonify, Response
+import json
+import logging
+from backend.tools.callbacks import callback_registry
+from backend.logging import log_event
+
+logger = logging.getLogger(__name__)
+tools_bp = Blueprint('tools', __name__)
+
+@tools_bp.route('/active/<chat_id>', methods=['GET'])
+def get_active_callbacks(chat_id):
+    """
+    Returns a list of callback IDs that are currently suspended and waiting
+    for user input in the specified chat.
+    
+    Checks both in-memory callbacks AND DB-persisted callbacks (for crash recovery).
+    """
+    callback_registry.clear_expired()
+    
+    # In-memory callbacks
+    in_memory = {
+        cb_id for cb_id, entry in callback_registry._callbacks.items()
+        if entry.get('chat_id') == chat_id and entry.get('response') is None
+    }
+    
+    # DB-persisted callbacks (may exist without in-memory counterpart after restart)
+    db_ids = set()
+    try:
+        from backend.database import db
+        db_pending = db.get_pending_callbacks(chat_id)
+        db_ids = {cb['callback_id'] for cb in db_pending}
+    except Exception as e:
+        logger.warning(f"Failed to check DB callbacks for {chat_id}: {e}")
+    
+    all_active = list(in_memory | db_ids)
+    
+    # Filter out callbacks that already have a tool result in message history
+    # (handles the case where the callback was resolved but cleanup didn't complete)
+    if all_active:
+        try:
+            all_messages = db.get_messages(chat_id)
+            # Also check sub-agent messages
+            sub_messages = db.get_messages(chat_id, parent_type='research')
+            combined = all_messages + sub_messages
+            resolved_tool_ids = {
+                m.get('tool_call_id') for m in combined
+                if m.get('role') == 'tool' and m.get('tool_call_id')
+            }
+            # Clean up stale DB entries while we're at it
+            stale = [cb_id for cb_id in all_active if cb_id in resolved_tool_ids]
+            for cb_id in stale:
+                db.cleanup_callback(cb_id)
+            all_active = [cb_id for cb_id in all_active if cb_id not in resolved_tool_ids]
+        except Exception as e:
+            logger.warning(f"Failed to filter resolved callbacks for {chat_id}: {e}")
+
+    return jsonify({"active_callback_ids": all_active})
+
+@tools_bp.route('/clarification/response', methods=['POST'])
+def clarification_response():
+    """
+    Unified endpoint for submitting user responses to clarification requests.
+    Used by both main chat and sub-agents.
+    
+    Resolves both in-memory and DB-persisted callbacks.
+    """
+    callback_registry.clear_expired() # Periodic cleanup
+    
+    data = request.json
+    cb_id = data.get('callback_id')
+    
+    if not cb_id:
+        return jsonify({"error": "callback_id required"}), 400
+    
+    # Check in-memory first
+    entry = callback_registry.get(cb_id)
+    if entry:
+        # In-memory callback exists (normal case) — resolve it
+        callback_registry.resolve(cb_id, data)
+        log_event("clarification_resolved", {"callback_id": cb_id, "chat_id": entry.get('chat_id')})
+        return jsonify({"success": True})
+    
+    # No in-memory callback — try DB (crash recovery case: server restarted,
+    # user is responding to a persisted callback)
+    try:
+        from backend.database import db
+        db.resolve_callback(cb_id, json.dumps(data))
+        log_event("clarification_resolved_db", {"callback_id": cb_id})
+        return jsonify({"success": True})
+    except Exception as e:
+        logger.error(f"Failed to resolve callback {cb_id}: {e}")
+        return jsonify({"error": "Unknown or expired callback_id"}), 404
+
+# --- User Preferences CRUD Routes ---
+
+@tools_bp.route('/preferences', methods=['GET'])
+def get_preferences():
+    from backend.database import db
+    try:
+        prefs = db.get_all_preferences()
+        return jsonify({"success": True, "preferences": prefs})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@tools_bp.route('/preferences', methods=['POST'])
+def add_preference():
+    from backend.database import db
+    data = request.json
+    content = data.get('content')
+    tag = data.get('tag')
+    if not content or not tag:
+        return jsonify({"error": "Missing content or tag"}), 400
+    pref_id = db.add_preference(content, tag)
+    return jsonify({"success": True, "id": pref_id})
+
+@tools_bp.route('/preferences/<preference_id>', methods=['PUT'])
+def update_preference(preference_id):
+    from backend.database import db
+    data = request.json
+    content = data.get('content')
+    tag = data.get('tag')
+    if not content or not tag:
+        return jsonify({"error": "Missing content or tag"}), 400
+    success = db.update_preference(preference_id, content, tag)
+    if success:
+        return jsonify({"success": True})
+    return jsonify({"error": "Failed to update preference"}), 500
+
+@tools_bp.route('/preferences/<preference_id>', methods=['DELETE'])
+def delete_preference(preference_id):
+    from backend.database import db
+    success = db.delete_preference(preference_id)
+    if success:
+        return jsonify({"success": True})
+    return jsonify({"error": "Failed to delete preference"}), 500
+
+@tools_bp.route('/preferences/reset', methods=['POST'])
+def reset_preferences():
+    from backend.database import db
+    try:
+        deleted = db.clear_preferences()
+        return jsonify({"success": True, "deleted": deleted})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+# --- Agent Config Routes ---
+
+@tools_bp.route('/config/agents', methods=['GET'])
+def get_agents_config():
+    from backend import config
+    from backend.chat.agent_handler import AGENT_PROFILES
+    
+    return jsonify({
+        "search_web": {
+            "thinking_profile": AGENT_PROFILES.get("search_web", "none"),
+            "max_tokens": config.SEARCH_WEB_AGENT_MAX_TOKENS,
+            "thinking_budget": config.SEARCH_WEB_AGENT_THINKING_BUDGET
+        },
+        "file_agent": {
+            "thinking_profile": AGENT_PROFILES.get("file_agent", "precision"),
+            "max_tokens": config.FILE_AGENT_MAX_TOKENS,
+            "thinking_budget": config.FILE_AGENT_THINKING_BUDGET
+        },
+        "file_system_agent": {
+            "thinking_profile": AGENT_PROFILES.get("file_system_agent", "precision"),
+            "max_tokens": config.FILE_SYSTEM_AGENT_MAX_TOKENS,
+            "thinking_budget": config.FILE_SYSTEM_AGENT_THINKING_BUDGET
+        },
+        "browsing_agent": {
+            "thinking_profile": AGENT_PROFILES.get("browsing_agent", "precision"),
+            "max_tokens": config.BROWSING_AGENT_MAX_TOKENS,
+            "thinking_budget": config.BROWSING_AGENT_THINKING_BUDGET
+        },
+        "visit_page": {
+            "thinking_profile": AGENT_PROFILES.get("visit_page", "none"),
+            "max_tokens": config.VISIT_PAGE_AGENT_MAX_TOKENS,
+            "thinking_budget": config.VISIT_PAGE_AGENT_THINKING_BUDGET
+        }
+    })
+
+@tools_bp.route('/config/agents/<agent_name>', methods=['PATCH'])
+def update_agent_config(agent_name):
+    from backend import config
+    import backend.chat.agent_handler as agent_handler
+    
+    data = request.json
+    
+    # Update Thinking Profile
+    if 'thinking_profile' in data:
+        profile = data['thinking_profile']
+        if profile in ['none', 'general', 'precision']:
+            agent_handler.AGENT_PROFILES[agent_name] = profile
+            logger.info(f"Updated {agent_name} thinking_profile to {profile}")
+        else:
+            return jsonify({"error": "Invalid thinking profile"}), 400
+            
+    # Update Max Tokens
+    if 'max_tokens' in data:
+        val = int(data['max_tokens'])
+        if agent_name == "search_web": config.SEARCH_WEB_AGENT_MAX_TOKENS = val
+        elif agent_name == "file_agent": config.FILE_AGENT_MAX_TOKENS = val
+        elif agent_name == "file_system_agent": config.FILE_SYSTEM_AGENT_MAX_TOKENS = val
+        elif agent_name == "browsing_agent": config.BROWSING_AGENT_MAX_TOKENS = val
+        elif agent_name == "visit_page": config.VISIT_PAGE_AGENT_MAX_TOKENS = val
+        logger.info(f"Updated {agent_name} max_tokens to {val}")
+        
+    # Update Thinking Budget
+    if 'thinking_budget' in data:
+        val = int(data['thinking_budget'])
+        if agent_name == "search_web": config.SEARCH_WEB_AGENT_THINKING_BUDGET = val
+        elif agent_name == "file_agent": config.FILE_AGENT_THINKING_BUDGET = val
+        elif agent_name == "file_system_agent": config.FILE_SYSTEM_AGENT_THINKING_BUDGET = val
+        elif agent_name == "browsing_agent": config.BROWSING_AGENT_THINKING_BUDGET = val
+        elif agent_name == "visit_page": config.VISIT_PAGE_AGENT_THINKING_BUDGET = val
+        logger.info(f"Updated {agent_name} thinking_budget to {val}")
+        
+    return jsonify({"success": True})
+
+# --- Browser Config Routes ---
+
+@tools_bp.route('/config/browser', methods=['GET'])
+def get_browser_config():
+    from backend import config
+    return jsonify({"stealth_level": config.BROWSER_STEALTH_LEVEL})
+
+@tools_bp.route('/config/browser', methods=['PATCH'])
+def update_browser_config():
+    from backend import config
+    data = request.json
+    stealth_level = data.get('stealth_level')
+    if stealth_level in ['minimal', 'advanced']:
+        config.BROWSER_STEALTH_LEVEL = stealth_level
+        logger.info(f"Updated global BROWSER_STEALTH_LEVEL to {stealth_level}")
+        return jsonify({"success": True})
+    return jsonify({"error": "Invalid stealth level"}), 400
+
+# --- Browser Portal Proxy Routes ---
+
+@tools_bp.route('/portal/vnc/', defaults={'path': 'vnc.html'})
+@tools_bp.route('/portal/vnc/<path:path>')
+def proxy_portal_vnc(path):
+    """Reverse-proxy noVNC static files from the playwright_mcp container."""
+    import httpx
+
+    upstream_url = f"http://playwright_mcp:6080/{path}"
+    try:
+        with httpx.Client(timeout=10.0) as client:
+            resp = client.get(upstream_url)
+            
+            # Determine content type from upstream response
+            content_type = resp.headers.get('content-type', 'application/octet-stream')
+            
+            return Response(
+                resp.content,
+                status=resp.status_code,
+                content_type=content_type
+            )
+    except Exception as e:
+        logger.error(f"Portal VNC proxy error: {e}")
+        return jsonify({"error": "Could not reach browser portal service"}), 502
+
+@tools_bp.route('/portal/init', methods=['POST'])
+def proxy_portal_init():
+    import httpx
+    from backend.mcp_client import playwright_server_url
+    
+    base_url = playwright_server_url.replace('/sse', '')
+    
+    try:
+        with httpx.Client() as client:
+            resp = client.post(f"{base_url}/portal/init", timeout=60.0)
+            if resp.status_code != 200:
+                logger.error(f"Portal init proxy failed with status {resp.status_code}: {resp.text}")
+                return jsonify({"error": f"MCP Server error: {resp.text}"}), resp.status_code
+            data = resp.json()
+            return jsonify(data)
+    except Exception as e:
+        logger.error(f"Portal init proxy exception: {e}")
+        return jsonify({"error": str(e)}), 500

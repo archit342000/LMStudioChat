@@ -13,6 +13,7 @@ services:
       - playwright_mcp
     volumes:
       - /home/archit-anand/docker-data/shared/My-AI-data:/app/backend/data
+      - ..:/app
     environment:
       - TZ=Asia/Kolkata
     secrets:
@@ -47,6 +48,8 @@ services:
     container_name: tavily_mcp
     networks:
       - secure-internal
+    volumes:
+      - ../tavily_mcp:/app/tavily_mcp
     environment:
       - TZ=Asia/Kolkata
     secrets:
@@ -61,10 +64,14 @@ services:
     container_name: playwright_mcp
     networks:
       - secure-internal
+    volumes:
+      - ../playwright_mcp:/app/playwright_mcp
+      - /home/archit-anand/docker-data/shared/My-AI-playwright-data:/app/playwright_data
     environment:
       - TZ=Asia/Kolkata
     secrets:
       - PLAYWRIGHT_MCP_API_KEY
+    command: ["/app/playwright_mcp/entrypoint.sh"]
     restart: unless-stopped
 
 networks:

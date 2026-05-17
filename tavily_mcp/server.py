@@ -157,7 +157,8 @@ async def audit_tavily_search(chat_id: str):
     return sanitize_output(cache_entry["raw_content"])
 
 async def async_tavily_search(query: str, topic: str = "general", time_range: str | None = None,
-                              start_date: str | None = None, end_date: str | None = None, max_results: int = 10):
+                              start_date: str | None = None, end_date: str | None = None, max_results: int = 10,
+                              include_raw_content: bool = True, include_answer: bool = False):
     url = f"{TAVILY_BASE_URL}/search"
     payload = {
         "api_key": TAVILY_API_KEY,
@@ -165,8 +166,8 @@ async def async_tavily_search(query: str, topic: str = "general", time_range: st
         "search_depth": "basic",
         "topic": topic if topic in ["general", "news"] else "general",
         "max_results": max_results,
-        "include_answer": False,
-        "include_raw_content": True,
+        "include_answer": include_answer,
+        "include_raw_content": include_raw_content,
         "include_images": True
     }
     if time_range and time_range in ["day", "week", "month", "year"]: payload["time_range"] = time_range
@@ -265,9 +266,9 @@ async def audit_search(chat_id: str) -> str:
 
 @mcp.tool()
 async def async_tavily_search_tool(query: str, topic: str = "general", time_range: str | None = None,
-                              start_date: str | None = None, end_date: str | None = None, max_results: int = 10) -> str:
+                              start_date: str | None = None, end_date: str | None = None, max_results: int = 10, depth: str = "normal") -> str:
     """Internal research tool to perform async web searches."""
-    res = await async_tavily_search(query, topic, time_range, start_date, end_date, max_results)
+    res = await async_tavily_search(query, topic, time_range, start_date, end_date, max_results, include_raw_content = True if depth == "deep" else False, include_answer = True if depth == "normal" else False)
     return res
 
 @mcp.tool()

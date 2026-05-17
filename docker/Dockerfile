@@ -16,8 +16,8 @@ RUN pip install --no-cache-dir -r requirements.txt
 # This ensures appuser has explicit rights, even though volumes might overwrite
 RUN mkdir -p /app/backend/data && chown -R appuser:appuser /app
 
-# Copy application files with appropriate ownership
-COPY --chown=appuser:appuser . .
+# Use the volume mount in docker-compose.yml to provide the application code.
+# This prevents the need for rebuilding the image after every code change.
 
 # Run as non-root user
 USER appuser

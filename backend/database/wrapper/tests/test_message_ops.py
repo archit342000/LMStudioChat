@@ -1,0 +1,114 @@
+import os
+import pytest
+import tempfile
+import shutil
+import json
+from unittest.mock import patch
+from backend.database.init_db import init_db
+from backend.database.db_wrapper import DatabaseWrapper
+
+@pytest.fixture(scope="module")
+def temp_db():
+    tmp_dir = tempfile.mkdtemp()
+    db_path = os.path.join(tmp_dir, "test_chats.db")
+    with patch("backend.database.db_layer.DB_PATH", db_path), \
+         patch("backend.database.init_db.DB_PATH", db_path), \
+         patch("backend.database.db_wrapper.DB_PATH", db_path):
+        init_db()
+        wrapper = DatabaseWrapper()
+        yield wrapper
+    shutil.rmtree(tmp_dir)
+
+def test_message_ops(temp_db):
+    db = temp_db
+    chat_id = "test_msg_ops"
+    
+    db.ensure_chat_exists(chat_id)
+    
+    msg_id = db.add_message(
+        chat_id=chat_id,
+        role="user",
+        content="hello database",
+        parent_id=None
+    )
+    assert msg_id is not None
+    
+    messages = db.get_messages(chat_id)
+    assert len(messages) == 1
+    assert messages[0]['content'] == "hello database"
+    assert messages[0]['id'] == msg_id
+
+    # Test add_tool_result (will add a message with role tool)
+    tool_msg_id = db.add_tool_result(
+        chat_id=chat_id,
+        tool_call_id="call_123",
+        name="test_tool",
+        content="tool output"
+    )
+    assert tool_msg_id is not None
+
+    # Test get_last_assistant_message
+    db.add_message(
+        chat_id=chat_id,
+        role="assistant",
+        content="hello user"
+    )
+    last_assistant = db.get_last_assistant_message(chat_id)
+    assert last_assistant is not None
+    assert last_assistant['content'] == "hello user"
+
+    # Test sub-agent messages
+    sub_msg_id = db.add_message(
+        chat_id=chat_id,
+        role="assistant",
+        content="sub agent content",
+        parent_id=msg_id,
+        parent_type="search"
+    )
+    sub_messages = db.get_all_sub_agent_messages(chat_id)
+    assert len(sub_messages) == 1
+    assert sub_messages[0]['content'] == "sub agent content"
+
+    # Test edit_message
+    db.edit_message(chat_id, msg_id, "hello edited")
+    msgs_after_edit = db.get_messages(chat_id)
+    assert msgs_after_edit[0]['content'] == "hello edited"
+
+    # Test delete_sub_agent_message
+    db.delete_sub_agent_message(chat_id, sub_msg_id)
+    assert len(db.get_all_sub_agent_messages(chat_id)) == 0
+
+    # Test truncate_messages
+    # Let's add a bunch of messages and test truncation
+    for i in range(5):
+        db.add_message(chat_id, role="user", content=f"msg {i}")
+    
+    msgs_before_trunc = db.get_messages(chat_id)
+    assert len(msgs_before_trunc) > 5
+
+    # Truncate to keep the first 2 messages (index up to 2)
+    db.truncate_messages(chat_id, 2)
+    msgs_after_trunc = db.get_messages(chat_id)
+    assert len(msgs_after_trunc) == 2
+    # Test rollback_to_last_user_message
+    db.add_message(chat_id, role="user", content="user latest")
+    db.add_message(chat_id, role="assistant", content="assistant latest")
+    res = db.rollback_to_last_user_message(chat_id)
+    # delete_message does not return a value, so res is None
+    assert res is None or res is True
+
+    # Verify rollback worked
+    msgs_after_rollback = db.get_messages(chat_id)
+    assert msgs_after_rollback[-1]['role'] == "user"
+    rolled_back_msgs = db.get_messages(chat_id)
+    assert rolled_back_msgs[-1]['role'] == "user"
+
+    # Test delete_message
+    msg_to_delete = rolled_back_msgs[-1]['id']
+    db.delete_message(chat_id, msg_to_delete)
+    msgs_after_del = db.get_messages(chat_id)
+    assert msg_to_delete not in [m['id'] for m in msgs_after_del]
+
+    # Test clear_messages
+    db.clear_messages(chat_id)
+    assert len(db.get_messages(chat_id)) == 0

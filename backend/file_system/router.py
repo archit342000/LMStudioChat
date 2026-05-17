@@ -1,0 +1,921 @@
+from flask import Blueprint, request, jsonify
+import logging
+import json
+import os
+import mimetypes
+from backend.database import db
+from backend import config
+from backend.file_system import (
+    get_file_system_versions,
+    get_fs_file_version,
+    restore_fs_file_version,
+    get_fs_file_diff,
+    FileSystemChannelManager
+)
+
+logger = logging.getLogger(__name__)
+
+file_system_bp = Blueprint('file_system', __name__)
+
+FILE_SYSTEMS_DIR = os.path.join(config.DATA_DIR, "file_systems")
+
+@file_system_bp.route('', methods=['POST'])
+@file_system_bp.route('/', methods=['POST'])
+async def create_fs_file_route():
+    """Create a new file_system."""
+    from backend.file_system import create_fs_file
+    data = request.json or {}
+    chat_id = data.get('chat_id')
+    title = data.get('title', 'Untitled FileSystem')
+    folder = data.get('folder', '')
+    content = data.get('content')
+    file_system_type = data.get('file_system_type', 'custom')
+    language = data.get('language', 'markdown')
+
+    if not chat_id or content is None:
+        return jsonify({"error": "Missing chat_id or content"}), 400
+
+    from backend.file_system.utils import sanitize_path
+    path_parts = []
+    if folder:
+        path_parts.append(folder)
+    path_parts.append(title)
+    computed_path = sanitize_path('/'.join(path_parts))
+
+    try:
+        result = await create_fs_file(
+            chat_id=chat_id,
+            path=computed_path,
+            content=content,
+            file_system_type=file_system_type,
+            language=language
+        )
+        if not result.get("success"):
+            return jsonify({"error": result.get("error", "Unknown error")}), 400
+            
+        return jsonify({
+            "success": True,
+            "id": result["file_system_id"],
+            "title": title,
+            "filename": result["path"]
+        })
+    except Exception as e:
+        logger.error(f"[CREATE_FILE_SYSTEM_ROUTE] FAILED chat_id={chat_id!r} path={computed_path!r}: {type(e).__name__}: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
+
+@file_system_bp.route('/directory', methods=['POST'])
+async def create_directory_route():
+    """Create a new empty directory."""
+    from backend.file_system.manager import create_directory_tool
+    data = request.json or {}
+    chat_id = data.get('chat_id')
+    path = data.get('path')
+
+    if not chat_id or not path:
+        return jsonify({"error": "Missing chat_id or path"}), 400
+
+    try:
+        result = await create_directory_tool(chat_id=chat_id, path=path)
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+@file_system_bp.route('/directory', methods=['DELETE'])
+async def delete_directory_route():
+    """Delete an empty directory."""
+    from backend.file_system.manager import delete_directory_tool
+    chat_id = request.args.get('chat_id')
+    path = request.args.get('path')
+
+    if not chat_id or not path:
+        return jsonify({"error": "Missing chat_id or path"}), 400
+
+    try:
+        result = await delete_directory_tool(chat_id=chat_id, path=path)
+        if not result.get("success"):
+            return jsonify({"error": result.get("error", "Unknown error")}), 400
+        return jsonify(result)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+
+def _infer_language(filename: str, current_lang: str) -> str:
+    """Helper to lazily infer language from filename if it's incorrectly set to markdown."""
+    if (not current_lang or current_lang == "markdown") and "." in filename:
+        ext = filename.split(".")[-1].lower()
+        if ext not in ["md", "markdown"]:
+            return ext
+    return current_lang or "markdown"
+
+@file_system_bp.route('', methods=['GET'])
+async def list_file_systems_endpoint():
+    """List all file_systems, optionally filtered by chat_id."""
+    chat_id = request.args.get('chat_id')
+    from backend.file_system.manager import get_fs_file_content
+    from backend.file_system.utils import get_workspace_for_chat
+    
+    file_systems_with_content = []
+    workspace_id = None
+    
+    if chat_id:
+        file_systems = db.get_chat_file_systems(chat_id=chat_id)
+        workspace_id = get_workspace_for_chat(chat_id)
+        if workspace_id:
+            ws_file_systems = db.get_owner_file_systems(workspace_id=workspace_id)
+            for wc in ws_file_systems:
+                if not wc['filename'].startswith("workspace/"):
+                    wc['filename'] = "workspace/" + wc['filename']
+            file_systems.extend(ws_file_systems)
+    else:
+        file_systems = db.get_all_file_systems()
+        
+    for file_system in file_systems:
+        # Resolve actual owner for content fetching
+        actual_chat_id = file_system.get('chat_id')
+        actual_ws_id = file_system.get('workspace_id')
+        
+        content = await get_fs_file_content(file_system['id'], chat_id=actual_chat_id, workspace_id=actual_ws_id)
+        file_system_copy = dict(file_system)
+        file_system_copy['content'] = content or ""
+        
+        # Lazy language inference for existing files
+        stored_lang = file_system.get('language', 'markdown')
+        inferred_lang = _infer_language(file_system['filename'], stored_lang)
+        file_system_copy['language'] = inferred_lang
+        
+        # If we inferred a better language, update the DB metadata lazily
+        if inferred_lang != stored_lang:
+             try:
+                 db.save_file_system_meta(
+                     file_system_id=file_system['id'],
+                     chat_id=actual_chat_id,
+                     workspace_id=actual_ws_id,
+                     language=inferred_lang
+                 )
+             except Exception as e:
+                 logger.warning(f"Failed to lazy-update language for {file_system['id']}: {e}")
+
+        file_systems_with_content.append(file_system_copy)
+        
+    if chat_id:
+        try:
+            from backend.file_system.utils import FILE_SYSTEMS_DIR, WORKSPACES_DIR, sanitize_filename
+            
+            def scan_empty_dirs(current_path, rel_path=""):
+                empty_dirs = []
+                if not os.path.exists(current_path): return empty_dirs
+                
+                is_empty = True
+                for item in os.listdir(current_path):
+                    full_item_path = os.path.join(current_path, item)
+                    if os.path.isdir(full_item_path):
+                        is_empty = False
+                        new_rel = f"{rel_path}/{item}" if rel_path else item
+                        empty_dirs.extend(scan_empty_dirs(full_item_path, new_rel))
+                    else:
+                        is_empty = False
+                        
+                if is_empty and rel_path:
+                    empty_dirs.append({"type": "directory", "filename": rel_path})
+                    
+                return empty_dirs
+                
+            base_chat_dir = os.path.join(FILE_SYSTEMS_DIR, sanitize_filename(chat_id))
+            file_systems_with_content.extend(scan_empty_dirs(base_chat_dir))
+            
+            if workspace_id:
+                base_ws_dir = os.path.join(WORKSPACES_DIR, sanitize_filename(workspace_id))
+                ws_empty_dirs = scan_empty_dirs(base_ws_dir)
+                for d in ws_empty_dirs:
+                    d['filename'] = "workspace/" + d['filename']
+                file_systems_with_content.extend(ws_empty_dirs)
+                
+                # Expose virtual shared root if not already added by empty scan
+                if not any(c.get('type') == 'directory' and c.get('filename') == 'workspace' for c in file_systems_with_content):
+                     file_systems_with_content.append({"type": "directory", "filename": "workspace"})
+                     
+        except Exception as e:
+            logger.error(f"Error scanning empty dirs for frontend: {e}")
+
+    return jsonify({"success": True, "file_systems": file_systems_with_content})
+
+
+@file_system_bp.route('/chat/<chat_id>/folders', methods=['GET'])
+def get_chat_folders(chat_id):
+    """Get unique folders for a chat's file_systems."""
+    from backend.file_system.manager import get_unique_folders
+    folders = get_unique_folders(chat_id)
+    return jsonify({"success": True, "folders": folders})
+
+
+@file_system_bp.route('/raw', methods=['GET'])
+async def get_raw_file_by_name_endpoint():
+    """Get raw file_system content by filename."""
+    chat_id = request.args.get('chat_id')
+    filename = request.args.get('filename')
+    workspace_id = request.args.get('workspace_id')
+    
+    if not chat_id or not filename:
+        return jsonify({"error": "chat_id and filename are required"}), 400
+        
+    from backend.file_system.utils import sanitize_path
+    filename = sanitize_path(filename)
+    
+    file_systems = db.get_chat_file_systems(chat_id=chat_id)
+    target_fs = next((fs for fs in file_systems if fs['filename'] == filename), None)
+    
+    if not target_fs and workspace_id:
+        ws_file_systems = db.get_owner_file_systems(workspace_id=workspace_id)
+        clean_ws_filename = filename
+        if clean_ws_filename.startswith("workspace/"):
+            clean_ws_filename = clean_ws_filename[len("workspace/"):]
+        target_fs = next((fs for fs in ws_file_systems if fs['filename'] == clean_ws_filename), None)
+        
+    if not target_fs:
+        return jsonify({"error": "File not found"}), 404
+        
+    from backend.file_system.manager import get_fs_file_content
+    actual_chat_id = target_fs.get('chat_id')
+    actual_workspace_id = target_fs.get('workspace_id')
+    
+    content = await get_fs_file_content(target_fs['id'], chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    if content is None:
+        return jsonify({"error": "File content not found"}), 404
+        
+    from flask import Response
+    mime_type, _ = mimetypes.guess_type(filename)
+    if not mime_type:
+        mime_type = 'text/plain'
+        
+    return Response(content, mimetype=mime_type)
+
+@file_system_bp.route('/<file_system_id>/raw', methods=['GET'])
+async def get_raw_file_by_id_endpoint(file_system_id):
+    """Get raw file_system content by ID."""
+    chat_id = request.args.get('chat_id')
+    workspace_id = request.args.get('workspace_id')
+    
+    if not chat_id:
+        return jsonify({"error": "chat_id query parameter is required"}), 400
+
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+        
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    from backend.file_system.manager import get_fs_file_content
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+    
+    content = await get_fs_file_content(file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    if content is None:
+        return jsonify({"error": "FileSystem file not found on disk"}), 404
+
+    filename = file_system['filename']
+    from flask import Response
+    mime_type, _ = mimetypes.guess_type(filename)
+    if not mime_type:
+        mime_type = 'text/plain'
+        
+    return Response(content, mimetype=mime_type)
+
+@file_system_bp.route('/<file_system_id>', methods=['GET'])
+async def get_file_system_endpoint(file_system_id):
+    """Get a file_system and its content."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id query parameter is required"}), 400
+
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    from backend.file_system.manager import get_fs_file_content
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+    
+    content = await get_fs_file_content(file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    if content is None:
+        return jsonify({"error": "FileSystem file not found on disk"}), 404
+
+    filename = file_system['filename']
+    if actual_workspace_id:
+        filename = "workspace/" + filename
+
+    # Lazy language inference for existing files
+    stored_lang = file_system.get('language', 'markdown')
+    inferred_lang = _infer_language(file_system['filename'], stored_lang)
+    
+    # If we inferred a better language, update the DB metadata lazily
+    if inferred_lang != stored_lang:
+        try:
+            db.save_file_system_meta(
+                file_system_id=file_system_id,
+                chat_id=actual_chat_id,
+                workspace_id=actual_workspace_id,
+                language=inferred_lang
+            )
+        except Exception as e:
+            logger.warning(f"Failed to lazy-update language for {file_system_id}: {e}")
+
+    return jsonify({
+        "success": True,
+        "id": file_system_id,
+        "chat_id": chat_id,
+        "workspace_id": actual_workspace_id,
+        "title": file_system['title'],
+        "filename": filename,
+        "content": content,
+        "language": inferred_lang,
+        "timestamp": file_system['timestamp'],
+        "navigation_history": file_system.get('navigation_history', '[]'),
+        "navigation_index": file_system.get('navigation_index', -1)
+    })
+
+
+@file_system_bp.route('/<file_system_id>', methods=['PATCH'])
+async def update_file_system_endpoint(file_system_id):
+    """Update file_system content or metadata (folder, title)."""
+    data = request.json or {}
+    chat_id = data.get('chat_id') or request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"success": False, "error": "chat_id is required"}), 400
+
+    workspace_id = request.args.get('workspace_id') or data.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"success": False, "error": "FileSystem not found"}), 404
+
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+
+    new_path_direct = data.get('new_path')
+    new_folder = data.get('folder')
+    new_title = data.get('title')
+    new_type = data.get('file_system_type')
+    new_current_version = data.get('current_version')
+    new_nav_history = data.get('navigation_history')
+    new_nav_index = data.get('navigation_index')
+    
+    if any(x is not None for x in [new_path_direct, new_folder, new_title, new_type, new_current_version, new_nav_history, new_nav_index]):
+        from backend.file_system.manager import update_file_system_metadata
+        from backend.file_system.utils import sanitize_path
+        
+        current_path = file_system.get('filename')
+        if actual_workspace_id:
+            current_path = "workspace/" + current_path
+            
+        if new_path_direct is not None:
+            computed_new_path = sanitize_path(new_path_direct)
+            # If moving via direct path, we trust the path. No forced workspace/ prefix.
+        else:
+            target_folder = new_folder if new_folder is not None else file_system.get('folder', '')
+            target_title = new_title if new_title is not None else file_system.get('title', os.path.basename(current_path))
+            path_parts = []
+            if target_folder:
+                path_parts.append(target_folder)
+            path_parts.append(target_title)
+            computed_new_path = sanitize_path('/'.join(path_parts))
+            # If just updating title/folder metadata for a workspace file, keep it in workspace
+            if actual_workspace_id and not computed_new_path.startswith("workspace/"):
+                 computed_new_path = "workspace/" + computed_new_path
+
+        meta_result = update_file_system_metadata(
+            chat_id=chat_id,
+            current_path=current_path,
+            new_path=computed_new_path,
+            title=os.path.basename(computed_new_path),
+            folder=os.path.dirname(computed_new_path).replace("workspace/", ""),
+            file_system_type=new_type or file_system.get('file_system_type', 'custom'),
+            current_version=new_current_version if new_current_version is not None else file_system.get('current_version'),
+            navigation_history=new_nav_history if new_nav_history is not None else file_system.get('navigation_history'),
+            navigation_index=new_nav_index if new_nav_index is not None else file_system.get('navigation_index', -1)
+        )
+        if not meta_result.get("success"):
+            return jsonify(meta_result), 400
+        file_system_id = meta_result.get("file_system_id", file_system_id)
+
+    new_content = data.get('content')
+    if new_content is not None:
+        from backend.file_system.manager import update_fs_file_content
+        result = await update_fs_file_content(
+            file_system_id=file_system_id, 
+            chat_id=actual_chat_id, 
+            workspace_id=actual_workspace_id,
+            new_content=new_content, 
+            author="user",
+            file_system_type=data.get('file_system_type')
+        )
+        return jsonify(result)
+
+    return jsonify({"success": True, "id": file_system_id})
+
+
+@file_system_bp.route('/<file_system_id>', methods=['DELETE'])
+async def remove_fs_file_endpoint(file_system_id):
+    """Delete a file_system."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+        
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"success": False, "error": "FileSystem not found"}), 404
+
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+
+    from backend.file_system.manager import delete_fs_file
+    result = await delete_fs_file(file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    return jsonify(result)
+
+
+@file_system_bp.route('/<file_system_id>/export/markdown', methods=['GET'])
+async def export_fs_file_markdown_endpoint(file_system_id):
+    """Export file_system as markdown file."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+        
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"success": False, "error": "FileSystem not found"}), 404
+
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+
+    from backend.file_system.manager import export_fs_file_markdown
+    content, filename = await export_fs_file_markdown(file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    if content is None:
+        return jsonify({"error": filename}), 404
+
+    from flask import Response
+    return Response(
+        content,
+        mimetype='text/markdown',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'Content-Length': len(content)
+        }
+    )
+
+
+@file_system_bp.route('/<file_system_id>/export/html', methods=['GET'])
+async def export_fs_file_html_endpoint(file_system_id):
+    """Export file_system as HTML file."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+        
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"success": False, "error": "FileSystem not found"}), 404
+
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+
+    from backend.file_system.manager import export_fs_file_html
+    html_content, filename = await export_fs_file_html(file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    if html_content is None:
+        return jsonify({"error": filename}), 404
+
+    from flask import Response
+    return Response(
+        html_content,
+        mimetype='text/html',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'Content-Length': len(html_content)
+        }
+    )
+
+
+@file_system_bp.route('/<file_system_id>/export/pdf', methods=['GET'])
+async def export_fs_file_pdf_endpoint(file_system_id):
+    """Export file_system as PDF file."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+        
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"success": False, "error": "FileSystem not found"}), 404
+
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+
+    from backend.file_system.manager import export_fs_file_pdf
+    pdf_content, filename = await export_fs_file_pdf(file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    if pdf_content is None:
+        return jsonify({"error": filename}), 404
+
+    if isinstance(pdf_content, str):
+        pdf_content = pdf_content.encode('utf-8')
+
+    from flask import Response
+    return Response(
+        pdf_content,
+        mimetype='application/pdf',
+        headers={
+            'Content-Disposition': f'attachment; filename="{filename}"',
+            'Content-Length': len(pdf_content)
+        }
+    )
+
+
+@file_system_bp.route('/<file_system_id>/folder', methods=['POST'])
+def set_file_system_folder(file_system_id):
+    """Set folder for a file_system."""
+    data = request.json or {}
+    chat_id = data.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    folder = data.get('folder', '')
+    base_title = file_system['title'].split('/')[-1] if '/' in file_system['title'] else file_system['title']
+    
+    from backend.file_system.utils import sanitize_path
+    path_parts = []
+    if folder:
+        path_parts.append(folder)
+    path_parts.append(base_title)
+    computed_new_path = sanitize_path('/'.join(path_parts))
+
+    from backend.file_system.manager import update_file_system_metadata
+    update_file_system_metadata(chat_id=chat_id, current_path=file_system['filename'], new_path=computed_new_path, title=base_title, folder=folder)
+    return jsonify({"success": True, "title": base_title})
+
+
+@file_system_bp.route('/<file_system_id>/tags', methods=['POST'])
+def set_file_system_tags(file_system_id):
+    """Set tags for a file_system."""
+    data = request.json or {}
+    chat_id = data.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+
+    tags = data.get('tags', [])
+    if isinstance(tags, str):
+        tags = [tags]
+
+    db.save_file_system_meta(file_system_id=file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id, title=file_system['title'], filename=file_system['filename'], folder=file_system.get('folder'), tags=tags)
+    return jsonify({"success": True, "tags": tags})
+def remove_fs_file_tag(file_system_id, tag):
+    """Remove a tag from a file_system."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+
+    try:
+        current_tags = json.loads(file_system.get('tags', '[]'))
+    except:
+        current_tags = []
+
+    if tag in current_tags:
+        current_tags.remove(tag)
+
+    db.save_file_system_meta(file_system_id=file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id, title=file_system['title'], filename=file_system['filename'], folder=file_system.get('folder'), tags=current_tags)
+    return jsonify({"success": True, "tags": current_tags})
+
+
+@file_system_bp.route('/<file_system_id>/tags/<tag>', methods=['POST'])
+def add_file_system_tag(file_system_id, tag):
+    """Add a tag to a file_system."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    actual_chat_id = file_system.get('chat_id')
+    actual_workspace_id = file_system.get('workspace_id')
+
+    try:
+        current_tags = json.loads(file_system.get('tags', '[]'))
+    except:
+        current_tags = []
+
+    if tag not in current_tags:
+        current_tags.append(tag)
+
+    db.save_file_system_meta(file_system_id=file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id, title=file_system['title'], filename=file_system['filename'], folder=file_system.get('folder'), tags=current_tags)
+    return jsonify({"success": True, "tags": current_tags})
+
+
+@file_system_bp.route('/<file_system_id>/versions', methods=['GET'])
+async def get_file_system_versions_endpoint(file_system_id):
+    """Get version history for a file_system."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+        
+    workspace_id = request.args.get('workspace_id')
+    from backend.file_system.manager import get_file_system_versions
+    versions = get_file_system_versions(file_system_id, chat_id, workspace_id=workspace_id)
+    if not versions:
+        return jsonify({
+            "success": True,
+            "file_system_id": file_system_id,
+            "versions": []
+        })
+
+    versions_response = []
+    for v in versions:
+        versions_response.append({
+            "version_number": v['version_number'],
+            "author": v['author'],
+            "timestamp": v['timestamp'],
+            "comment": v.get('comment', '')
+        })
+
+    return jsonify({
+        "success": True,
+        "file_system_id": file_system_id,
+        "versions": versions_response
+    })
+
+
+@file_system_bp.route('/<file_system_id>/versions/<int:version_number>', methods=['GET'])
+async def get_fs_file_version_endpoint(file_system_id, version_number):
+    """Get a specific version of a file_system content."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+        
+    version = get_fs_file_version(file_system_id, chat_id, version_number)
+    if version is None:
+        return jsonify({"success": False, "error": "Version not found"}), 404
+
+    return jsonify({
+        "success": True,
+        "file_system_id": file_system_id,
+        "version_number": version_number,
+        "content": version['content']
+    })
+
+
+@file_system_bp.route('/<file_system_id>/versions/<int:version_number>/restore', methods=['POST'])
+async def restore_fs_file_version_endpoint(file_system_id, version_number):
+    """Restore a file_system to a previous version."""
+    data = request.json or {}
+    chat_id = data.get('chat_id') or request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+        
+    workspace_id = request.args.get('workspace_id')
+    from backend.file_system.manager import restore_fs_file_version
+    result = await restore_fs_file_version(file_system_id, chat_id, version_number, workspace_id=workspace_id)
+    if result['success']:
+        return jsonify(result)
+    return jsonify(result), 404
+
+
+@file_system_bp.route('/<file_system_id>/diff', methods=['POST'])
+async def get_fs_file_diff_endpoint(file_system_id):
+    """Get diff between two versions."""
+    data = request.json or {}
+    chat_id = data.get('chat_id') or request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"success": False, "error": "chat_id is required"}), 400
+
+    version1 = data.get('version1')
+    version2 = data.get('version2')
+
+    if version1 is None or version2 is None:
+        return jsonify({"success": False, "error": "version1 and version2 are required"}), 400
+
+    workspace_id = request.args.get('workspace_id')
+    from backend.file_system.manager import get_fs_file_diff
+    result = get_fs_file_diff(file_system_id, chat_id, version1, version2, workspace_id=workspace_id)
+    if result['success']:
+        return jsonify(result)
+    return jsonify(result), 400
+
+
+@file_system_bp.route('/<file_system_id>/current-version', methods=['GET'])
+async def get_file_system_current_version_endpoint(file_system_id):
+    """Get the current active version number for a file_system."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system_meta = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system_meta = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system_meta:
+        return jsonify({"error": "FileSystem not found"}), 404
+        
+    actual_chat_id = file_system_meta.get('chat_id')
+    actual_workspace_id = file_system_meta.get('workspace_id')
+
+    current_version_obj = db.get_file_system_current_version(file_system_id=file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    current_version = current_version_obj.get('version_number') if current_version_obj else None
+
+    return jsonify({
+        "success": True,
+        "file_system_id": file_system_id,
+        "current_version": current_version
+    })
+
+
+@file_system_bp.route('/<file_system_id>/navigate-version', methods=['POST'])
+async def navigate_to_version_endpoint(file_system_id):
+    """Navigate to a specific version of a file_system without creating a new version."""
+    data = request.json or {}
+    chat_id = data.get('chat_id')
+    version_number = data.get('version_number')
+
+    if not chat_id or version_number is None:
+        return jsonify({"success": False, "error": "chat_id and version_number are required"}), 400
+
+    from backend.file_system.manager import navigate_file_system_version
+    result = await navigate_file_system_version(file_system_id, chat_id, version_number)
+    return jsonify(result)
+
+
+@file_system_bp.route('/<file_system_id>/delete-future-versions', methods=['POST'])
+async def delete_future_versions_endpoint(file_system_id):
+    """Delete all versions after a specific version (for branch handling)."""
+    data = request.json or {}
+    chat_id = data.get('chat_id')
+    up_to_version = data.get('up_to_version')
+
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+    if up_to_version is None:
+        return jsonify({"error": "up_to_version is required"}), 400
+
+    workspace_id = request.args.get('workspace_id')
+    if workspace_id:
+        file_system_meta = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
+    else:
+        # Strictly look in chat context if no workspace_id is provided
+        file_system_meta = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system_meta:
+        return jsonify({"error": "FileSystem not found"}), 404
+        
+    actual_chat_id = file_system_meta.get('chat_id')
+    actual_workspace_id = file_system_meta.get('workspace_id')
+
+    deleted_count = db.delete_file_system_versions_after(file_system_id=file_system_id, chat_id=actual_chat_id, workspace_id=actual_workspace_id, up_to_version=up_to_version)
+
+    return jsonify({
+        "success": True,
+        "file_system_id": file_system_id,
+        "deleted_versions": deleted_count,
+        "up_to_version": up_to_version
+    })
+
+
+@file_system_bp.route('/<file_system_id>/share', methods=['POST'])
+def share_fs_file_endpoint(file_system_id):
+    """Share a file_system with another user."""
+    data = request.json or {}
+    chat_id = data.get('chat_id') or request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+
+    file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    user_id = data.get('user_id', 'any_user')
+    permission = data.get('permission', 'write')
+
+    from backend.file_system.manager import share_fs_file
+    result = share_fs_file(file_system_id, chat_id, user_id, permission)
+    if result['success']:
+        return jsonify(result)
+    return jsonify(result), 400
+
+
+@file_system_bp.route('/<file_system_id>/unshare', methods=['POST'])
+def unshare_fs_file_endpoint(file_system_id):
+    """Remove user access to a file_system."""
+    data = request.json or {}
+    chat_id = data.get('chat_id') or request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+
+    file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    user_id = data.get('user_id', 'any_user')
+
+    from backend.file_system.manager import unshare_fs_file
+    result = unshare_fs_file(file_system_id, chat_id, user_id)
+    if result['success']:
+        return jsonify(result)
+    return jsonify(result), 400
+
+
+@file_system_bp.route('/<file_system_id>/shared-users', methods=['GET'])
+def get_shared_users_endpoint(file_system_id):
+    """Get list of users who have access to a file_system."""
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+
+    file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
+    if not file_system:
+        return jsonify({"error": "FileSystem not found"}), 404
+
+    from backend.file_system.manager import get_shared_users
+    users = get_shared_users(file_system_id, chat_id)
+    return jsonify({
+        "success": True,
+        "file_system_id": file_system_id,
+        "users": users
+    })
+
+
+@file_system_bp.route('/channel/status', methods=['GET'])
+def get_channel_status():
+    """
+    Get status of file_system channel for specific chat.
+    Returns lock status and queue depth.
+    """
+    chat_id = request.args.get('chat_id')
+    if not chat_id:
+        return jsonify({"error": "chat_id is required"}), 400
+    
+    status = FileSystemChannelManager.get_status(chat_id)
+    return jsonify(status)

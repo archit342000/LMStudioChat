@@ -48,31 +48,25 @@ os.makedirs(os.path.join(DATA_DIR, "tasks"), exist_ok=True)
 TAVILY_API_KEY = get_secret("TAVILY_API_KEY", "")
 TAVILY_BASE_URL = os.getenv("TAVILY_BASE_URL", "https://api.tavily.com")
 
-SEARCH_DEPTH = "basic"
 MAX_SEARCH_RESULTS = 5
-MIN_SEARCH_RESULTS = 3
-INCLUDE_ANSWER = "advanced"
-INCLUDE_RAW_CONTENT = True
-RELEVANCE_THRESHOLD = 0.6          # Below this, trim results (keep MIN_SEARCH_RESULTS)
-SEARCH_CACHE_TTL = 3600            # Seconds before cached search expires
 
 # =============================================================================
 # NETWORK & INTEGRATION TIMEOUTS (seconds)
 # =============================================================================
-TIMEOUT_LLM_BLOCKING = None        # Standard chat completions (None = infinite for local queue)
 TIMEOUT_LLM_ASYNC = None           # Parallel AI generation tasks
-TIMEOUT_TAVILY_SEARCH = 15         # Sync search
+TIMEOUT_EMBEDDING = int(os.getenv("TIMEOUT_EMBEDDING", 1800))       # Max seconds for an embedding request
+INFERENCE_PARALLELISM = int(os.getenv("INFERENCE_PARALLELISM", 1)) # Max concurrent LLM requests
 TIMEOUT_TAVILY_SEARCH_ASYNC = 60   # Async search
-TIMEOUT_TAVILY_MAP = 150           # Deep link discovery (slow because recursive)
-TIMEOUT_TAVILY_EXTRACT = 60        # JS-rendered page scraping fallback
-TIMEOUT_WEB_SCRAPE = 15            # Standard HTTP GET for markdown extraction
-TIMEOUT_IMAGE_FETCH = 15           # Base64-encoding images for VLM
-TIMEOUT_URLHAUS = 5                # URLhaus malware check
+TIMEOUT_MCP_TOOL_CALL = int(os.getenv("TIMEOUT_MCP_TOOL_CALL", 300))    # Max seconds for any MCP tool call (e.g. Playwright deep scrape)
+TIMEOUT_LLM_STREAM_READ = int(os.getenv("TIMEOUT_LLM_STREAM_READ", 1800))  # Max seconds between LLM tokens before dropping stream (must accommodate large prefills)
+# FileSystem channel acquire timeout (seconds) — prevents permanent hang if holder crashes
+FILE_SYSTEM_CHANNEL_ACQUIRE_TIMEOUT = int(os.getenv("FILE_SYSTEM_CHANNEL_ACQUIRE_TIMEOUT", 30))
+# Subscriber poll interval (seconds) — how often subscribe() checks if the task is still alive
+SUBSCRIBER_POLL_INTERVAL = float(os.getenv("SUBSCRIBER_POLL_INTERVAL", 5.0))
 
 # =============================================================================
 # WEB EXTRACTION & PARSING
 # =============================================================================
-URL_FETCH_RETRIES = 5              # Max redirects to follow
 MAX_CHARS_VISIT_PAGE = 8000        # Character cap for standard visit_page tool
 
 # Minimum content length thresholds (chars) to accept extraction as valid
@@ -89,18 +83,15 @@ RESEARCH_CONTENT_CHUNK_LIMIT = 15000
 # =============================================================================
 # RAG & EMBEDDINGS
 # =============================================================================
-RAG_CHUNK_MAX_CHARS = 2200         # Max chars per embedding chunk
-RAG_MIN_SEMANTIC_SCORE = 0.40      # Minimum cosine similarity for retrieval (post-RRF)
-RAG_DEDUP_THRESHOLD = 0.80         # Similarity above this = duplicate chunk
-RAG_FETCH_MULTIPLIER = 2           # Overfetch ratio for re-ranking
-RAG_DECAY_RATE = 0.30              # Time-decay weight for older memories
-RAG_RETRIEVAL_LIMIT = 500          # Hard cap on total retrieved chunks
-RAG_GRID_WORKERS = int(os.getenv("RAG_GRID_WORKERS", 16))  # Parallel workers for optimization
+try:
+    from backend.models.loader import get_embedding_model
+    EMBEDDING_MODEL = get_embedding_model()
+except Exception:
+    EMBEDDING_MODEL = "embeddinggemma/embeddinggemma-300M-Q8_0"
 
-# =============================================================================
-# RAG MIGRATION SETTINGS
-# =============================================================================
-RAG_MIGRATION_BATCH_SIZE = int(os.getenv("RAG_MIGRATION_BATCH_SIZE", 50))
+RAG_MIN_SEMANTIC_SCORE = 0.40      # Minimum cosine similarity for retrieval (post-RRF)
+RAG_FETCH_MULTIPLIER = 2           # Overfetch ratio for re-ranking
+RAG_GRID_WORKERS = int(os.getenv("RAG_GRID_WORKERS", 16))  # Parallel workers for optimization
 
 # =============================================================================
 # EMBEDDING TOKEN LIMITS
@@ -108,16 +99,18 @@ RAG_MIGRATION_BATCH_SIZE = int(os.getenv("RAG_MIGRATION_BATCH_SIZE", 50))
 # Using 1000 tokens per chunk: embeddinggemma-300m has 2048 context window,
 # allowing ~2 chunks per LLM context window for retrieval with better context
 # =============================================================================
-EMBEDDING_MAX_TOKENS_CORE = int(os.getenv("EMBEDDING_MAX_TOKENS_CORE", 1000))       # Core memory embeddings
+EMBEDDING_MAX_TOKENS_PREFERENCES = int(os.getenv("EMBEDDING_MAX_TOKENS_PREFERENCES", 1000))       # User preferences embeddings
 EMBEDDING_MAX_TOKENS_RESEARCH = int(os.getenv("EMBEDDING_MAX_TOKENS_RESEARCH", 1000))  # Research RAG embeddings
 EMBEDDING_MAX_TOKENS_FILE = int(os.getenv("EMBEDDING_MAX_TOKENS_FILE", 1000))       # File RAG embeddings
-EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", 1024))               # Number of chunks per request
+EMBEDDING_BATCH_SIZE = int(os.getenv("EMBEDDING_BATCH_SIZE", 64))               # Number of chunks per request
 
 # =============================================================================
 # FILE RAG ENHANCEMENTS
 # =============================================================================
+FILE_CONTENT_TRUNCATION_LIMIT = int(os.getenv("FILE_CONTENT_TRUNCATION_LIMIT", 15000)) # Limit for full file fallback
 HYBRID_SEARCH_ENABLED = True          # Enable BM25 + vector fusion for File RAG
 CODE_CHUNKING_ENABLED = True          # Enable syntax-aware chunking for code files
+
 # =============================================================================
 # FILE TYPE CLASSIFIER
 # =============================================================================
@@ -126,20 +119,9 @@ CLASSIFIER_CODE_THRESHOLD = float(os.getenv("CLASSIFIER_CODE_THRESHOLD", 20.0))
 CLASSIFIER_DOC_THRESHOLD = float(os.getenv("CLASSIFIER_DOC_THRESHOLD", 0.35))
 
 # =============================================================================
-# CORE MEMORY MANAGEMENT
+# USER PREFERENCES MANAGEMENT
 # =============================================================================
-MEMORY_MAX_INJECT_CHARS = int(os.getenv("MEMORY_MAX_INJECT_CHARS", 10000))
-MEMORY_MAX_ADD_PER_TURN = int(os.getenv("MEMORY_MAX_ADD_PER_TURN", 5))
-MEMORY_MAX_EDIT_PER_TURN = int(os.getenv("MEMORY_MAX_EDIT_PER_TURN", 5))
-MEMORY_MAX_DELETE_PER_TURN = int(os.getenv("MEMORY_MAX_DELETE_PER_TURN", 5))
-
-# =============================================================================
-# UI & STREAMING
-# =============================================================================
-RESEARCH_UI_THOUGHT_MIN_LENGTH = 15       # Min chars to show reasoning snippet
-RESEARCH_UI_THOUGHT_SNIPPET_LENGTH = 120  # Max chars shown in real-time thought preview
-RESEARCH_UI_STREAM_UPDATE_INTERVAL = 40   # Characters between stream flush events
-RESEARCH_VISION_MIN_RESPONSE_LENGTH = 20  # Min VLM response to consider valid
+PREFERENCES_INJECTION_LIMIT = int(os.getenv("PREFERENCES_INJECTION_LIMIT", 20))
 
 # =============================================================================
 # RESEARCH: LLM MAX TOKENS
@@ -151,17 +133,18 @@ RESEARCH_MAX_TOKENS_STEP_WRITER = int(os.getenv("RESEARCH_MAX_TOKENS_STEP_WRITER
 RESEARCH_MAX_TOKENS_SUMMARY = int(os.getenv("RESEARCH_MAX_TOKENS_SUMMARY", 8192))
 RESEARCH_MAX_TOKENS_SYNTHESIS = int(os.getenv("RESEARCH_MAX_TOKENS_SYNTHESIS", 16384))
 RESEARCH_MAX_TOKENS_TRIAGE = int(os.getenv("RESEARCH_MAX_TOKENS_TRIAGE", 16384))
-RESEARCH_MAX_TOKENS_VISION = int(os.getenv("RESEARCH_MAX_TOKENS_VISION", 8192))
-RESEARCH_MAX_TOKENS_RAG_CONTEXT = int(os.getenv("RESEARCH_MAX_TOKENS_RAG_CONTEXT", 30000))
-
-# Audit max tokens = same as step writer (surgeon patches one section at a time)
-RESEARCH_MAX_TOKENS_AUDIT = int(os.getenv("RESEARCH_MAX_TOKENS_AUDIT", RESEARCH_MAX_TOKENS_STEP_WRITER))
+RESEARCH_MAX_TOKENS_AUDIT = int(os.getenv("RESEARCH_MAX_TOKENS_AUDIT", 8192))
 
 # =============================================================================
 # RESEARCH: SECTION-BASED PLANNING & EXECUTION
 # =============================================================================
 RESEARCH_MAX_RETRIES = int(os.getenv("RESEARCH_MAX_RETRIES", 3))        # General research retry limit
+RESEARCH_SEARCH_RETRIES = int(os.getenv("RESEARCH_SEARCH_RETRIES", 2))  # Retry full search set N times before failing
 RESEARCH_MAX_PLAN_RETRIES = 3              # Planner retries on validation failure
+RESEARCH_SCOUT_MAX_TURNS = 10              # Prevent infinite context gathering
+RESEARCH_MAX_SECTION_STALLS = 3            # Max times a section can retry before skipping
+RESEARCH_MAX_AUDITOR_TURNS = 15            # Hard limit on Auditor tool-calling loop
+RESEARCH_MAX_SYNTHESIS_TURNS = 15          # Hard limit on Synthesis tool-calling loop
 RESEARCH_MAX_QUERIES_PER_SECTION = 2       # Max search queries per report section
 RESEARCH_MAX_TOTAL_QUERIES = 10            # Cap across all sections in a plan
 RESEARCH_MAX_GAPS_PER_SECTION = int(os.getenv("RESEARCH_MAX_GAPS_PER_SECTION", 2))
@@ -173,24 +156,18 @@ RESEARCH_CONTENT_BUDGET_REGULAR = 50000    # Tokens per query, regular mode
 RESEARCH_CONTENT_BUDGET_DEEP = 80000       # Tokens per query, deep mode
 
 # =============================================================================
-# RESEARCH: MEANDER DETECTION
-# Limits on <think> block length (TOKENS). If reasoning exceeds the limit AND
-# content output is below CONTENT_THRESHOLD, the response is considered
-# "meandering" and gets retried or truncated.
+# RESEARCH: THINKING BUDGETS (Reasoning Limits)
+# Limits on <think> block length (TOKENS) for the llama.cpp thinking_budget_tokens parameter.
+# These values ensure the model has enough reasoning space for each phase.
 # =============================================================================
-RESEARCH_MEANDER_CONTENT_THRESHOLD_TOKENS = 125
-
-RESEARCH_MEANDER_THOUGHT_LIMIT_SCOUT_TOKENS = 1500
-RESEARCH_MEANDER_THOUGHT_LIMIT_PLANNING_TOKENS = 2500
-RESEARCH_MEANDER_THOUGHT_LIMIT_REFLECTION_TOKENS = 2500
-RESEARCH_MEANDER_THOUGHT_LIMIT_TRIAGE_TOKENS = 2500
-RESEARCH_MEANDER_THOUGHT_LIMIT_STEP_WRITER_TOKENS = 5000
-RESEARCH_MEANDER_THOUGHT_LIMIT_SUMMARY_TOKENS = 1500
-RESEARCH_MEANDER_THOUGHT_LIMIT_SYNTHESIS_TOKENS = 3750
-RESEARCH_MEANDER_THOUGHT_LIMIT_VISION_TOKENS = 1000
-
-# Audit meander limit = same as step writer (surgeon produces one section)
-RESEARCH_MEANDER_THOUGHT_LIMIT_AUDIT_TOKENS = RESEARCH_MEANDER_THOUGHT_LIMIT_STEP_WRITER_TOKENS
+RESEARCH_THINKING_BUDGET_SCOUT_TOKENS = 1500
+RESEARCH_THINKING_BUDGET_PLANNING_TOKENS = 2500
+RESEARCH_THINKING_BUDGET_REFLECTION_TOKENS = 2500
+RESEARCH_THINKING_BUDGET_TRIAGE_TOKENS = 2500
+RESEARCH_THINKING_BUDGET_STEP_WRITER_TOKENS = 5000
+RESEARCH_THINKING_BUDGET_SUMMARY_TOKENS = 1500
+RESEARCH_THINKING_BUDGET_AUDIT_TOKENS = 4000
+RESEARCH_THINKING_BUDGET_VISION_TOKENS = 1000
 
 # =============================================================================
 # RESEARCH: SEARCH & SOURCE SELECTION
@@ -203,21 +180,6 @@ RESEARCH_SCOUT_PRELIM_RESULTS_COUNT = 5    # Scout phase preliminary search coun
 RESEARCH_DEEP_MAP_MAX_URLS = 5             # Max sub-pages to crawl per source (deep mode)
 TAVILY_MAP_MAX_DEPTH = 3                   # Crawl depth for Tavily Map
 TAVILY_MAP_MAX_BREADTH = 10                # Crawl breadth for Tavily Map
-
-# =============================================================================
-# RESEARCH: LLM TEMPERATURE & SAMPLING (Reasoning Optimized)
-# =============================================================================
-RESEARCH_SAMPLING_TEMPERATURE = 0.7
-RESEARCH_SAMPLING_MIN_P = 0.1
-RESEARCH_SAMPLING_DRY_MULTIPLIER = 0.8
-RESEARCH_SAMPLING_DRY_BASE = 1.75
-RESEARCH_SAMPLING_DRY_ALLOWED_LENGTH = 3
-RESEARCH_SAMPLING_XTC_PROBABILITY = 0.1
-RESEARCH_SAMPLING_REPEAT_PENALTY = 1.1
-
-# Fallback temperature used on retry attempts (reflection, writer, surgeon)
-RESEARCH_TEMPERATURE_RETRY_FALLBACK = 0.1
-RESEARCH_SAMPLING_DRY_RETRIAL_BOOST = 0.2
 
 # =============================================================================
 # RESEARCH: FINAL AUDIT & REFINEMENT
@@ -233,39 +195,31 @@ RESEARCH_SURGEON_MAX_RETRIES = 2           # Max attempts per section before str
 # =============================================================================
 RESEARCH_MAX_IMAGES_PER_PAGE = 3           # Max inline images to VLM-process per page
 RESEARCH_MAX_SEARCH_IMAGES = 10            # Max Tavily search result images to process
-RESEARCH_IMAGE_FETCH_RETRIES = 5           # Retries for fetching image bytes
-RESEARCH_VISION_RETRIES = 3               # Retries for VLM inference calls
+RESEARCH_VISION_RETRIES = 3                # Retries for VLM inference calls
 
-# =============================================================================
-# RESEARCH: CONVERSATION HISTORY CONTEXT
-# =============================================================================
-RESEARCH_CONTEXT_HISTORY_SCOUT = 5         # Messages passed to scout
-RESEARCH_CONTEXT_HISTORY_PLANNING = 10     # Messages passed to planner
 # =============================================================================
 # LOCALIZATION & TIME
 # =============================================================================
 USER_TIMEZONE = os.getenv("TZ", "Asia/Kolkata")
 
 # =============================================================================
-# CANVAS SYSTEM
+# FILE_SYSTEM SYSTEM
 # =============================================================================
-# Max characters of canvas content injected into the system prompt as active
-# canvas context. Large research reports easily exceed 20k chars; 32k covers
+# Max characters of file_system content injected into the system prompt as active
+# file_system context. Large research reports easily exceed 20k chars; 32k covers
 # most reports while keeping the system prompt manageable.
-CANVAS_ACTIVE_CONTEXT_CHAR_LIMIT = 32000
+FILE_SYSTEM_ACTIVE_CONTEXT_CHAR_LIMIT = 32000
 
 # =============================================================================
 # CACHE TTL CONFIGURATION
 # =============================================================================
 CACHE_ENTRY_TTL_SECONDS = int(os.getenv("CACHE_ENTRY_TTL_SECONDS", 3600))      # 1 hour default
-DEFAULT_TTL_SECONDS = CACHE_ENTRY_TTL_SECONDS  # Alias for config_directives.md compliance
 CACHE_CLEANUP_INTERVAL = int(os.getenv("CACHE_CLEANUP_INTERVAL", 300))         # 5 min
 CACHE_RETRY_COUNT = int(os.getenv("CACHE_RETRY_COUNT", 2))                     # Retry attempts
 
 # =============================================================================
 # ERROR HANDLING CONFIGURATION
 # =============================================================================
-ERROR_RETRY_BASE_DELAY = float(os.getenv("ERROR_RETRY_BASE_DELAY", 0.1))       # Base delay for retry backoff
 CIRCUIT_FAILURE_THRESHOLD = int(os.getenv("CIRCUIT_FAILURE_THRESHOLD", 5))     # Failures before opening circuit
 CIRCUIT_RECOVERY_TIMEOUT = float(os.getenv("CIRCUIT_RECOVERY_TIMEOUT", 30))    # Seconds before attempting recovery
 
@@ -273,12 +227,24 @@ CIRCUIT_RECOVERY_TIMEOUT = float(os.getenv("CIRCUIT_RECOVERY_TIMEOUT", 30))    #
 # RETRY CONFIGURATION
 # =============================================================================
 RETRY_COUNT = int(os.getenv("RETRY_COUNT", 2))
-RETRY_DELAY_SECONDS = int(os.getenv("RETRY_DELAY_SECONDS", 1))
+
+# LLM-specific retries (for reasoning-only or malformed tool calls)
+LLM_RETRY_COUNT = int(os.getenv("LLM_RETRY_COUNT", 3))
+LLM_RETRY_DELAY = float(os.getenv("LLM_RETRY_DELAY", 0.5))
+
+# =============================================================================
+# VALIDATION CONFIGURATION (TEMPORARY FOR FRONTEND OVERHAUL)
+# =============================================================================
+# TEMPORARY: Disable output validation during frontend overhaul
+# The new storage model stores SSE artifacts separately, so validation
+# that expects inline tags will fail. Re-enable after builder is implemented.
+VALIDATION_ENABLED = False
 
 # =============================================================================
 # TOOL CONFIGURATION
 # =============================================================================
 MAX_TOOL_ROUNDS = int(os.getenv("MAX_TOOL_ROUNDS", 8))
+MAX_TOOL_CALLS_BUFFER = int(os.getenv("MAX_TOOL_CALLS_BUFFER", 5))
 
 # =============================================================================
 # FILE UPLOAD SETTINGS
@@ -288,18 +254,25 @@ FILE_UPLOAD_MAX_SIZE = int(os.getenv("FILE_UPLOAD_MAX_SIZE", 100 * 1024 * 1024))
 FILE_STORAGE_PATH = os.path.join(DATA_DIR, 'files')
 os.makedirs(FILE_STORAGE_PATH, exist_ok=True)
 
-# Allowed MIME types for file uploads
-FILE_UPLOAD_ALLOWED_TYPES = [
+from backend.file_types import EXHAUSTIVE_TEXT_EXTENSIONS
+
+# Base MIME types for documents and media
+_BASE_ALLOWED_TYPES = [
     'application/pdf',
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-    'text/plain',
     'image/png',
     'image/jpeg',
     'image/gif',
+    'image/webp',
+    'image/heic',
     'video/mp4',
+    'video/webm',
     'audio/mpeg',
     'audio/wav'
 ]
+
+# Dynamically combine base types with all exhaustive text/code extensions
+FILE_UPLOAD_ALLOWED_TYPES = list(set(_BASE_ALLOWED_TYPES + list(EXHAUSTIVE_TEXT_EXTENSIONS.values())))
 
 # File processing options
 # FILE_RAG_ENABLED: Enable RAG storage for uploaded files
@@ -332,3 +305,44 @@ PDF_OCR_ENABLED = True
 PDF_OCR_LANGUAGES = ['en']
 # Minimum content length required after extraction
 PDF_EXTRACTION_MIN_CONTENT = 50
+
+# =============================================================================
+# FILE AGENT CONFIGURATION
+# =============================================================================
+FILE_AGENT_MAX_TURNS = int(os.getenv("FILE_AGENT_MAX_TURNS", 100))
+FILE_AGENT_FAILSAFE_TURNS = int(os.getenv("FILE_AGENT_FAILSAFE_TURNS", 5))
+FILE_AGENT_MAX_LINES_PER_REQUEST = int(os.getenv("FILE_AGENT_MAX_LINES_PER_REQUEST", 100)) # Rejection limit for reading too many lines
+FILE_AGENT_MAX_CHARS_PER_READ = int(os.getenv("FILE_AGENT_MAX_CHARS_PER_READ", 15000)) # Safety cap for token context per read
+FILE_AGENT_RAG_DEPTH_MAP = {"basic": 3, "standard": 5, "deep": 7}
+
+# =============================================================================
+# FILE_SYSTEM EDITOR CONFIGURATION
+# =============================================================================
+FILE_SYSTEM_MAX_SEARCH_RESULTS = int(os.getenv("FILE_SYSTEM_MAX_SEARCH_RESULTS", 15))
+FILE_SYSTEM_SEARCH_CONTEXT_LINES = int(os.getenv("FILE_SYSTEM_SEARCH_CONTEXT_LINES", 2))
+FILE_SYSTEM_AGENT_MAX_TURNS = int(os.getenv("FILE_SYSTEM_AGENT_MAX_TURNS", 100))
+FILE_SYSTEM_AGENT_FAILSAFE_TURNS = int(os.getenv("FILE_SYSTEM_AGENT_FAILSAFE_TURNS", 10))
+
+# =============================================================================
+# BROWSING AGENT CONFIGURATION
+# =============================================================================
+BROWSING_AGENT_MAX_TURNS = int(os.getenv("BROWSING_AGENT_MAX_TURNS", 100))
+BROWSING_AGENT_FAILSAFE_TURNS = int(os.getenv("BROWSING_AGENT_FAILSAFE_TURNS", 10))
+BROWSING_AGENT_MAX_CHARS_PER_PAGE = int(os.getenv("BROWSING_AGENT_MAX_CHARS_PER_PAGE", 20000))
+BROWSING_AGENT_MAX_CHARS_INTERACTIVE = int(os.getenv("BROWSING_AGENT_MAX_CHARS_INTERACTIVE", 15000))
+BROWSER_STEALTH_LEVEL = os.getenv("BROWSER_STEALTH_LEVEL", "minimal")  # minimal, advanced
+
+# =============================================================================
+# AGENT MAX OUTPUT TOKENS CONFIGURATION
+# =============================================================================
+SEARCH_WEB_AGENT_MAX_TOKENS = int(os.getenv("SEARCH_WEB_AGENT_MAX_TOKENS", 16384))
+FILE_AGENT_MAX_TOKENS = int(os.getenv("FILE_AGENT_MAX_TOKENS", 16384))
+FILE_SYSTEM_AGENT_MAX_TOKENS = int(os.getenv("FILE_SYSTEM_AGENT_MAX_TOKENS", 16384))
+BROWSING_AGENT_MAX_TOKENS = int(os.getenv("BROWSING_AGENT_MAX_TOKENS", 16384))
+VISIT_PAGE_AGENT_MAX_TOKENS = int(os.getenv("VISIT_PAGE_AGENT_MAX_TOKENS", 16384))
+
+SEARCH_WEB_AGENT_THINKING_BUDGET = int(os.getenv("SEARCH_WEB_AGENT_THINKING_BUDGET", 1024))
+FILE_AGENT_THINKING_BUDGET = int(os.getenv("FILE_AGENT_THINKING_BUDGET", 1024))
+FILE_SYSTEM_AGENT_THINKING_BUDGET = int(os.getenv("FILE_SYSTEM_AGENT_THINKING_BUDGET", 1024))
+BROWSING_AGENT_THINKING_BUDGET = int(os.getenv("BROWSING_AGENT_THINKING_BUDGET", 1024))
+VISIT_PAGE_AGENT_THINKING_BUDGET = int(os.getenv("VISIT_PAGE_AGENT_THINKING_BUDGET", 1024))

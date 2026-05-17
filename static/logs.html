@@ -171,6 +171,12 @@
             border: 1px solid rgba(245, 158, 11, 0.2);
         }
 
+        .pill-embedding {
+            background: rgba(20, 184, 166, 0.15);
+            color: #14b8a6;
+            border: 1px solid rgba(20, 184, 166, 0.2);
+        }
+
         .pill-error {
             background: rgba(244, 63, 94, 0.15);
             color: var(--color-rose-500);
@@ -535,7 +541,8 @@
                     </svg>
                     <span class="sidebar-brand-text font-heading sidebar-text">Intelligence</span>
                 </a>
-                <select class="limit-select sidebar-text" id="limit-select" onchange="loadData(true)" title="Max entries to load">
+                <select class="limit-select sidebar-text" id="limit-select" onchange="loadData(true)"
+                    title="Max entries to load">
                     <option value="50">50</option>
                     <option value="200" selected>200</option>
                     <option value="500">500</option>
@@ -568,6 +575,7 @@
                 <div class="nav-tab active" id="tab-network" onclick="switchMode('network')">Network</div>
                 <div class="nav-tab" id="tab-events" onclick="switchMode('events')">Events</div>
                 <div class="nav-tab" id="tab-app" onclick="switchMode('app')">App Logs</div>
+                <div class="nav-tab" id="tab-database" onclick="switchMode('database')">Database</div>
             </nav>
 
             <div class="entry-count-badge sidebar-text" id="entry-count"></div>
@@ -608,7 +616,11 @@
         let networkLogs = [];
         let eventLogs = [];
         let appLogs = [];
+        let chatData = [];
         let selectedId = null;
+        let selectedChatId = null;
+        let selectedTable = null;
+        let tableData = [];
 
         // Initialize Resizable Sidebar
         const sidebar = document.getElementById('sidebar');
@@ -717,6 +729,7 @@
             if (!force && currentMode === 'network' && networkLogs.length > 0) { renderList(); return; }
             if (!force && currentMode === 'events' && eventLogs.length > 0) { renderList(); return; }
             if (!force && currentMode === 'app' && appLogs.length > 0) { renderList(); return; }
+            if (!force && currentMode === 'database' && chatData.length > 0) { renderList(); return; }
 
             listDiv.innerHTML = '<div class="empty-state-logs" style="font-size:0.8rem;">Loading...</div>';
             if (countBadge) countBadge.textContent = '';
@@ -726,6 +739,7 @@
                 if (currentMode === 'network') networkLogs = [];
                 else if (currentMode === 'events') eventLogs = [];
                 else if (currentMode === 'app') appLogs = [];
+                else if (currentMode === 'database') chatData = [];
             }
 
             try {
@@ -736,18 +750,26 @@
                     endpoint = `/api/logs/events?limit=${limit}`;
                 } else if (currentMode === 'app') {
                     endpoint = `/api/logs/app?limit=${limit}`;
+                } else if (currentMode === 'database') {
+                    endpoint = `/api/chats`;
                 }
 
                 const res = await fetch(endpoint);
+                if (!res.ok) {
+                    const errorText = await res.text();
+                    throw new Error(`HTTP ${res.status}: ${errorText}`);
+                }
                 const data = await res.json();
 
                 if (currentMode === 'network') networkLogs = Array.isArray(data) ? data : [];
                 else if (currentMode === 'events') eventLogs = Array.isArray(data) ? data : [];
                 else if (currentMode === 'app') appLogs = data.logs || [];
+                else if (currentMode === 'database') chatData = Array.isArray(data) ? data : [];
 
                 renderList();
             } catch (err) {
-                listDiv.innerHTML = '<div class="empty-state-logs">Communications Failure.</div>';
+                console.error('Data loading error:', err);
+                listDiv.innerHTML = `<div class="empty-state-logs">Communications Failure.<br><span style="font-size:0.7rem;opacity:0.6;">${escapeHtml(err.message)}</span></div>`;
                 if (countBadge) countBadge.textContent = '';
             }
         }
@@ -757,6 +779,8 @@
             document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
             document.getElementById(`tab-${mode}`).classList.add('active');
             selectedId = null;
+            selectedChatId = null;
+            selectedTable = null;
             resetDetail();
             loadData();
         }
@@ -779,16 +803,17 @@
         };
 
         function resetDetail() {
+            const emptyStateHtml = currentMode === 'database'
+                ? '<div class="empty-state-logs"><h2 class="font-heading" style="font-weight: 600; font-size: 1.5rem; margin-bottom: 8px;">Select a chat to view database records</h2><p style="color: var(--content-muted);">Navigate through chat data stored in the database.</p></div>'
+                : '<div class="empty-state-logs"><h2 class="font-heading" style="font-weight: 600; font-size: 1.5rem; margin-bottom: 8px;">Telemetric Silence</h2><p style="color: var(--content-muted);">Select a trace to open inspection windows.</p></div>';
+
             document.getElementById('detail-view').innerHTML = `
                 <button id="mobile-toggle" class="btn-secondary glass" title="Menu" style="position: fixed; z-index: 50;" onclick="toggleMobileMenu()">
                     <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
                         <path d="M3 12h18M3 6h18M3 18h18" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </button>
-                <div class="empty-state-logs">
-                    <h2 class="font-heading" style="font-weight: 600; font-size: 1.5rem; margin-bottom: 8px;">Telemetric Silence</h2>
-                    <p style="color: var(--content-muted);">Select a trace to open inspection windows.</p>
-                </div>
+                ${emptyStateHtml}
             `;
         }
 
@@ -803,6 +828,8 @@
                 renderEventLogs(searchTerm);
             } else if (currentMode === 'app') {
                 renderAppLogs(searchTerm);
+            } else if (currentMode === 'database') {
+                renderDatabaseLogs(searchTerm);
             }
 
             // Update the count badge
@@ -810,7 +837,8 @@
             if (countBadge) {
                 const total = currentMode === 'network' ? networkLogs.length
                     : currentMode === 'events' ? eventLogs.length
-                    : appLogs.length;
+                        : currentMode === 'app' ? appLogs.length
+                            : chatData.length;
                 countBadge.textContent = total > 0 ? `Showing ${total} entries` : '';
             }
         }
@@ -819,7 +847,10 @@
             const logs = networkLogs;
 
             const filtered = logs.filter(log => {
-                return log.model_tool.toLowerCase().includes(searchTerm) || log.category.toLowerCase().includes(searchTerm);
+                const modelTool = (log.model_tool || '').toLowerCase();
+                const category = (log.category || '').toLowerCase();
+                const type = (log.type || '').toLowerCase();
+                return modelTool.includes(searchTerm) || category.includes(searchTerm) || type.includes(searchTerm);
             });
 
             const listDiv = document.getElementById('log-list');
@@ -836,7 +867,7 @@
                     }
                 };
 
-                const time = new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+                const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' }) : 'N/A';
 
                 card.innerHTML = `
                     <div class="log-meta">
@@ -854,7 +885,9 @@
             const logs = eventLogs;
 
             const filtered = logs.filter(log => {
-                return log.type.toLowerCase().includes(searchTerm) || JSON.stringify(log.data).toLowerCase().includes(searchTerm);
+                const type = (log.type || '').toLowerCase();
+                const data = JSON.stringify(log.data || {}).toLowerCase();
+                return type.includes(searchTerm) || data.includes(searchTerm);
             });
 
             const listDiv = document.getElementById('log-list');
@@ -872,7 +905,7 @@
                     }
                 };
 
-                const time = new Date(log.timestamp).toLocaleTimeString();
+                const time = log.timestamp ? new Date(log.timestamp).toLocaleTimeString() : 'N/A';
                 const dataStr = JSON.stringify(log.data);
 
                 card.innerHTML = `
@@ -889,7 +922,7 @@
         function renderAppLogs(searchTerm) {
             const logs = appLogs;
 
-            const filtered = logs.filter(log => log.toLowerCase().includes(searchTerm));
+            const filtered = logs.filter(log => (log || '').toLowerCase().includes(searchTerm));
 
             const listDiv = document.getElementById('log-list');
             listDiv.innerHTML = '';
@@ -932,11 +965,199 @@
             });
         }
 
+        function renderDatabaseLogs(searchTerm) {
+            const chats = chatData;
+
+            const filtered = chats.filter(chat => {
+                const title = (chat.title || '').toLowerCase();
+                const id = (chat.id || '').toLowerCase();
+                return title.includes(searchTerm) || id.includes(searchTerm);
+            });
+
+            const listDiv = document.getElementById('log-list');
+            listDiv.innerHTML = '';
+
+            filtered.forEach((chat, index) => {
+                const card = document.createElement('div');
+                const id = 'chat-' + chat.id;
+                card.className = `event-card ${selectedChatId === id ? 'active' : ''}`;
+                card.onclick = () => {
+                    showDatabaseDetail(chat, id, card);
+                    if (window.innerWidth <= 768) {
+                        sidebar.classList.remove('sidebar-expanded');
+                        sidebar.classList.add('sidebar-collapsed');
+                    }
+                };
+
+                const time = chat.timestamp ? new Date(chat.timestamp).toLocaleString() : 'N/A';
+
+                // Get message count and model info
+                const msgCount = chat.messages ? chat.messages.length : 0;
+                const lastModel = chat.last_model || 'N/A';
+
+                card.innerHTML = `
+                    <div class="event-top">
+                        <span class="event-name" style="font-size: 0.85rem;">${escapeHtml(chat.title || 'Untitled Chat')}</span>
+                        <span class="log-timestamp">${escapeHtml(time)}</span>
+                    </div>
+                    <div class="event-data-preview" style="font-size: 0.7rem; color: var(--content-muted);">
+                        <span>ID: ${escapeHtml(chat.id)}</span> |
+                        <span>Msgs: ${msgCount}</span> |
+                        <span>Last: ${escapeHtml(lastModel)}</span>
+                    </div>
+                `;
+                listDiv.appendChild(card);
+            });
+        }
+
         function escapeHtml(text) {
             if (typeof text !== 'string') return text;
             const div = document.createElement('div');
             div.textContent = text;
             return div.innerHTML;
+        }
+
+        async function showDatabaseDetail(chat, id, element) {
+            selectedChatId = id;
+            selectedTable = null;
+            document.querySelectorAll('.event-card').forEach(i => i.classList.remove('active'));
+            element.classList.add('active');
+
+            const detailView = document.getElementById('detail-view');
+            const time = chat.timestamp ? new Date(chat.timestamp).toLocaleString() : 'N/A';
+            const msgCount = chat.messages ? chat.messages.length : 0;
+
+            detailView.innerHTML = `
+                <button id="mobile-toggle" class="btn-secondary glass" title="Menu" style="position: fixed; z-index: 50;" onclick="toggleMobileMenu()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M3 12h18M3 6h18M3 18h18" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+                <header class="detail-header" style="padding-left: 72px;">
+                    <div>
+                        <h2 style="font-family: var(--font-mono); color: var(--accent); font-size: 1.1rem; margin:0;">${escapeHtml(chat.title || 'Chat Data')}</h2>
+                        <p style="margin: 5px 0 0; font-size: 0.75rem; color: var(--content-muted); font-family: var(--font-mono);">${chat.id} | ${time}</p>
+                    </div>
+                    <div style="display: flex; gap: 30px;">
+                        <div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Messages</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${msgCount}</span></div>
+                        <div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">ID</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${escapeHtml(chat.id)}</span></div>
+                    </div>
+                </header>
+                <div class="panes-container">
+                    <section class="pane">
+                        <div class="pane-header">
+                            <span class="pane-title">Database Records</span>
+                        </div>
+                        <div class="pane-content">
+                            <div class="nav-tabs" style="margin-bottom: 16px;">
+                                <div class="nav-tab active" onclick="selectDatabaseTable('${chat.id}', 'messages')">Messages</div>
+                                <div class="nav-tab" onclick="selectDatabaseTable('${chat.id}', 'sse_chunks')">SSE Chunks</div>
+                                <div class="nav-tab" onclick="selectDatabaseTable('${chat.id}', 'collections')">Collections</div>
+                                <div class="nav-tab" onclick="selectDatabaseTable('${chat.id}', 'order_map')">Order Map</div>
+                                <div class="nav-tab" onclick="selectDatabaseTable('${chat.id}', 'sub_agent_messages')">Sub-Agent</div>
+                            </div>
+                            <div id="db-table-content" style="min-height: 200px;">
+                                <p style="color: var(--content-muted); font-size: 0.9rem;">Click a table above to view records.</p>
+                            </div>
+                        </div>
+                    </section>
+                    <section class="pane">
+                        <div class="pane-header">
+                            <span class="pane-title">JSON View</span>
+                        </div>
+                        <div class="pane-content">
+                            <pre><code id="chat-json" style="background:transparent;" class="language-json">${escapeHtml(JSON.stringify(chat, null, 2))}</code></pre>
+                        </div>
+                    </section>
+                </div>
+            `;
+
+            document.querySelectorAll('pre code').forEach(hljs.highlightElement);
+        }
+
+        async function selectDatabaseTable(chatId, table) {
+            if (selectedTable === table) return;
+
+            selectedTable = table;
+            const contentDiv = document.getElementById('db-table-content');
+            if (!contentDiv) return;
+
+            // Update active tab
+            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
+            const activeTab = Array.from(document.querySelectorAll('.nav-tab')).find(t => t.textContent.toLowerCase().includes('sub-agent') && table === 'sub_agent_messages' || t.textContent.toLowerCase().includes(table));
+            if (activeTab) activeTab.classList.add('active');
+
+            contentDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--content-muted);">Loading...</div>';
+
+            try {
+                const url = `/api/chats/${chatId}`;
+                const res = await fetch(url);
+                const data = await res.json();
+
+                if (res.ok) {
+                    let records = [];
+                    const messages = data.messages || [];
+
+                    if (table === 'order_map') {
+                        const rawMap = data.message_order_map;
+                        records = rawMap ? (typeof rawMap === 'string' ? JSON.parse(rawMap) : rawMap) : [];
+                    } else if (table === 'messages') {
+                        records = messages.filter(m => m.role !== 'assistant_active').map(m => {
+                            const { sub_agent_history, collections, chunks, ...rest } = m;
+                            return rest;
+                        });
+                    } else if (table === 'sse_chunks') {
+                        messages.filter(m => m.role === 'assistant_active').forEach(b => {
+                            if (b.chunks) records.push(...b.chunks);
+                        });
+                    } else if (table === 'sub_agent_messages') {
+                        messages.forEach(m => {
+                            if (m.sub_agent_history) records.push(...m.sub_agent_history);
+                        });
+                    } else if (table === 'collections') {
+                        messages.forEach(m => {
+                            if (m.collections) records.push(...m.collections);
+                        });
+                    }
+                    
+                    renderDatabaseTable(contentDiv, table, records, chatId);
+                } else {
+                    contentDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--color-rose-500);">Error: ${data.error || 'Failed to load data'}</div>`;
+                }
+            } catch (err) {
+                contentDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--color-rose-500);">Network Error: ${escapeHtml(err.message)}</div>`;
+            }
+        }
+
+        function renderDatabaseTable(container, table, records, chatId) {
+            if (!records || records.length === 0) {
+                container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--content-muted);">No ${table} records found.</div>`;
+                return;
+            }
+
+            let html = `
+                <div style="font-size: 0.75rem; color: var(--content-muted); margin-bottom: 8px;">
+                    Showing ${records.length} record(s) from ${table} table
+                </div>
+                <div style="overflow-x: auto;">
+                    <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; font-family: var(--font-mono);">
+                        <thead>
+                            <tr style="border-bottom: 1px solid var(--border-subtle);">
+                                ${Object.keys(records[0]).map(k => `<th style="padding: 8px; text-align: left; color: var(--color-primary-500);">${escapeHtml(k)}</th>`).join('')}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${records.map(r => `
+                                <tr style="border-bottom: 1px solid var(--border-subtle);">
+                                    ${Object.values(r).map(v => `<td style="padding: 8px; color: var(--content-primary);">${escapeHtml(String(v))}</td>`).join('')}
+                                </tr>
+                            `).join('')}
+                        </tbody>
+                    </table>
+                </div>
+            `;
+
+            container.innerHTML = html;
         }
 
         async function showNetworkDetail(log, element) {
@@ -983,7 +1204,7 @@
             const reqStr = JSON.stringify(req, null, 2);
             let resStr = typeof res === 'string' ? res : JSON.stringify(res, null, 2);
             let isJson = typeof res !== 'string';
-            
+
             let toolCallsHtml = '';
             if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
                 const tcStr = JSON.stringify(toolCalls, null, 2);

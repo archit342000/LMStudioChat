@@ -1,0 +1,142 @@
+import pytest
+import os
+import json
+from flask import Flask
+from backend.logging.router import logs_bp, _tail_file
+from unittest.mock import patch, mock_open
+
+@pytest.fixture
+def app():
+    app = Flask(__name__)
+    app.register_blueprint(logs_bp, url_prefix='/logs')
+    return app
+
+@pytest.fixture
+def client(app):
+    return app.test_client()
+
+@patch('backend.logging.router.os.getcwd')
+@patch('backend.logging.router.send_from_directory')
+def test_logs_page(mock_send, mock_getcwd, client):
+    mock_getcwd.return_value = "/mock/dir"
+    mock_send.return_value = "html content"
+    
+    res = client.get('/logs/ui')
+    assert res.status_code == 200
+    mock_send.assert_called_with("/mock/dir/static", "logs.html")
+
+@patch('backend.logging.router.config.DATA_DIR', '/mock/data')
+@patch('backend.logging.router.os.path.exists')
+def test_get_log_index(mock_exists, client):
+    # Not exists
+    mock_exists.return_value = False
+    res = client.get('/logs')
+    assert res.status_code == 200
+    assert res.json == []
+    
+    # Exists
+    mock_exists.return_value = True
+    m_open = mock_open(read_data='{"a": 1}\n\n{"b": 2}\ninvalid\n{"c": 3}\n')
+    with patch('builtins.open', m_open):
+        res = client.get('/logs?limit=2')
+        assert res.status_code == 200
+        # should return reversed last 2 valid entries
+        assert res.json == [{"c": 3}, {"b": 2}]
+
+@patch('backend.logging.router.config.DATA_DIR', '/mock/data')
+@patch('backend.logging.router.os.path.exists')
+def test_get_log_detail(mock_exists, client):
+    # Missing path
+    res = client.get('/logs/detail')
+    assert res.status_code == 400
+    
+    # Path traversal attempt
+    res = client.get('/logs/detail?path=../../etc/passwd')
+    assert res.status_code == 403
+    
+    # Not exists
+    mock_exists.return_value = False
+    res = client.get('/logs/detail?path=llm_calls/1.json')
+    assert res.status_code == 404
+    
+    # Success
+    mock_exists.return_value = True
+    m_open = mock_open(read_data='{"key": "value"}')
+    with patch('builtins.open', m_open):
+        res = client.get('/logs/detail?path=llm_calls/1.json')
+        assert res.status_code == 200
+        assert res.json == {"key": "value"}
+
+@patch('backend.logging.router.config.DATA_DIR', '/mock/data')
+@patch('backend.logging.router.os.path.exists')
+@patch('backend.logging.router.os.listdir')
+def test_get_event_logs(mock_listdir, mock_exists, client):
+    # Not exists
+    mock_exists.return_value = False
+    res = client.get('/logs/events')
+    assert res.status_code == 200
+    assert res.json == []
+    
+    # No files
+    mock_exists.return_value = True
+    mock_listdir.return_value = ["not_an_event.txt"]
+    res = client.get('/logs/events')
+    assert res.status_code == 200
+    assert res.json == []
+    
+    # With files
+    mock_listdir.return_value = ["20231010_events.jsonl", "20231011_events.jsonl"]
+    m_open = mock_open(read_data='{"event": 1}\n{"event": 2}')
+    with patch('builtins.open', m_open):
+        res = client.get('/logs/events')
+        assert res.status_code == 200
+        assert res.json == [{"event": 2}, {"event": 1}]
+
+@patch('backend.logging.router.config.DATA_DIR', '/mock/data')
+@patch('backend.logging.router.os.path.exists')
+@patch('backend.logging.router._tail_file')
+def test_get_app_logs(mock_tail, mock_exists, client):
+    # Not exists
+    mock_exists.return_value = False
+    res = client.get('/logs/app')
+    assert res.status_code == 200
+    assert res.json == {"logs": [], "total": 0}
+    
+    # Exists
+    mock_exists.return_value = True
+    mock_tail.return_value = ["line 1", "line 2"]
+    res = client.get('/logs/app?limit=10')
+    assert res.status_code == 200
+    assert res.json == {"logs": ["line 2", "line 1"], "total": 2}
+    mock_tail.assert_called_with('/mock/data/logs/app.log', 10)
+
+def test__tail_file(tmp_path):
+    log_file = tmp_path / "app.log"
+    
+    # Empty file
+    log_file.write_text("")
+    assert _tail_file(str(log_file), 5) == []
+    
+    # Few lines
+    log_file.write_text("line1\nline2\nline3\n")
+    assert _tail_file(str(log_file), 2) == ["line2", "line3"]
+    
+    # Chunking test
+    assert _tail_file(str(log_file), 10, chunk_size=2) == ["line1", "line2", "line3"]
+
+@patch('backend.logging.router.config.DATA_DIR', '/mock/data')
+@patch('backend.logging.router.os.path.exists')
+def test_get_app_log_lines(mock_exists, client, tmp_path):
+    # Not exists
+    mock_exists.return_value = False
+    res = client.get('/logs/app/lines?start=0&end=10')
+    assert res.status_code == 200
+    assert res.json == {"logs": [], "start": 0, "end": 10}
+    
+    # Exists
+    mock_exists.return_value = True
+    m_open = mock_open(read_data="line0\nline1\nline2\nline3\n")
+    with patch('builtins.open', m_open):
+        res = client.get('/logs/app/lines?start=1&end=3')
+        assert res.status_code == 200
+        assert res.json == {"logs": ["line1", "line2"], "start": 1, "end": 3}

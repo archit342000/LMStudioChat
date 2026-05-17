@@ -1,0 +1,46 @@
+import json
+import logging
+from backend.rag import RAGProvider, FileRAG
+from backend.models import get_embedding_model
+from backend.files.manager import FileManager
+from backend import config
+
+logger = logging.getLogger(__name__)
+
+def _get_managers():
+    embedding_model = get_embedding_model()
+    rag_manager = RAGProvider.get_manager(
+        persist_path=config.CHROMA_PATH,
+        api_url=config.EMBEDDING_URL,
+        api_key=config.EMBEDDING_API_KEY,
+        embedding_model=embedding_model
+    )
+    file_manager = FileManager(rag_manager=rag_manager)
+    file_rag = FileRAG(rag_manager=rag_manager)
+    return file_manager, file_rag
+
+async def file_agent_rag_tool(chat_id: str, file_id: str, query: str, depth: str = "standard", **kwargs):
+    """Tool wrapper for RAG retrieval."""
+    _, file_rag = _get_managers()
+    
+    n_results = config.FILE_AGENT_RAG_DEPTH_MAP.get(depth, 5)
+    
+    results = await file_rag.retrieve_for_file(file_id, query, n_results=n_results, chat_id=chat_id)
+    
+    if not results:
+        return {"success": True, "results": [], "message": "No semantic matches found."}
+        
+    return {
+        "success": True,
+        "results": results
+    }
+
+async def grep_uploaded_file_tool(chat_id: str, file_id: str, query: str, is_regex: bool = False, context_chars: int = 300, **kwargs):
+    """Tool wrapper for grep search."""
+    file_manager, _ = _get_managers()
+    return file_manager.grep_file(file_id, query, is_regex, context_chars)
+
+async def read_uploaded_file_tool(chat_id: str, file_id: str, start_line: int = None, end_line: int = None, page: int = None, **kwargs):
+    """Tool wrapper for line/page reading."""
+    file_manager, _ = _get_managers()
+    return file_manager.read_file_range(file_id, start_line, end_line, page)

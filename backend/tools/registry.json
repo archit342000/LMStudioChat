@@ -1,0 +1,162 @@
+{
+  "get_time": {
+    "type": "pure",
+    "implementation": "backend.tools.time_utils.get_current_time",
+    "description": "Returns the current local date and time."
+  },
+  "visit_page_tool": {
+    "type": "agent",
+    "implementation": "backend.tools.agents.visit_page_agent.agent.flow_fn",
+    "description": "Visits a specific URL and optionally extracts information based on a query."
+  },
+  "manage_user_preferences": {
+    "type": "pure",
+    "implementation": "backend.tools.preferences.manage_user_preferences",
+    "description": "Updates the user profile and preferences store."
+  },
+  "create_fs_file": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.create_fs_file",
+    "description": "Creates a new persistent file."
+  },
+  "create_directory": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.create_directory_tool",
+    "description": "Creates an empty directory."
+  },
+  "delete_directory": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.delete_directory_tool",
+    "description": "Deletes an empty directory."
+  },
+  "replace_fs_text": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.replace_fs_text",
+    "description": "Finds and replaces text in a file."
+  },
+  "replace_fs_lines": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.replace_fs_lines",
+    "description": "Overwrites a line range in a file."
+  },
+  "grep_files": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.grep_files",
+    "description": "Searches across multiple files."
+  },
+  "move_fs_file": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.move_fs_file_tool",
+    "description": "Moves or renames a file."
+  },
+  "delete_fs_file": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.delete_file_system_tool",
+    "description": "Deletes a file."
+  },
+  "read_fs_file": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.read_fs_file",
+    "description": "Reads content from a persistent file."
+  },
+  "request_clarification": {
+    "type": "pure",
+    "implementation": "backend.tools.clarify.request_clarification",
+    "description": "Asks the user for clarification when the prompt is ambiguous or needs more details. Suspends execution until the user responds."
+  },
+  "research": {
+    "type": "agent",
+    "implementation": "backend.tools.agents.research_agent.agent.flow_fn",
+    "description": "Autonomous deep research agent for complex investigations."
+  },
+  "file_system_agent": {
+    "type": "agent",
+    "implementation": "backend.tools.agents.file_system_agent.agent.flow_fn",
+    "description": "Specialized agent for managing files."
+  },
+  "ls_files": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.ls_files_for_tool",
+    "description": "Returns a list of files and directories in a given path."
+  },
+  "patch_file_system": {
+    "type": "pure",
+    "implementation": "backend.file_system.manager.patch_file_system",
+    "description": "Updates file metadata or content by ID."
+  },
+  "search_web": {
+    "type": "agent",
+    "implementation": "backend.tools.agents.search_web_agent.agent.flow_fn",
+    "description": "Executes a web search."
+  },
+  "file_agent": {
+    "type": "agent",
+    "implementation": "backend.tools.agents.file_agent.agent.flow_fn",
+    "description": "Analyzes an uploaded file using RAG or vision."
+  },
+  "file_agent_rag": {
+    "type": "pure",
+    "implementation": "backend.tools.agents.file_agent.tools.file_agent_rag_tool",
+    "description": "Performs a semantic search (RAG) across the chunks of the uploaded file."
+  },
+  "grep_uploaded_file": {
+    "type": "pure",
+    "implementation": "backend.tools.agents.file_agent.tools.grep_uploaded_file_tool",
+    "description": "Performs a literal text or regex search across the raw extracted text of the uploaded file."
+  },
+  "read_uploaded_file": {
+    "type": "pure",
+    "implementation": "backend.tools.agents.file_agent.tools.read_uploaded_file_tool",
+    "description": "Reads a specific range of lines or a specific page from the raw text of the uploaded file."
+  },
+  "manage_task_list": {
+    "type": "pure",
+    "implementation": "backend.tools.tasks.manage_task_list",
+    "description": "Creates, updates, or views a persistent task list/checklist."
+  },
+  "browsing_agent": {
+    "type": "agent",
+    "implementation": "backend.tools.agents.browsing_agent.agent.flow_fn",
+    "description": "Autonomous browsing agent for complex web interaction tasks."
+  },
+  "browser_navigate": {
+    "type": "pure",
+    "implementation": "backend.tools.browser.browser_navigate",
+    "description": "Navigates the browser to a specific URL."
+  },
+  "browser_read_page": {
+    "type": "pure",
+    "implementation": "backend.tools.browser.browser_read_page",
+    "description": "Extracts visible text content from the current page."
+  },
+  "browser_click": {
+    "type": "pure",
+    "implementation": "backend.tools.browser.browser_click",
+    "description": "Clicks an element by CSS selector."
+  },
+  "browser_type": {
+    "type": "pure",
+    "implementation": "backend.tools.browser.browser_type",
+    "description": "Types text into an input."
+  },
+  "browser_scroll": {
+    "type": "pure",
+    "implementation": "backend.tools.browser.browser_scroll",
+    "description": "Scrolls the page up or down."
+  },
+  "browser_get_interactive_elements": {
+    "type": "pure",
+    "implementation": "backend.tools.browser.browser_get_interactive_elements",
+    "description": "Returns a structured list of clickable/typeable elements."
+  },
+  "browser_back": {
+    "type": "pure",
+    "implementation": "backend.tools.browser.browser_back",
+    "description": "Navigates back to the previous page in the browser history."
+  },
+  "browser_screenshot": {
+    "type": "pure",
+    "implementation": "backend.tools.browser.browser_screenshot",
+    "description": "Takes a full-page screenshot of the current page."
+  }
+}

@@ -9,8 +9,7 @@ WORKDIR /app
 COPY tavily_mcp/requirements.txt /app/requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy code
-COPY tavily_mcp /app/tavily_mcp
+
 
 # Set ownership
 RUN chown -R appuser:appgroup /app
