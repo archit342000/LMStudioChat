@@ -162,6 +162,7 @@ Documentation should be updated in the following scenarios:
 * State restoration on failures
 * Sandbox first for complex logic
 * RAG Grid Search: Ensure synthetic testing data is highly discriminative; generic or repetitive data causes zero-recall metric issues.
+* Ignoring `README.md` for Tests: Failing to read the local `README.md` before running tests often leads to collection errors. Many modules (especially `backend/`) require specific environment variables (e.g., `EMBEDDING_URL`, `AI_URL`) and `PYTHONPATH=.` to be set to bypass security/validation checks during testing. Always consult the `🧪 Testing` section of the local README before execution.
 * FK Delete Order in `delete_chat`/`delete_all_chats`: SQLite enforces `PRAGMA foreign_keys=ON` per-statement. Child rows in `file_system_versions` and `file_system_permissions` must be deleted **before** `file_systems`, and all chat-level children before `chats`. Omitting `file_system_permissions` entirely, or deleting in wrong order, raises `sqlite3.IntegrityError: FOREIGN KEY constraint failed` when a chat has file attachments. Always wrap the full delete sequence in a single `BEGIN IMMEDIATE` transaction.
 
 **When to add to this section:**

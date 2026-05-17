@@ -5,7 +5,8 @@ from backend.tools.prompts import (
     SEARCH_AGENT_DIRECTIVES,
     VISIT_PAGE_DIRECTIVES,
     FILE_AGENT_TOOL_DIRECTIVES,
-    MAIN_AI_TASK_DIRECTIVES
+    MAIN_AI_TASK_DIRECTIVES,
+    FILE_SYSTEM_TOOL_DIRECTIVES
 )
 
 def test_prompts_content():
@@ -15,3 +16,4 @@ def test_prompts_content():
     assert "Web Page Reading Tool Rules" in VISIT_PAGE_DIRECTIVES
     assert "File Agent Document Analysis Rules" in FILE_AGENT_TOOL_DIRECTIVES
     assert "Task List & State Tracking" in MAIN_AI_TASK_DIRECTIVES
+    assert "Line Numbers (CRITICAL)" in FILE_SYSTEM_TOOL_DIRECTIVES

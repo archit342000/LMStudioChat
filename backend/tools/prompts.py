@@ -149,6 +149,7 @@ Minimize API round-trips by batching your edits.
 - **Anchoring:** Your `target_text` MUST be an exact, literal substring. Include 2-3 lines of surrounding context to guarantee uniqueness. NEVER use placeholders like `// ...rest`.
 - **Bounds:** Use `start_line`/`end_line` ONLY to disambiguate identical text or for `replace_fs_lines`. Omit them if your `target_text` is unique.
 - **Edit Ordering:** When batching, order edits bottom-to-top. The backend adjusts line numbers between edits, but bottom-to-top ordering makes your intent clearer.
+- **Line Numbers (CRITICAL):** When reading files via `read_fs_file` or `grep_files`, the output is modified to include line numbers before every line (e.g., `1 | <line_content>` or `1: <line_content>`). When using `replace_fs_text`, your `target_text` MUST match the original file content exactly, meaning you MUST REMOVE the line number, pipe/colon separator, and leading space from `target_text`. Similarly, `new_content` (for `replace_fs_text`, `replace_fs_lines`, and `create_fs_file`) MUST contain clean code without any line numbers.
 
 ### Phase 4: The Validation Phase (Mandatory)
 Verify your own work.

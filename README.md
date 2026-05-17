@@ -1,14 +1,14 @@
-# 🌌 My-AI v4.0.0
+# 🌌 My-AI v4.0.1
 
-A high-performance, Multi-Agent AI Workspace natively powered by [llama.cpp](https://github.com/ggerganov/llama.cpp). My-AI seamlessly unifies specialized agents for research, autonomous web browsing, file management, and long-term semantic memory into a single, premium chat interface running entirely on your local hardware.
+A high-performance, Multi-Agent AI Workspace natively powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) for deep autonomy and statful collaboration. My-AI seamlessly unifies specialized agents for research, autonomous web browsing, file attachments, and long-term semantic memory with a virtualized agentic file system, creating a premium chat interface running entirely on local hardware. The multi-agent orchestration offloads complex tasks to transient agents, thus preserving the context window. This allows for long conversations without the AI losing coherence. 
 
 ## ✨ Core Logic & Features
 
 *   **Multi-Agent System**: A unified chat interface that seamlessly routes tasks to specialized agents:
     *   **Research Agent**: A multi-pass autonomous engine that scouts context, designs a research plan, executes targeted searches, and synthesizes reports—operating entirely within the normal chat flow so conversations can continue naturally.
     *   **Autonomous Browsing Agent**: Utilizes a headless Playwright browser for complex, multi-step web interactions and data extraction.
-    *   **Web Search & Visit Page Agents**: Upgraded tools that use an agentic architecture for autonomous summarization, significantly reducing AI context window usage.
-    *   **File System Agent**: Manages a virtualized true file system capable of handling complex file operations, local directories, multi-user workspaces, versioning, and FTS5-based searching.
+    *   **Web Search & Visit Page Agents**: Upgraded tools that use an agentic architecture for autonomous summarization and answering queries, significantly reducing AI context window usage.
+    *   **File System Agent**: Manages a virtualized true file system capable of handling complex file operations (CRUD, search, move) across virtualized paths, ensuring state is preserved across sessions with built-in versioning and concurrency locking. The files in this system can be accessed and organized through the frontend and edited using a built-in code editor with support for version history management.
     *   **Document & File Agent**: Handles user-uploaded files, intelligent file reading, multi-modal analysis, OCR for scanned PDFs, and integrates with the RAG system (Hybrid Search with BM25 + Vector and syntax-aware code chunking) to enable semantic recall.
 *   **Performance Profiling**: Built-in LLM benchmarking tool to measure TTFT and TPS directly from the UI.
 *   **Multimodal VLM Support**: Native handling of vision payloads for image analysis, OCR, and scene description.
@@ -71,7 +71,7 @@ My-AI utilizes the **Model Context Protocol (MCP)** to isolate external tool exe
 
 ## 📄 License & Versioning
 This project follows [SemVer v2.0.0](https://semver.org/).  
-**Current Version**: `v4.0.0` (Agentic Intelligence & Modular Refactor).
+**Current Version**: `v4.0.1`.
 
 ## 📄 Core Files
 | File | Purpose | Key Symbols/Exports |

@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v4.0.1
+* **File System Tools Directives Refinement**: Update file system tools directives to explicitly state that the line numbers attached to the read tools results are not part of the content.
+* **Version Bump**: Incremented version to 4.0.1.
+
 ## v4.0.0
 * **Multi-Agent Architecture**: Implemented a comprehensive multi-agent system for specialized task handling, including dedicated agents for file systems, browsing, and research.
 * **File System Agent**: Upgraded the simple canvas agent to a true File System Agent capable of managing local directories and files with high precision.
