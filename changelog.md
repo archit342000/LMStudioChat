@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v4.1.1
+* **Background Animation Refinement**: Replaced CSS variable references (`var(--accent)` and `var(--accent-light)`) with direct hex color codes (`#3B82F6` and `#60A5FA`) in `static/js/bg-animation.js` to prevent Canvas 2D context parsing failures and eliminate the per-frame particle glittering effect.
+* **Version Bump**: Incremented version globally to 4.1.1.
+
 ## v4.1.0
 * **Playwright Fixes**: Resolved issues with stale Chromium SingletonLock files by implementing an automated cleanup in the entrypoint, ensuring reliable browser startup across container restarts.
 * **Improved Markdown Formatting**: 
