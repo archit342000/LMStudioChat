@@ -8,6 +8,14 @@ export DISPLAY=:99
 rm -f /tmp/.X99-lock
 rm -f /tmp/.X11-unix/X99
 
+# Clean up stale Chromium SingletonLock files from persistent profiles.
+# These are symlinks referencing old container hostnames that prevent Chromium
+# from starting after a container is recreated (new hostname).
+echo "Cleaning stale Chromium profile locks..."
+for profile_dir in /app/playwright_data/portal_profile /app/playwright_data/default_profile; do
+    rm -f "$profile_dir/SingletonLock" "$profile_dir/SingletonCookie" "$profile_dir/SingletonSocket" 2>/dev/null
+done
+
 # Start Virtual Framebuffer with access control disabled
 echo "Starting Xvfb on DISPLAY=:99..."
 Xvfb :99 -screen 0 1920x1080x24 -ac &

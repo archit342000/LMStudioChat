@@ -19,8 +19,7 @@ RUN apt-get update && apt-get install -y \
 # Ensure X11 sockets directory exists with correct permissions
 RUN mkdir -p /tmp/.X11-unix && chmod 1777 /tmp/.X11-unix
 
-# Create user
-RUN groupadd -r appgroup && useradd -r -g appgroup -m -d /app appuser
+# Use the existing pwuser (UID 1000, GID 1000) from the base image
 
 WORKDIR /app
 
@@ -31,9 +30,9 @@ RUN pip install --no-cache-dir -r requirements.txt
 
 
 # Set ownership
-RUN chown -R appuser:appgroup /app
+RUN chown -R pwuser:pwuser /app
 
-USER appuser
+USER pwuser
 
 EXPOSE 8001 6080
 
