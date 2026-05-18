@@ -33,9 +33,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     const colors = [
       "#2563EB", // Higher contrast Blue
-      "#3B82F6", // Brighter Blue
+      "var(--accent)", // Brighter Blue
       "#1E40AF", // Deep Ocean Blue
-      "#60A5FA", // Sky Blue
+      "var(--accent-light)", // Sky Blue
       "#DBEAFE", // High contrast White-Blue for Dark mode
     ];
 

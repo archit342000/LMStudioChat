@@ -56,14 +56,197 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       const validLanguage = hljs.getLanguage(langVal) ? langVal : "plaintext";
+      
+      if (langVal === 'mermaid') {
+        // Escape HTML to prevent DOMPurify from breaking diagram code (like `<` or `>`)
+        const escaped = typeof escapeHtml === 'function' ? escapeHtml(textVal) : textVal.replace(/</g, '&lt;').replace(/>/g, '&gt;');
+        return `<pre class="mermaid">${escaped}</pre>`;
+      }
+
       const highlighted = hljs.highlight(textVal, {
         language: validLanguage,
       }).value;
-      return `<pre><code class="hljs language-${validLanguage}">${highlighted}</code></pre>`;
+      const encodedCode = typeof escapeHtml === 'function' ? escapeHtml(textVal) : textVal.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      return `<div class="code-block-wrapper">
+                <div class="code-block-header">
+                  <span class="code-block-lang">${validLanguage}</span>
+                  <button class="action-btn copy-code-btn" data-code="${encodeURIComponent(textVal)}" title="Copy code">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                    <span>Copy</span>
+                  </button>
+                </div>
+                <pre><code class="hljs language-${validLanguage}">${highlighted}</code></pre>
+              </div>`;
+    };
+
+    renderer.image = function(href, title, text) {
+      if (typeof href === "object" && href !== null && typeof href.href === "string") {
+        text = href.text;
+        title = href.title;
+        href = href.href;
+      }
+      
+      let out = `<img src="${href}" alt="${text || ''}" class="markdown-image lightbox-img" loading="lazy" ${title ? `title="${title}"` : ''} />`;
+      if (title || text) {
+        out = `<figure class="markdown-figure">${out}<figcaption class="markdown-caption">${title || text}</figcaption></figure>`;
+      }
+      return out;
+    };
+
+    renderer.blockquote = function(quote) {
+      let textVal = quote;
+      if (typeof quote === "object" && quote !== null && typeof quote.text === "string") {
+        textVal = quote.text;
+      }
+      
+      const match = textVal.match(/^<p>\[!(NOTE|WARNING|IMPORTANT|CAUTION|TIP)\](?:<br>|\n)?([\s\S]*)$/i);
+      if (match) {
+        const type = match[1].toLowerCase();
+        let content = match[2];
+        if (content.endsWith('</p>\n')) {
+           content = content.slice(0, -5) + '</p>';
+        }
+        
+        const icons = {
+          note: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>',
+          warning: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.396A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.557Zm1.763 1.27a.25.25 0 0 0-.44 0L1.698 13.713a.25.25 0 0 0 .22.387h12.164a.25.25 0 0 0 .22-.387Zm0 2.433a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5v-3.5a.75.75 0 0 1 .75-.75Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>',
+          important: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v9.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.573 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.75.75 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-9.5a.25.25 0 0 0-.25-.25Zm7 2.25v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>',
+          caution: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M4.47.22A.749.749 0 0 1 5 0h6c.199 0 .389.079.53.22l4.25 4.25c.141.14.22.331.22.53v6a.749.749 0 0 1-.22.53l-4.25 4.25A.749.749 0 0 1 11 16H5a.749.749 0 0 1-.53-.22L.22 11.53A.749.749 0 0 1 0 11V5c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.31v5.38l3.81 3.81h5.38l3.81-3.81V5.31L10.69 1.5ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>',
+          tip: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.843a5.314 5.314 0 0 1-.675-.848 5.463 5.463 0 0 1-.215-.254C3.176 7.674 2.5 6.641 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.391-.676 2.424-1.248 3.161l-.215.254a5.314 5.314 0 0 1-.675.848c-.207.296-.33.561-.37.843a.75.75 0 0 1-1.484-.21c.084-.594.337-1.079.621-1.49.203-.292.45-.584.673-.848.075-.088.147-.173.214-.253.56-.679.984-1.32.984-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"></path></svg>'
+        };
+
+        const icon = icons[type] || icons.note;
+        return `<blockquote class="markdown-alert markdown-alert-${type}">
+                  <div class="markdown-alert-title">
+                      ${icon}
+                      <span>${match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase()}</span>
+                  </div>
+                  <div class="markdown-alert-content">${content}</div>
+                </blockquote>\n`;
+      }
+      return `<blockquote>\n${textVal}</blockquote>\n`;
+    };
+    
+    renderer.listitem = function(item) {
+      // marked v18: item.text is raw markdown. Must render from item.tokens.
+      let textVal;
+      if (item.tokens && this.parser) {
+        textVal = this.parser.parse(item.tokens, !!item.loose);
+      } else {
+        textVal = item.text;
+      }
+
+      if (item.task) {
+        // For task items, render inline to avoid paragraph wrapping
+        let taskContent;
+        if (item.tokens && this.parser) {
+          taskContent = this.parser.parseInline(item.tokens);
+        } else {
+          taskContent = item.text;
+        }
+        return `<li class="task-list-item" style="list-style-type: none; margin-left: -1.5rem; display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.25rem;">
+                  <input type="checkbox" class="task-list-item-checkbox" ${item.checked ? 'checked' : ''} disabled style="margin-top: 0.25rem;">
+                  <span>${taskContent}</span>
+                </li>\n`;
+      }
+      return `<li>${textVal}</li>\n`;
+    };
+
+    renderer.link = function(link) {
+      let href = link.href;
+      let text = link.text;
+      if (typeof link === "object" && link !== null && typeof link.href === "string") {
+        href = link.href;
+        text = link.text;
+      }
+      
+      if (href && !/^https?:\/\//i.test(href) && !href.startsWith('/') && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
+        return `<a href="${href}" class="file-link" data-path="${href}" title="Open file in workspace">${text}</a>`;
+      }
+      
+      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
     };
 
     if (marked.use) {
       marked.use({ renderer });
+      
+      // Advanced Markdown Extensions
+      const subscript = {
+        name: 'subscript',
+        level: 'inline',
+        start(src) { return src.match(/~(?=\S)/)?.index; },
+        tokenizer(src, tokens) {
+          const rule = /^~((?:\\.|[^~])+)~/;
+          const match = rule.exec(src);
+          if (match) {
+            return {
+              type: 'subscript',
+              raw: match[0],
+              text: match[1],
+              tokens: this.lexer.inlineTokens(match[1])
+            };
+          }
+        },
+        renderer(token) {
+          return `<sub>${this.parser.parseInline(token.tokens)}</sub>`;
+        }
+      };
+
+      const superscript = {
+        name: 'superscript',
+        level: 'inline',
+        start(src) { return src.match(/\^(?=\S)/)?.index; },
+        tokenizer(src, tokens) {
+          const rule = /^\^((?:\\.|[^\^])+)\^/;
+          const match = rule.exec(src);
+          if (match) {
+            return {
+              type: 'superscript',
+              raw: match[0],
+              text: match[1],
+              tokens: this.lexer.inlineTokens(match[1])
+            };
+          }
+        },
+        renderer(token) {
+          return `<sup>${this.parser.parseInline(token.tokens)}</sup>`;
+        }
+      };
+
+      const strikethrough = {
+        name: 'strikethrough',
+        level: 'inline',
+        start(src) { return src.match(/~~(?=\S)/)?.index; },
+        tokenizer(src, tokens) {
+          const rule = /^~~((?:\\.|[^~])+)~~/;
+          const match = rule.exec(src);
+          if (match) {
+            return {
+              type: 'strikethrough',
+              raw: match[0],
+              text: match[1],
+              tokens: this.lexer.inlineTokens(match[1])
+            };
+          }
+        },
+        renderer(token) {
+          return `<del>${this.parser.parseInline(token.tokens)}</del>`;
+        }
+      };
+
+      marked.use({ extensions: [subscript, superscript, strikethrough] });
+
+      if (typeof markedFootnote !== 'undefined') {
+        marked.use(markedFootnote());
+      }
+
+      // Add KaTeX extension
+      if (typeof markedKatex !== 'undefined') {
+        marked.use(markedKatex({
+            throwOnError: false,
+            nonStandard: true
+        }));
+      }
     } else {
       marked.setOptions({ renderer });
     }
@@ -733,10 +916,11 @@ document.addEventListener("DOMContentLoaded", () => {
     if (isMarkdown) {
       fileSystemPreviewContainer.style.padding = "2rem";
       if (typeof marked !== "undefined") {
-        let htmlContent = DOMPurify.sanitize(marked.parse(content || ""));
+        let htmlContent = formatMarkdown(content || "");
         // Remove 'disabled' attribute from checkboxes to allow interaction
         htmlContent = htmlContent.replace(/<input([^>]*?)disabled([^>]*?)>/gi, '<input$1$2>');
         fileSystemPreviewContainer.innerHTML = htmlContent;
+        setTimeout(renderMermaidBlocks, 100);
 
         // Add event listeners to checkboxes to persist state
         const checkboxes = fileSystemPreviewContainer.querySelectorAll('input[type="checkbox"]');
@@ -1702,6 +1886,9 @@ document.addEventListener("DOMContentLoaded", () => {
         preferencesToggleSwitch.classList.toggle("active", isUserPreferences);
 
       renderChatList();
+      
+      // Render mermaid blocks that may be in the history
+      setTimeout(renderMermaidBlocks, 100);
 
       // Resume detection: show banner if backend flags resume_needed
       // and no task is currently running (prevents double-trigger)
@@ -2128,7 +2315,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="chat-list-item-title" style="display: flex; align-items: center; gap: 6px; overflow: hidden; white-space: nowrap; flex: 1; min-width: 0; width: 100%;">
                 <span style="overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; flex: 1; min-width: 0;">${escapeHtml(displayTitle)}</span>
                 ${chat.is_vision ? `<span style="font-size: 0.6rem; font-weight: 500; letter-spacing: 0.02em; padding: 1px 4px; background: rgba(6, 182, 212, 0.1); color: var(--brand-accent-1); border-radius: 4px; border: 1px solid rgba(6, 182, 212, 0.2); flex-shrink: 0;">Vision</span>` : ""}
-                ${chat.research_mode ? `<span style="font-size: 0.6rem; font-weight: 500; letter-spacing: 0.02em; padding: 1px 4px; background: rgba(59, 130, 246, 0.1); color: #3b82f6; border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2); flex-shrink: 0;">Research</span>` : ""}
+                ${chat.research_mode ? `<span style="font-size: 0.6rem; font-weight: 500; letter-spacing: 0.02em; padding: 1px 4px; background: rgba(59, 130, 246, 0.1); color: var(--accent); border-radius: 4px; border: 1px solid rgba(59, 130, 246, 0.2); flex-shrink: 0;">Research</span>` : ""}
             </div>
         `;
 
@@ -2767,9 +2954,9 @@ document.addEventListener("DOMContentLoaded", () => {
       cancelBtn.style.display = type === "alert" ? "none" : "flex";
 
       if (isDanger) {
-        confirmBtn.style.background = "#ef4444";
-        confirmBtn.style.borderColor = "#ef4444";
-        iconContainer.style.color = "#ef4444";
+        confirmBtn.style.background = "var(--color-rose)";
+        confirmBtn.style.borderColor = "var(--color-rose)";
+        iconContainer.style.color = "var(--color-rose)";
         confirmBtn.style.color = "white";
       } else {
         confirmBtn.style.background = "";
@@ -2850,6 +3037,35 @@ document.addEventListener("DOMContentLoaded", () => {
 
   async function showAlert(title, message) {
     return await showModal(title, message, { type: "alert" });
+  }
+
+  function showLightbox(src, alt) {
+    let lightbox = document.getElementById("lightbox-modal");
+    if (!lightbox) {
+      lightbox = document.createElement("div");
+      lightbox.id = "lightbox-modal";
+      lightbox.className = "lightbox-modal";
+      lightbox.innerHTML = `
+        <div class="lightbox-close">&times;</div>
+        <img class="lightbox-content" id="lightbox-img-element">
+        <div class="lightbox-caption" id="lightbox-caption-element"></div>
+      `;
+      document.body.appendChild(lightbox);
+      
+      lightbox.addEventListener('click', (e) => {
+        if (e.target !== document.getElementById('lightbox-img-element')) {
+          lightbox.classList.remove('open');
+        }
+      });
+    }
+    
+    const imgEl = document.getElementById('lightbox-img-element');
+    const capEl = document.getElementById('lightbox-caption-element');
+    imgEl.src = src;
+    imgEl.alt = alt || '';
+    capEl.textContent = alt || '';
+    
+    lightbox.classList.add('open');
   }
 
   /**
@@ -4771,8 +4987,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const tagColorMap = {
         user_preference: "var(--color-primary-500)",
         user_profile: "var(--brand-accent-1)",
-        environment_global: "#10b981",
-        explicit_fact: "#f59e0b",
+        environment_global: "var(--color-emerald)",
+        explicit_fact: "var(--color-amber)",
       };
       const tagColor = tagColorMap[mem.tag] || "var(--content-muted)";
 
@@ -5824,7 +6040,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   mainWrapper.innerHTML = `<span style="color: var(--color-rose-500)">Database transaction failed: ${json.message}</span>`;
                 } else {
                   // Validation fix - show correcting indicator
-                  mainWrapper.innerHTML = `<div class="validation-fixing" style="display: flex; align-items: center; gap: 0.75rem; padding: 1rem; color: var(--content-secondary); font-style: italic;">
+                  mainWrapper.innerHTML = `<div class="validation-fixing" style="display: flex; align-items: center; gap: 0.75rem; padding: 1rem; color: var(--content-muted); font-style: italic;">
                                         <span class="processing-spinner"></span>
                                         <span>${json.message || "Correcting formatting..."}</span>
                                     </div>`;
@@ -6113,6 +6329,9 @@ document.addEventListener("DOMContentLoaded", () => {
       isGenerating = false;
       currentAbortController = null;
       updateUIState(false);
+      
+      // Render any mermaid diagrams now that streaming is complete
+      setTimeout(renderMermaidBlocks, 100);
 
       if (isResearchMode) updateResearchUI();
       if (activityFeed) {
@@ -6158,6 +6377,54 @@ document.addEventListener("DOMContentLoaded", () => {
           }
         }
       }
+      return;
+    }
+
+    // File deep links
+    const fileLink = e.target.closest('.file-link');
+    if (fileLink) {
+      e.preventDefault();
+      const path = fileLink.getAttribute('data-path');
+      
+      // Attempt to locate file in current workspace
+      if (_allFileSystems && _allFileSystems.length > 0) {
+        const file = _allFileSystems.find(f => (f.filename || f.title) === path);
+        if (file) {
+          loadFileSystem(file.id, file.workspace_id || currentFileSystemWorkspaceId);
+        } else {
+          console.warn('File not found in current workspace:', path);
+          // If we had a mechanism to open file by path alone, we'd use it here.
+          // For now, we fall back to a visual alert or do nothing.
+          showAlert("File Not Found", `The file ${path} was not found in the current workspace's artifact tree.`);
+        }
+      }
+      return;
+    }
+
+    // Code Copy Button
+    const copyCodeBtn = e.target.closest('.copy-code-btn');
+    if (copyCodeBtn) {
+      e.preventDefault();
+      const codeToCopy = decodeURIComponent(copyCodeBtn.getAttribute('data-code'));
+      navigator.clipboard.writeText(codeToCopy).then(() => {
+        const originalHtml = copyCodeBtn.innerHTML;
+        copyCodeBtn.innerHTML = `<svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg> <span>Copied!</span>`;
+        copyCodeBtn.classList.add('copied');
+        setTimeout(() => {
+          copyCodeBtn.innerHTML = originalHtml;
+          copyCodeBtn.classList.remove('copied');
+        }, 2000);
+      });
+      return;
+    }
+
+    // Lightbox Image
+    const lightboxImg = e.target.closest('.lightbox-img');
+    if (lightboxImg) {
+      e.preventDefault();
+      const src = lightboxImg.getAttribute('src');
+      const alt = lightboxImg.getAttribute('alt') || lightboxImg.getAttribute('title');
+      showLightbox(src, alt);
       return;
     }
 
@@ -6260,7 +6527,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (textToCopy) {
         navigator.clipboard.writeText(textToCopy).then(() => {
           const originalHTML = copyBtn.innerHTML;
-          copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+          copyBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-emerald)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
           setTimeout(() => (copyBtn.innerHTML = originalHTML), 2000);
         });
       }
@@ -6512,6 +6779,16 @@ document.addEventListener("DOMContentLoaded", () => {
   ); // Use capture phase because 'load' doesn't bubble
 
   let lastScrollTime = 0;
+  function renderMermaidBlocks() {
+    if (typeof mermaid !== 'undefined') {
+      try {
+        mermaid.run({ querySelector: '.mermaid' });
+      } catch (e) {
+        console.warn("Mermaid rendering failed or no elements found.", e);
+      }
+    }
+  }
+
   /**
    * Orchestrates container scrolling with smart behavior.
    * Prevents autoscroll if the user has manually scrolled up to read earlier history.
@@ -6642,7 +6919,7 @@ document.addEventListener("DOMContentLoaded", () => {
                   .map(
                     (
                       f,
-                    ) => `<div class="file-attachment-pill" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--bg-secondary); border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 0.75rem;">
+                    ) => `<div class="file-attachment-pill" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--surface-secondary); border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 0.75rem;">
                     <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
                     <span>${escapeHtml(f.name || f.filename || f.original_filename || "File")}</span>
                 </div>`,
@@ -7279,9 +7556,9 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (type === "event") {
       return `
                 <div class="activity-item event-divider" data-role="event" data-timestamp="${timestamp}" style="display: flex; align-items: center; justify-content: center; margin: 1.5rem 0; gap: 1rem;">
-                    <div style="flex: 1; height: 1px; background-color: var(--border-color, #e5e7eb);"></div>
-                    <span class="event-text" style="color: var(--content-secondary); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;" data-raw="${escapeHtml(content)}">${escapeHtml(content)}</span>
-                    <div style="flex: 1; height: 1px; background-color: var(--border-color, #e5e7eb);"></div>
+                    <div style="flex: 1; height: 1px; background-color: var(--border-subtle, var(--border-subtle));"></div>
+                    <span class="event-text" style="color: var(--content-muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;" data-raw="${escapeHtml(content)}">${escapeHtml(content)}</span>
+                    <div style="flex: 1; height: 1px; background-color: var(--border-subtle, var(--border-subtle));"></div>
                 </div>
             `;
     } else {
@@ -8587,7 +8864,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     let typeBadge = "";
     if (file_system.language && file_system.language !== "markdown") {
-      typeBadge = `<span class="type-badge" style="background: var(--surface-2); color: var(--content-secondary); border: 1px solid var(--border);">${escapeHtml(file_system.language)}</span>`;
+      typeBadge = `<span class="type-badge" style="background: var(--surface-2); color: var(--content-muted); border: 1px solid var(--border);">${escapeHtml(file_system.language)}</span>`;
     }
 
     // Build snippet — highlight search match if present
@@ -8648,7 +8925,7 @@ document.addEventListener("DOMContentLoaded", () => {
             <div class="file-system-item-actions">
                 ${downloadButton}
                 <button class="file-system-action-btn delete-btn" title="Delete Artifact">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-rose)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>
                 </button>
             </div>
         `;
@@ -9654,7 +9931,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (currentFileSystemContentRaw) {
         navigator.clipboard.writeText(currentFileSystemContentRaw).then(() => {
           const originalBtn = fileSystemPanelCopyBtn.innerHTML;
-          fileSystemPanelCopyBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+          fileSystemPanelCopyBtn.innerHTML = `<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="var(--color-emerald)" stroke-width="2.5"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
           setTimeout(() => (fileSystemPanelCopyBtn.innerHTML = originalBtn), 2000);
         });
       }
@@ -10203,7 +10480,7 @@ document.addEventListener("DOMContentLoaded", () => {
         // Toast feedback
         const toast = document.createElement("div");
         toast.className = "toast-notification";
-        toast.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#10b981" stroke-width="2.5"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg> Restored to v${versionNumber}`;
+        toast.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-emerald)" stroke-width="2.5"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg> Restored to v${versionNumber}`;
         document.body.appendChild(toast);
         setTimeout(() => toast.classList.add("show"), 10);
         setTimeout(() => {
@@ -10742,9 +11019,9 @@ document.addEventListener("DOMContentLoaded", () => {
     } else if (item.type === "event" || item.type === "status") {
       activityFeed.innerHTML += `
                 <div class="activity-item event-divider" data-role="event" style="display: flex; align-items: center; justify-content: center; margin: 1.5rem 0; gap: 1rem;">
-                    <div style="flex: 1; height: 1px; background-color: var(--border-color, #e5e7eb);"></div>
-                    <span class="event-text" style="color: var(--content-secondary); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${escapeHtml(item.content)}</span>
-                    <div style="flex: 1; height: 1px; background-color: var(--border-color, #e5e7eb);"></div>
+                    <div style="flex: 1; height: 1px; background-color: var(--border-subtle, var(--border-subtle));"></div>
+                    <span class="event-text" style="color: var(--content-muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${escapeHtml(item.content)}</span>
+                    <div style="flex: 1; height: 1px; background-color: var(--border-subtle, var(--border-subtle));"></div>
                 </div>`;
     }
   }

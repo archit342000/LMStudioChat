@@ -160,7 +160,10 @@ function formatMarkdown(text) {
     }
 
     if (typeof DOMPurify !== 'undefined') {
-        return DOMPurify.sanitize(html);
+        return DOMPurify.sanitize(html, {
+            USE_PROFILES: { html: true, mathMl: true, svg: true },
+            ADD_ATTR: ['target', 'aria-hidden', 'xmlns', 'encoding']
+        });
     }
 
     console.error('DOMPurify unavailable. Using defensive escaping.');

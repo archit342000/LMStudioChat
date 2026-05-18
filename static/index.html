@@ -9,6 +9,12 @@
     <meta name="description" content="A premium AI chat interface with atmospheric glass design.">
     <link rel="stylesheet" href="/styles.css">
     <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.47/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked-katex-extension@5.1.8/lib/index.umd.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked-footnote@1.2.4/dist/index.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mermaid@10.9.1/dist/mermaid.min.js"></script>
+    <script>mermaid.initialize({ startOnLoad: false, theme: 'dark' });</script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.9/purify.min.js"></script>
     <link id="highlight-theme" rel="stylesheet"
         href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css">
@@ -40,8 +46,8 @@
                     <svg class="sidebar-logo-icon" width="22" height="22" viewBox="0 0 32 32" fill="none">
                         <defs>
                             <linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1">
-                                <stop offset="0" stop-color="#3B82F6" />
-                                <stop offset="1" stop-color="#1D4ED8" />
+                                <stop offset="0" stop-color="var(--accent)" />
+                                <stop offset="1" stop-color="var(--accent-hover)" />
                             </linearGradient>
                         </defs>
                         <path d="M16 2L26 12L16 30L6 12Z" fill="url(#brand-grad)" opacity="0.9" />
@@ -871,7 +877,7 @@
                     <!-- Breadcrumbs injected here -->
                 </div>
 
-                <div id="file-explorer-list" class="custom-scroll" style="max-height: 250px; min-height: 100px; overflow-y: auto; margin-bottom: 1rem; border: 1px solid var(--border-color); border-radius: 6px; padding: 0.25rem;">
+                <div id="file-explorer-list" class="custom-scroll" style="max-height: 250px; min-height: 100px; overflow-y: auto; margin-bottom: 1rem; border: 1px solid var(--border-subtle); border-radius: 6px; padding: 0.25rem;">
                     <!-- Folder list injected here -->
                 </div>
 
@@ -931,12 +937,12 @@
                     Are you sure you want to proceed?</p>
                 <div id="confirm-input-container" class="hidden" style="margin-bottom: 2rem;">
                     <input type="text" id="confirm-input" class="modern-input" 
-                        style="width: 100%; height: 3.5rem; border-radius: 14px; background: var(--bg-secondary); border: 2px solid var(--border-subtle); padding: 0 1.25rem; font-size: 1rem; color: var(--content-primary); transition: all 0.2s; margin-bottom: 1rem;"
+                        style="width: 100%; height: 3.5rem; border-radius: 14px; background: var(--surface-secondary); border: 2px solid var(--border-subtle); padding: 0 1.25rem; font-size: 1rem; color: var(--content-primary); transition: all 0.2s; margin-bottom: 1rem;"
                         placeholder="Enter value...">
                         
                     <div id="confirm-extension-container" class="hidden" style="text-align: left;">
                         <label style="display: block; font-size: 0.85rem; color: var(--content-muted); margin-bottom: 0.5rem; padding-left: 0.25rem;">File Extension:</label>
-                        <select id="confirm-extension-select" class="modern-input" style="width: 100%; height: 3.5rem; border-radius: 14px; background: var(--bg-secondary); border: 2px solid var(--border-subtle); padding: 0 1.25rem; font-size: 1rem; color: var(--content-primary); cursor: pointer; transition: all 0.2s; appearance: none;">
+                        <select id="confirm-extension-select" class="modern-input" style="width: 100%; height: 3.5rem; border-radius: 14px; background: var(--surface-secondary); border: 2px solid var(--border-subtle); padding: 0 1.25rem; font-size: 1rem; color: var(--content-primary); cursor: pointer; transition: all 0.2s; appearance: none;">
                             <option value=".md">Markdown (.md)</option>
                             <option value=".py">Python (.py)</option>
                             <option value=".js">JavaScript (.js)</option>
@@ -1087,7 +1093,7 @@
             <div class="file-system-header" style="min-height: 4.5rem; flex-shrink: 0; padding: 0.75rem 1.5rem 0.75rem 2rem; border-bottom: 1px solid var(--border-subtle); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 0.75rem; background: var(--bg-primary);">
                 <div style="display: flex; align-items: center; gap: 1rem; overflow: hidden; flex: 1; min-width: 250px;">
                     <h2 id="file-system-panel-title" class="file-system-title font-heading" style="margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-size: 1.15rem;">Untitled File</h2>
-                    <div id="language-badge" class="badge hidden" style="background: var(--surface-2); color: var(--content-secondary); border: 1px solid var(--border-subtle); font-size: 0.65rem; padding: 2px 8px; text-transform: uppercase; border-radius: 6px; font-weight: 600;">TXT</div>
+                    <div id="language-badge" class="badge hidden" style="background: var(--surface-2); color: var(--content-muted); border: 1px solid var(--border-subtle); font-size: 0.65rem; padding: 2px 8px; text-transform: uppercase; border-radius: 6px; font-weight: 600;">TXT</div>
                     <div id="version-badge" class="badge hidden" style="background: var(--accent-subtle); color: var(--accent); border: 1px solid var(--accent-border); font-size: 0.65rem; padding: 1px 6px;">V1</div>
 
                     <!-- Code/Preview Toggle (Directive: View Switcher) -->

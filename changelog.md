@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v4.1.0
+* **Playwright Fixes**: Resolved issues with stale Chromium SingletonLock files by implementing an automated cleanup in the entrypoint, ensuring reliable browser startup across container restarts.
+* **Improved Markdown Formatting**: 
+    - Enhanced the chat interface with rich rendering for images (with captions), blockquotes (with GitHub-style alerts), and task lists.
+    - Integrated advanced code block management with syntax highlighting, language headers, and a dedicated copy-to-clipboard feature.
+    - Added lightbox support for images and refined typography for a more polished reading experience.
+* **Version Bump**: Incremented version to 4.1.0.
+
 ## v4.0.1
 * **File System Tools Directives Refinement**: Update file system tools directives to explicitly state that the line numbers attached to the read tools results are not part of the content.
 * **Version Bump**: Incremented version to 4.0.1.
