@@ -3,13 +3,14 @@ import pytest
 from unittest.mock import patch, MagicMock
 from flask import Flask
 
-from backend.chat.router import chat_bp, openai_bp
+from backend.chat.router import chat_bp, openai_bp, personas_bp
 
 @pytest.fixture
 def app():
     app = Flask(__name__)
     app.register_blueprint(chat_bp, url_prefix='/api/chats')
     app.register_blueprint(openai_bp, url_prefix='/v1/chat')
+    app.register_blueprint(personas_bp, url_prefix='/api')
     return app
 
 @pytest.fixture
@@ -418,3 +419,83 @@ def test_discard_research_endpoint(mock_remove, mock_exists, mock_response_cache
 def test_subscribe(): pass
 def test_run_gen(): pass
 def test_generate_stream(): pass
+
+
+# =============================================================================
+# Persona route tests
+# =============================================================================
+
+@patch('backend.chat.router.db')
+def test_get_personas(mock_db, client):
+    mock_db.get_all_personas.return_value = [
+        {"id": "p1", "name": "Assistant", "content": "Be helpful.", "is_default": 0}
+    ]
+    response = client.get('/api/personas')
+    assert response.status_code == 200
+    data = response.json
+    assert data["success"] is True
+    assert len(data["personas"]) == 1
+    assert data["personas"][0]["id"] == "p1"
+
+
+@patch('backend.chat.router.db')
+def test_create_persona(mock_db, client):
+    # Missing fields
+    response = client.post('/api/personas', json={"name": "Only Name"})
+    assert response.status_code == 400
+    assert response.json["success"] is False
+
+    response = client.post('/api/personas', json={"content": "Only Content"})
+    assert response.status_code == 400
+
+    # Success
+    mock_db.create_persona.return_value = {
+        "id": "p1", "name": "Pirate", "content": "Arr!", "is_default": 0
+    }
+    response = client.post('/api/personas', json={"name": "Pirate", "content": "Arr!"})
+    assert response.status_code == 201
+    data = response.json
+    assert data["success"] is True
+    assert data["persona"]["name"] == "Pirate"
+    mock_db.create_persona.assert_called_with("Pirate", "Arr!", 0)
+
+
+@patch('backend.chat.router.db')
+def test_update_persona(mock_db, client):
+    # Missing fields
+    response = client.put('/api/personas/p1', json={"name": "Only Name"})
+    assert response.status_code == 400
+
+    # Not found
+    mock_db.update_persona.return_value = False
+    response = client.put('/api/personas/p1', json={"name": "A", "content": "B"})
+    assert response.status_code == 404
+    assert response.json["success"] is False
+
+    # Success
+    mock_db.update_persona.return_value = True
+    mock_db.get_persona.return_value = {
+        "id": "p1", "name": "Updated", "content": "New prompt", "is_default": 1
+    }
+    response = client.put('/api/personas/p1', json={"name": "Updated", "content": "New prompt", "is_default": 1})
+    assert response.status_code == 200
+    data = response.json
+    assert data["success"] is True
+    assert data["persona"]["name"] == "Updated"
+    mock_db.update_persona.assert_called_with("p1", "Updated", "New prompt", 1)
+
+
+@patch('backend.chat.router.db')
+def test_delete_persona(mock_db, client):
+    # Not found
+    mock_db.delete_persona.return_value = False
+    response = client.delete('/api/personas/p1')
+    assert response.status_code == 404
+    assert response.json["success"] is False
+
+    # Success
+    mock_db.delete_persona.return_value = True
+    response = client.delete('/api/personas/p1')
+    assert response.status_code == 200
+    assert response.json == {"success": True}
+    mock_db.delete_persona.assert_called_with("p1")

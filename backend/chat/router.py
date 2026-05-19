@@ -103,6 +103,7 @@ def save_chat_endpoint():
         max_tokens=max_tokens,
         thinking_budget_tokens=thinking_budget_tokens,
         workspace_id=data.get('workspace_id'),
+        persona_id=data.get('persona_id'),
         research_completed=data.get('research_completed', 0),
         file_system_mode=1 if file_system_mode else 0,
         browsing_mode=1 if browsing_mode else 0,
@@ -590,7 +591,61 @@ def discard_research_endpoint(chat_id):
 
     return jsonify({"success": True})
 
-# Removed obsolete sse_chunks endpoint. 
+# Removed obsolete sse_chunks endpoint.
 # Active fragments are delivered via the woven history endpoint.
 
 # History is delivered via the woven history endpoint.
+
+
+# =============================================================================
+# PERSONA MANAGEMENT (Route Prefix: /api)
+# =============================================================================
+
+personas_bp = Blueprint('personas', __name__)
+
+
+@personas_bp.route('/personas', methods=['GET'])
+def get_personas():
+    personas = db.get_all_personas()
+    return jsonify({"success": True, "personas": personas})
+
+
+@personas_bp.route('/personas', methods=['POST'])
+def create_persona():
+    data = request.json
+    name = data.get('name')
+    content = data.get('content')
+    is_default = data.get('is_default', 0)
+
+    if not name or not content:
+        return jsonify({"success": False, "error": "Name and content are required"}), 400
+
+    persona = db.create_persona(name, content, is_default)
+    return jsonify({"success": True, "persona": persona}), 201
+
+
+@personas_bp.route('/personas/<persona_id>', methods=['PUT'])
+def update_persona(persona_id):
+    data = request.json
+    name = data.get('name')
+    content = data.get('content')
+    is_default = data.get('is_default', 0)
+
+    if not name or not content:
+        return jsonify({"success": False, "error": "Name and content are required"}), 400
+
+    success = db.update_persona(persona_id, name, content, is_default)
+    if not success:
+        return jsonify({"success": False, "error": "Persona not found"}), 404
+
+    persona = db.get_persona(persona_id)
+    return jsonify({"success": True, "persona": persona})
+
+
+@personas_bp.route('/personas/<persona_id>', methods=['DELETE'])
+def delete_persona(persona_id):
+    success = db.delete_persona(persona_id)
+    if not success:
+        return jsonify({"success": False, "error": "Persona not found"}), 404
+    return jsonify({"success": True})
+

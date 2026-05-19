@@ -30,7 +30,7 @@ from backend.files import FileManager, files_bp
 from backend.task_manager import task_manager
 from backend.database import response_cache as cache_system
 from backend.version import get_version, VERSION_MAJOR, VERSION_MINOR, VERSION_PATCH
-from backend.chat.router import chat_bp, openai_bp
+from backend.chat.router import chat_bp, openai_bp, personas_bp
 from backend.tools.router import tools_bp
 from backend.files.router import files_bp
 from backend.logging.router import logs_bp
@@ -41,6 +41,7 @@ from backend.models import models_bp
 app = Flask(__name__, static_folder='static')
 # Register New Chat Architecture Blueprints
 app.register_blueprint(chat_bp, url_prefix='/api/chats')
+app.register_blueprint(personas_bp, url_prefix='/api')
 app.register_blueprint(tools_bp, url_prefix='/api/tools')
 app.register_blueprint(openai_bp, url_prefix='/v1/chat')
 app.register_blueprint(file_system_bp, url_prefix='/api/file_systems')

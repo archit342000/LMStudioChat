@@ -50,6 +50,16 @@ def init_db():
         ''')
 
         c.execute('''
+            CREATE TABLE IF NOT EXISTS personas (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                content TEXT,
+                is_default INTEGER DEFAULT 0,
+                timestamp REAL
+            )
+        ''')
+
+        c.execute('''
             CREATE TABLE IF NOT EXISTS chats (
                 id TEXT PRIMARY KEY,
                 title TEXT,
@@ -64,6 +74,7 @@ def init_db():
                 is_custom_title INTEGER DEFAULT 0,
                 folder TEXT,
                 workspace_id TEXT,
+                persona_id TEXT,
                 research_completed INTEGER DEFAULT 0,
                 had_research INTEGER DEFAULT 0,
                 file_system_mode INTEGER DEFAULT 0,
@@ -82,10 +93,20 @@ def init_db():
                 thinking_profile TEXT DEFAULT 'general',
                 browsing_session_id TEXT,
                 browsing_mode INTEGER DEFAULT 0,
+                persona_snapshot TEXT,
                 FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
             )
         ''')
         
+        c.execute("PRAGMA table_info(chats)")
+        columns = [column[1] for column in c.fetchall()]
+        if 'persona_id' not in columns:
+            logger.info("MIGRATION: Adding 'persona_id' column to 'chats' table.")
+            try:
+                c.execute("ALTER TABLE chats ADD COLUMN persona_id TEXT")
+            except Exception as e:
+                logger.error(f"Error adding persona_id column: {e}")
+
         c.execute('''
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -308,7 +329,8 @@ def init_db():
             ('resume_suppressed', 'INTEGER DEFAULT 0'),
             ('thinking_profile', "TEXT DEFAULT 'general'"),
             ('browsing_session_id', 'TEXT'),
-            ('browsing_mode', 'INTEGER DEFAULT 0')
+            ('browsing_mode', 'INTEGER DEFAULT 0'),
+            ('persona_snapshot', 'TEXT')
         ]
         for col_name, col_def in chat_columns:
             try:

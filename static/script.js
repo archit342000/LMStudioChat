@@ -566,7 +566,189 @@ document.addEventListener("DOMContentLoaded", () => {
   const tabItems = document.querySelectorAll(".tab-item");
   const tabContents = document.querySelectorAll(".tab-content");
 
-  const promptInput = document.getElementById("system-prompt-input");
+  // Persona Management UI
+  const personaListView = document.getElementById("persona-list-view");
+  const personaListContainer = document.getElementById("persona-list-container");
+  const personaEditView = document.getElementById("persona-edit-view");
+  const personaIdInput = document.getElementById("persona-id-input");
+  const personaNameInput = document.getElementById("persona-name-input");
+  const personaContentInput = document.getElementById("persona-content-input");
+  const personaDefaultCheckbox = document.getElementById("persona-default-checkbox");
+  const newPersonaBtn = document.getElementById("new-persona-btn");
+  const cancelPersonaBtn = document.getElementById("cancel-persona-btn");
+  const savePersonaBtn = document.getElementById("save-persona-btn");
+
+  // --- Persona Management Logic ---
+
+  async function fetchPersonas() {
+    try {
+      const response = await fetch('/api/personas');
+      const data = await response.json();
+      if (data.success) {
+        personas = data.personas;
+        
+        // Ensure default is selected if no chat is active
+        if (!currentChatId && !selectedPersonaId) {
+          const defaultPersona = personas.find(p => p.is_default);
+          if (defaultPersona) {
+            selectedPersonaId = defaultPersona.id;
+          }
+        }
+        
+        renderPersonas();
+      }
+    } catch (error) {
+      console.error("Error fetching personas:", error);
+    }
+  }
+
+  function renderPersonas() {
+    if (!personaListContainer) return;
+    
+    if (personas.length === 0) {
+      personaListContainer.innerHTML = '<div style="color: var(--content-muted); font-size: 0.85rem; text-align: center; padding: 2rem;">No personas created yet. Click + to create one.</div>';
+      return;
+    }
+
+    personaListContainer.innerHTML = '';
+    
+    personas.forEach(persona => {
+      const isSelected = selectedPersonaId === persona.id;
+      const chatStarted = chatHistory.length > 0;
+      
+      const item = document.createElement('div');
+      item.className = `persona-item ${isSelected ? 'selected' : ''}`;
+      
+      if (chatStarted && !isSelected) {
+        item.style.opacity = '0.4';
+        item.style.pointerEvents = 'none';
+        item.style.filter = 'grayscale(1)';
+      }
+
+      const header = document.createElement('div');
+      header.className = 'persona-name';
+      
+      const title = document.createElement('span');
+      title.style.flex = '1';
+      title.textContent = persona.name;
+      header.appendChild(title);
+      
+      if (persona.is_default) {
+        const badge = document.createElement('span');
+        badge.className = 'persona-badge';
+        badge.textContent = 'Default';
+        header.appendChild(badge);
+      }
+      
+      const actions = document.createElement('div');
+      actions.className = 'persona-actions';
+      
+      const editBtn = document.createElement('button');
+      editBtn.className = 'persona-action-btn';
+      editBtn.title = 'Edit Persona';
+      editBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
+      editBtn.onclick = (e) => {
+        e.stopPropagation();
+        openEditPersona(persona);
+      };
+      
+      const deleteBtn = document.createElement('button');
+      deleteBtn.className = 'persona-action-btn delete';
+      deleteBtn.title = 'Delete Persona';
+      deleteBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
+      deleteBtn.onclick = async (e) => {
+        e.stopPropagation();
+        const confirmed = await showConfirm("Delete Persona", `Are you sure you want to delete "${persona.name}"?`, true);
+        if (confirmed) {
+          try {
+            await fetch(`/api/personas/${persona.id}`, { method: 'DELETE' });
+            if (selectedPersonaId === persona.id) selectedPersonaId = null;
+            await fetchPersonas();
+          } catch(err) { console.error(err); }
+        }
+      };
+
+      actions.appendChild(editBtn);
+      actions.appendChild(deleteBtn);
+
+      item.appendChild(header);
+      item.appendChild(actions);
+      
+      item.onclick = () => {
+        if (chatHistory.length === 0) {
+          selectedPersonaId = selectedPersonaId === persona.id ? null : persona.id;
+          renderPersonas();
+        }
+      };
+
+      personaListContainer.appendChild(item);
+    });
+  }
+
+  function openEditPersona(persona = null) {
+    personaListView.classList.add('hidden');
+    personaEditView.classList.remove('hidden');
+    newPersonaBtn.style.display = 'none';
+
+    if (persona) {
+      personaIdInput.value = persona.id;
+      personaNameInput.value = persona.name;
+      personaContentInput.value = persona.content;
+      personaDefaultCheckbox.checked = persona.is_default === 1;
+    } else {
+      personaIdInput.value = '';
+      personaNameInput.value = '';
+      personaContentInput.value = '';
+      personaDefaultCheckbox.checked = false;
+    }
+  }
+
+  function closeEditPersona() {
+    personaListView.classList.remove('hidden');
+    personaEditView.classList.add('hidden');
+    newPersonaBtn.style.display = 'flex';
+  }
+
+  if (newPersonaBtn) newPersonaBtn.addEventListener('click', () => openEditPersona());
+  if (cancelPersonaBtn) cancelPersonaBtn.addEventListener('click', closeEditPersona);
+  if (savePersonaBtn) {
+    savePersonaBtn.addEventListener('click', async () => {
+      const id = personaIdInput.value;
+      const name = personaNameInput.value.trim();
+      const content = personaContentInput.value.trim();
+      const is_default = personaDefaultCheckbox.checked ? 1 : 0;
+
+      if (!name || !content) {
+        alert("Name and Content are required.");
+        return;
+      }
+
+      const payload = { name, content, is_default };
+      const url = id ? `/api/personas/${id}` : '/api/personas';
+      const method = id ? 'PUT' : 'POST';
+
+      try {
+        const response = await fetch(url, {
+          method,
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (data.success) {
+          closeEditPersona();
+          if (is_default) selectedPersonaId = data.persona.id;
+          await fetchPersonas();
+        } else {
+          alert("Failed to save persona: " + data.error);
+        }
+      } catch (err) {
+        console.error(err);
+      }
+    });
+  }
+
+  // --- End Persona Management ---
+
 
   // Sampling Parameter Sliders & Values
   const maxTokensSlider = document.getElementById("max-tokens-slider");
@@ -1075,7 +1257,10 @@ document.addEventListener("DOMContentLoaded", () => {
    */
 
   let chatHistory = []; // Current turn-by-turn history
-  let systemPrompt = ""; // User-defined system instructions
+
+  let personas = [];
+  let selectedPersonaId = null;
+
   let savedChats = []; // Metadata of all persistent chats
   let currentChatId = null; // UUID or local ID of active chat
   let currentFileSystemId = null; // ID of the file_system being edited
@@ -1313,13 +1498,12 @@ document.addEventListener("DOMContentLoaded", () => {
       if (themeMode === "system") applyTheme();
     });
 
-  // Load persisted prompt
-  if (systemPrompt) {
-    promptInput.value = systemPrompt;
-  }
+
 
   // Initialize Model UI
   currentModelDisplay.textContent = selectedModelName;
+
+  fetchPersonas();
 
   async function loadChats() {
     try {
@@ -1491,6 +1675,11 @@ document.addEventListener("DOMContentLoaded", () => {
     // Hide chat title header for new chats until first message
     if (chatTitleHeader) chatTitleHeader.classList.add("hidden");
 
+    // Reset persona to default for new chat
+    const defaultPersona = personas.find(p => p.is_default);
+    selectedPersonaId = defaultPersona ? defaultPersona.id : null;
+    renderPersonas();
+
     fetchFileSystems(null);
 
     // Show/hide temp chat banner
@@ -1632,6 +1821,13 @@ document.addEventListener("DOMContentLoaded", () => {
       currentFileSystemId = null;
       currentFileSystemLanguage = "markdown";
       setEditorLanguage(currentFileSystemLanguage);
+
+      if (chat.persona_id) {
+        selectedPersonaId = chat.persona_id;
+      } else {
+        selectedPersonaId = null;
+      }
+      renderPersonas();
 
       // Restore sampling parameters
       if (chat.max_tokens !== undefined && chat.max_tokens !== null)
@@ -3176,15 +3372,6 @@ document.addEventListener("DOMContentLoaded", () => {
       modelSelectDropdown.style.opacity = "1";
     }
 
-    if (promptInput) {
-      promptInput.disabled = false;
-      const container = promptInput.closest(".hardware-surface");
-      if (container) {
-        container.style.opacity = "1";
-        container.style.pointerEvents = "auto";
-      }
-    }
-
     // Update Greeting content
     const greetingText = welcomeHero
       ? welcomeHero.querySelector(".greeting-text")
@@ -3203,7 +3390,10 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // --- Chat Input Lockdown Logic ---
+  
+
+
+  // --- Chat Input Lockdown Logic ---
     const indexApproval = chatHistory.findIndex(
       (m) =>
         m.content === "Plan Approved. Proceed with research." ||
@@ -3454,6 +3644,7 @@ document.addEventListener("DOMContentLoaded", () => {
               messages: chatHistory,
               user_preferences: isUserPreferences,
               research_mode: isResearchMode,
+              persona_id: selectedPersonaId,
               ...samplingParams,
             }),
           }).then(() => {
@@ -5229,10 +5420,6 @@ document.addEventListener("DOMContentLoaded", () => {
         settingsModal.style.display = "none";
         setScrollLock(false);
       }, 300);
-
-      // Persist base prompt if changed
-      const newPrompt = promptInput.value.trim();
-      if (newPrompt !== systemPrompt) systemPrompt = newPrompt;
     }
   };
 
@@ -5859,9 +6046,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // Construct Messages for Backend
     const messages = [];
 
-    if (systemPrompt) {
-      messages.push({ role: "system", content: systemPrompt });
-    }
+    // System prompt handled backend side using persona_id
 
     // Add history (last 20 turns)
     messages.push(...chatHistory);
@@ -5882,6 +6067,7 @@ document.addEventListener("DOMContentLoaded", () => {
         visionEnabled: isVisionEnabled,
         fileSystemMode: fileSystemMode,
         browsingMode: browsingMode,
+        persona_id: selectedPersonaId,
 
         approvedPlan: approvedPlanPayload || undefined,
         resumeState: resumeState || undefined,

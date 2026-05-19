@@ -11,6 +11,7 @@ from .wrapper.history_ops import HistoryOpsMixin
 from .wrapper.preference_ops import PreferenceOpsMixin
 from .wrapper.callback_ops import CallbackOpsMixin
 from .wrapper.task_ops import TaskOpsMixin
+from .wrapper.persona_ops import PersonaOperations
 
 logger = logging.getLogger(__name__)
 
@@ -23,6 +24,7 @@ class DatabaseWrapper(
     PreferenceOpsMixin,
     CallbackOpsMixin,
     TaskOpsMixin,
+    PersonaOperations,
     BaseMixin
 ):
 

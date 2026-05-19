@@ -140,7 +140,7 @@ class ChatOpsMixin(BaseMixin):
                   is_vision: bool = False, last_model: str = None, 
                   vision_model: str = None, max_tokens: int = 16384, 
                   thinking_budget_tokens: int = 2000,
-                  workspace_id: str = None, 
+                  workspace_id: str = None, persona_id: str = None,
                   research_completed: int = 0, had_research: int = 0, 
                   file_system_mode: bool = False, browsing_mode: bool = False,
                   temperature: float = 1.0, top_p: float = 1.0, 
@@ -161,11 +161,11 @@ class ChatOpsMixin(BaseMixin):
                 c.execute('''
                     INSERT INTO chats (id, title, timestamp, user_preferences, research_mode,
                                       is_vision, last_model, vision_model, max_tokens, thinking_budget_tokens,
-                                      is_custom_title, workspace_id,
+                                      is_custom_title, workspace_id, persona_id,
                                       research_completed, had_research, file_system_mode, browsing_mode, enable_thinking,
                                       temperature, top_p, top_k, min_p, presence_penalty, frequency_penalty,
                                       research_state)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     ON CONFLICT(id) DO UPDATE SET
                         title=CASE WHEN excluded.is_custom_title = 1 THEN excluded.title 
                                    WHEN chats.is_custom_title = 1 THEN chats.title 
@@ -179,6 +179,7 @@ class ChatOpsMixin(BaseMixin):
                         max_tokens=excluded.max_tokens,
                         thinking_budget_tokens=excluded.thinking_budget_tokens,
                         workspace_id=COALESCE(excluded.workspace_id, chats.workspace_id),
+                        persona_id=COALESCE(excluded.persona_id, chats.persona_id),
                         research_completed=excluded.research_completed,
                         had_research=excluded.had_research,
                         file_system_mode=excluded.file_system_mode,
@@ -196,7 +197,7 @@ class ChatOpsMixin(BaseMixin):
                 ''', (chat_id, title, timestamp, user_preferences, research_mode,
                       is_vision, last_model, vision_model, max_tokens, thinking_budget_tokens,
                       is_custom_title if is_custom_title is not None else 0,
-                      workspace_id, research_completed, had_research, file_system_mode, browsing_mode, enable_thinking,
+                      workspace_id, persona_id, research_completed, had_research, file_system_mode, browsing_mode, enable_thinking,
                       temperature, top_p, top_k, min_p, presence_penalty, frequency_penalty,
                       research_state))
                 conn.commit()
@@ -223,7 +224,8 @@ class ChatOpsMixin(BaseMixin):
                 # Map kwargs to allowed columns
                 allowed_fields = [
                     'title', 'user_preferences', 'research_mode', 'is_vision', 
-                    'last_model', 'vision_model', 'max_tokens', 'thinking_budget_tokens', 'workspace_id', 
+                    'last_model', 'vision_model', 'max_tokens', 'thinking_budget_tokens', 'workspace_id', 'persona_id',
+                    'persona_snapshot',
                     'research_completed', 'had_research', 
                     'file_system_mode', 'browsing_mode', 'enable_thinking', 'temperature', 'top_p', 
                     'top_k', 'min_p', 'presence_penalty', 'frequency_penalty',

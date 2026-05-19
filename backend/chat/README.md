@@ -8,10 +8,10 @@
 ## 📄 Core Files
 | File | Purpose | Key Symbols/Exports |
 | :--- | :--- | :--- |
-| `__init__.py` | Package entry point and export aggregator. | `ChatHandler`, `TurnHandler`, `AgentHandler`, `ToolHandler`, `chat_bp` |
+| `__init__.py` | Package entry point and export aggregator. | `ChatHandler`, `TurnHandler`, `AgentHandler`, `ToolHandler`, `chat_bp`, `personas_bp` |
 | `agent_handler.py` | Orchestrates sub-agents with isolated contexts. | `AgentHandler` |
 | `handler.py` | Core chat flow logic and background task management. | `ChatHandler`, `THINKING_PROFILES` |
-| `router.py` | Flask API endpoints for chat management and completions. | `chat_bp`, `openai_bp` |
+| `router.py` | Flask API endpoints for chat management, completions, and persona CRUD. | `chat_bp`, `openai_bp`, `personas_bp` |
 | `tool_handler.py` | Dispatches and executes tool calls (pure or agent-based). | `ToolHandler` |
 | `turn_handler.py` | Serializes turns and ensures state persistence. | `TurnHandler` |
 

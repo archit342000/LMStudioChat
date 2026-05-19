@@ -528,3 +528,86 @@ class TestWorkspaceOps:
         temp_db.delete_workspace(ws["id"])
         workspaces = temp_db.get_all_workspaces()
         assert not any(w["id"] == ws["id"] for w in workspaces)
+
+
+# ---------------------------------------------------------------------------
+# Persona snapshot — isolation guarantee
+# ---------------------------------------------------------------------------
+
+class TestPersonaSnapshot:
+    """
+    Verifies that persona_snapshot is written when a persona is assigned to a
+    chat and that subsequent edits to the persona record do NOT change the
+    stored snapshot (i.e. the chat's effective prompt is frozen at assignment).
+    """
+
+    def test_snapshot_written_on_update_chat(self, temp_db):
+        """update_chat with persona_snapshot= persists the value."""
+        temp_db.ensure_chat_exists("chat_snap_1")
+        temp_db.update_chat("chat_snap_1", persona_snapshot="You are a pirate.")
+        chat = temp_db.get_chat("chat_snap_1")
+        assert chat["persona_snapshot"] == "You are a pirate."
+
+    def test_snapshot_persists_independently_of_persona_record(self, temp_db):
+        """
+        Core isolation check: editing the live persona record must not change
+        the snapshot already stored on the chat row.
+        """
+        # Create a persona
+        persona = temp_db.create_persona("Assistant", "You are a helpful assistant.")
+
+        # Simulate assigning the persona and snapshotting its content
+        temp_db.ensure_chat_exists("chat_snap_iso")
+        temp_db.update_chat(
+            "chat_snap_iso",
+            persona_id=persona["id"],
+            persona_snapshot=persona["content"],
+        )
+
+        # Now edit the persona (e.g. the user updates it in the UI)
+        temp_db.update_persona(persona["id"], "Assistant v2", "You are a snarky assistant.")
+
+        # The live record must reflect the new content
+        updated = temp_db.get_persona(persona["id"])
+        assert updated["content"] == "You are a snarky assistant."
+
+        # But the chat's snapshot must still hold the original content
+        chat = temp_db.get_chat("chat_snap_iso")
+        assert chat["persona_snapshot"] == "You are a helpful assistant."
+
+    def test_snapshot_starts_null_for_new_chat(self, temp_db):
+        """A freshly created chat has no snapshot yet."""
+        temp_db.ensure_chat_exists("chat_snap_null")
+        chat = temp_db.get_chat("chat_snap_null")
+        assert chat.get("persona_snapshot") is None
+
+    def test_snapshot_not_overwritten_on_second_assignment(self, temp_db):
+        """
+        If a snapshot already exists (chat has been used), assigning a new
+        persona_id must not silently erase the existing snapshot.
+        This mirrors the handler logic: snapshot only on first write.
+        """
+        p1 = temp_db.create_persona("P1", "Persona One content")
+        p2 = temp_db.create_persona("P2", "Persona Two content")
+
+        temp_db.ensure_chat_exists("chat_snap_noover")
+        # First assignment — snapshot written
+        temp_db.update_chat(
+            "chat_snap_noover",
+            persona_id=p1["id"],
+            persona_snapshot=p1["content"],
+        )
+
+        # Read snapshot to confirm it is set
+        chat = temp_db.get_chat("chat_snap_noover")
+        assert chat["persona_snapshot"] == "Persona One content"
+
+        # Second assignment — only update persona_id (handler skips snapshot
+        # because has_snapshot is True). Simulate that by NOT passing snapshot.
+        temp_db.update_chat("chat_snap_noover", persona_id=p2["id"])
+
+        # Snapshot should still be the original
+        chat = temp_db.get_chat("chat_snap_noover")
+        assert chat["persona_snapshot"] == "Persona One content"
+        assert chat["persona_id"] == p2["id"]
+

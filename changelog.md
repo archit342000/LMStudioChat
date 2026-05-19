@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.2.0
+* **Persona Mechanims Redesign**: Implemented a new persona mechanim where the personas are persisted in the database and can be reused across conversations. 
+* **Chat Settings and System Settings UI fixes**: Minor fixes to make the design more consistent.
+* **Version Bump**: Incremented version globally to 4.2.0.
+
 ## v4.1.5
 * **File System Download Fix**: Fixed a bug where the large file download button in the file system panel header failed to resolve the workspace context.
 * **Version Bump**: Incremented version globally to 4.1.5.
