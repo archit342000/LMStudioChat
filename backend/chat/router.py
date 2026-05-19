@@ -9,6 +9,7 @@ from backend.database import db
 from backend.logging import log_event
 from backend.task_manager import task_manager
 from backend.file_system import FileSystemChannelManager
+from backend.files.router import get_file_manager
 from backend import config
 import os
 
@@ -267,17 +268,66 @@ def chat_completions():
         persisted_user_msg = None
         if user_message_raw and user_message_raw.get('role') == 'user':
             content = user_message_raw.get('content', '')
-            # If content is a list/dict (vision/structured), serialize it
-            if isinstance(content, (list, dict)):
-                content = json.dumps(content)
             
             # Append file attachment notification if files are present
             if files:
                 file_notes = []
-                for f in files:
-                    file_notes.append(f"- {f.get('name', 'Unknown')} (ID: {f.get('file_id')})")
+                vision_content = []
                 
-                content += "\n\n[System Note: The user has attached the following files. Use the `file_agent` tool with the provided file_id to read their contents if needed:\n" + "\n".join(file_notes) + "]"
+                # Check for images to inject directly for vision
+                file_manager = get_file_manager()
+                
+                for f in files:
+                    file_id = f.get('file_id')
+                    mime = f.get('mime_type', '')
+                    
+                    if mime.startswith('image/'):
+                        file_meta = db.get_file(file_id)
+                        if file_meta:
+                            stored_path = os.path.join(config.FILE_STORAGE_PATH, file_meta['stored_filename'])
+                            if os.path.exists(stored_path):
+                                encoded, mime_type = file_manager.encode_file_for_vision(stored_path)
+                                if encoded:
+                                    vision_content.append({
+                                        "type": "image_url",
+                                        "image_url": {"url": f"data:{mime_type};base64,{encoded}"}
+                                    })
+                    else:
+                        file_notes.append(f"- {f.get('name', 'Unknown')} (ID: {file_id})")
+                
+                if vision_content:
+                    note = ""
+                    if file_notes:
+                        note = "\n\n[System Note: The user has attached the following files. Use the `file_agent` tool with the provided file_id to read their contents if needed:\n" + "\n".join(file_notes) + "]"
+                    
+                    # Convert to multimodal list, preserving original text if it was a string
+                    # If it was already a list, we merge
+                    if isinstance(content, list):
+                        # Find existing text block or create new one
+                        text_block = next((b for b in content if b.get('type') == 'text'), None)
+                        if text_block:
+                            text_block['text'] += note
+                        else:
+                            content.insert(0, {"type": "text", "text": note})
+                        content.extend(vision_content)
+                    else:
+                        content_list = [{"type": "text", "text": str(content) + note}]
+                        content_list.extend(vision_content)
+                        content = content_list
+                elif file_notes:
+                    note = "\n\n[System Note: The user has attached the following files. Use the `file_agent` tool with the provided file_id to read their contents if needed:\n" + "\n".join(file_notes) + "]"
+                    if isinstance(content, list):
+                        text_block = next((b for b in content if b.get('type') == 'text'), None)
+                        if text_block:
+                            text_block['text'] += note
+                        else:
+                            content.insert(0, {"type": "text", "text": note})
+                    else:
+                        content = str(content) + note
+            
+            # Final serialization if it's still a list/dict
+            if isinstance(content, (list, dict)):
+                content = json.dumps(content)
                 
             msg_id = db.add_message(
                 chat_id=chat_id,

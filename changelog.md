@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v4.1.3
+* **Direct Image Support**: Upgraded the chat router to automatically detect uploaded images and inject them directly into the main AI's message stream as multimodal `image_url` blocks, bypassing the `file_agent` to prevent vision information loss.
+* **Full-Screen Image Previews**: Enhanced the frontend chat interface to allow users to click on inline image attachments, opening them in a responsive, full-screen modal lightbox.
+* **Initialization Fix**: Resolved a `RuntimeError` during image processing by correctly provisioning a `RAGManager` singleton for the `FileManager` via dependency injection.
+* **Version Bump**: Incremented version globally to 4.1.3.
+
 ## v4.1.2
 * **File Agent Vision Prompt Fix**: Decoupled the system prompt used for one-shot multimodal image analysis (`FILE_AGENT_VISION_SYSTEM_PROMPT`) from the standard autonomous sub-agent task directives, preventing tool calling contradictions and tool-loss errors during image inspection.
 * **Version Bump**: Incremented version globally to 4.1.2.

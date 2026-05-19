@@ -299,12 +299,91 @@ def test_stop_chat(mock_log_event, mock_callback_registry, mock_response_cache, 
 def test_edit_message_endpoint(mock_db, client):
     response = client.put('/api/chats/chat1/messages/1', json={})
     assert response.status_code == 400
-    
+
     mock_db.edit_message.return_value = True
-    response = client.put('/api/chats/chat1/messages/1', json={"content": "new"})
+    response = client.put('/api/chats/chat1/messages/1', json={"content": "new content"})
     assert response.status_code == 200
     assert response.json == {"success": True}
-    mock_db.edit_message.assert_called_with("chat1", 1, "new")
+    mock_db.edit_message.assert_called_with("chat1", 1, "new content")
+
+@patch('backend.chat.router.db')
+@patch('backend.chat.router.get_file_manager')
+@patch('backend.chat.router.ChatHandler')
+@patch('backend.chat.router.log_event')
+def test_chat_completions_with_images(mock_log_event, mock_chat_handler_class, mock_get_file_manager, mock_db, client):
+    # Setup mocks
+    mock_fm = mock_get_file_manager.return_value
+    mock_fm.encode_file_for_vision.return_value = ("base64data", "image/png")
+
+    mock_db.get_file.return_value = {'id': 'img1', 'stored_filename': 'img1.png'}
+    mock_db.add_message.return_value = 1
+    mock_db.get_chat.return_value = {'title': 'Existing Chat'}
+
+    mock_handler = mock_chat_handler_class.return_value
+    async def mock_initiate_chat(**kwargs):
+        yield "data: ok\n\n"
+    mock_handler.initiate_chat.return_value = mock_initiate_chat()
+
+    import os
+    with patch('os.path.exists', return_value=True):
+        response = client.post('/v1/chat/completions', json={
+            "chatId": "chat1",
+            "messages": [{"role": "user", "content": "What is this?"}],
+            "uploadedFiles": [
+                {"file_id": "img1", "name": "test.png", "mime_type": "image/png"},
+                {"file_id": "doc1", "name": "test.pdf", "mime_type": "application/pdf"}
+            ]
+        })
+
+    assert response.status_code == 200
+
+    # Verify add_message was called with multimodal content
+    called_kwargs = mock_db.add_message.call_args.kwargs
+    content = called_kwargs.get('content')
+
+    parsed_content = json.loads(content)
+    assert isinstance(parsed_content, list)
+    assert parsed_content[0]['type'] == 'text'
+    assert "What is this?" in parsed_content[0]['text']
+    assert "[System Note:" in parsed_content[0]['text']
+    assert "test.pdf" in parsed_content[0]['text']
+    assert "test.png" not in parsed_content[0]['text']
+
+    assert parsed_content[1]['type'] == 'image_url'
+    assert parsed_content[1]['image_url']['url'] == "data:image/png;base64,base64data"
+
+@patch('backend.chat.router.db')
+@patch('backend.chat.router.get_file_manager')
+@patch('backend.chat.router.ChatHandler')
+@patch('backend.chat.router.log_event')
+def test_chat_completions_without_images(mock_log_event, mock_chat_handler_class, mock_get_file_manager, mock_db, client):
+    mock_db.add_message.return_value = 1
+    mock_db.get_chat.return_value = {'title': 'Existing Chat'}
+
+    mock_handler = mock_chat_handler_class.return_value
+    async def mock_initiate_chat(**kwargs):
+        yield "data: ok\n\n"
+    mock_handler.initiate_chat.return_value = mock_initiate_chat()
+
+    response = client.post('/v1/chat/completions', json={
+        "chatId": "chat1",
+        "messages": [{"role": "user", "content": "Just text"}],
+        "uploadedFiles": [
+            {"file_id": "doc1", "name": "test.pdf", "mime_type": "application/pdf"}
+        ]
+    })
+
+    assert response.status_code == 200
+
+    # Verify add_message was called with string content
+    called_kwargs = mock_db.add_message.call_args.kwargs
+    content = called_kwargs.get('content')
+
+    assert isinstance(content, str)
+    assert "Just text" in content
+    assert "[System Note:" in content
+    assert "test.pdf" in content
+
 
 @patch('backend.chat.router.db')
 def test_delete_message_endpoint(mock_db, client):

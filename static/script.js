@@ -6907,7 +6907,7 @@ document.addEventListener("DOMContentLoaded", () => {
       images && images.length > 0
         ? `
             <div class="message-images" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
-                ${images.map((img) => `<img src="${img}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid var(--border-subtle);">`).join("")}
+                ${images.map((img) => `<img src="${img}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid var(--border-subtle); cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1" onclick="openImageModal(this.src)">`).join("")}
             </div>`
         : "";
 
@@ -11025,4 +11025,37 @@ document.addEventListener("DOMContentLoaded", () => {
                 </div>`;
     }
   }
+
+  // --- Image Modal Logic ---
+  window.openImageModal = function(src) {
+    const modal = document.getElementById('image-modal');
+    const modalImg = document.getElementById('modal-img');
+    if (modal && modalImg) {
+      modalImg.src = src;
+      modal.classList.remove('hidden');
+      // Trigger reflow
+      void modal.offsetWidth;
+      modal.classList.add('open');
+    }
+  };
+
+  window.closeImageModal = function() {
+    const modal = document.getElementById('image-modal');
+    if (modal) {
+      modal.classList.remove('open');
+      setTimeout(() => {
+        modal.classList.add('hidden');
+      }, 300); // Matches transition duration
+    }
+  };
+
+  // Close image modal on Escape key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+      const modal = document.getElementById('image-modal');
+      if (modal && modal.classList.contains('open')) {
+        window.closeImageModal();
+      }
+    }
+  });
 });
