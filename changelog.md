@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v4.1.5
+* **File System Download Fix**: Fixed a bug where the large file download button in the file system panel header failed to resolve the workspace context.
+* **Version Bump**: Incremented version globally to 4.1.5.
+
 ## v4.1.4
 * **Chat Auto-Scroll Fix**: Modified the frontend chat loading logic to automatically scroll to the bottom upon opening a chat, ensuring users see the most recent messages immediately.
 * **Version Bump**: Incremented version globally to 4.1.4.
