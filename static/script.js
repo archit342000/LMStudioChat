@@ -1910,6 +1910,8 @@ document.addEventListener("DOMContentLoaded", () => {
         sidebar.classList.add("sidebar-collapsed");
         if (toggleIconPath) toggleIconPath.setAttribute("d", "M9 6l6 6-6 6");
       }
+      
+      scrollToBottom("auto", true);
     } catch (e) {
       console.error("Error loading chat:", e);
     }
