@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v4.1.2
+* **File Agent Vision Prompt Fix**: Decoupled the system prompt used for one-shot multimodal image analysis (`FILE_AGENT_VISION_SYSTEM_PROMPT`) from the standard autonomous sub-agent task directives, preventing tool calling contradictions and tool-loss errors during image inspection.
+* **Version Bump**: Incremented version globally to 4.1.2.
+
 ## v4.1.1
 * **Background Animation Refinement**: Replaced CSS variable references (`var(--accent)` and `var(--accent-light)`) with direct hex color codes (`#3B82F6` and `#60A5FA`) in `static/js/bg-animation.js` to prevent Canvas 2D context parsing failures and eliminate the per-frame particle glittering effect.
 * **Version Bump**: Incremented version globally to 4.1.1.

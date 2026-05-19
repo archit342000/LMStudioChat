@@ -862,7 +862,9 @@ PAGE_BASED_MIME_TYPES = frozenset([
 
 def get_file_agent_tools(mime_type: str) -> list:
     """Returns the correct tool set for the file agent based on the file's MIME type."""
-    if mime_type in PAGE_BASED_MIME_TYPES:
+    if mime_type.startswith('image/'):
+        return []
+    elif mime_type in PAGE_BASED_MIME_TYPES:
         return FILE_AGENT_INTERNAL_TOOLS_BASE + [READ_UPLOADED_FILE_PAGE_TOOL]
     else:
         return FILE_AGENT_INTERNAL_TOOLS_BASE + [READ_UPLOADED_FILE_LINES_TOOL]

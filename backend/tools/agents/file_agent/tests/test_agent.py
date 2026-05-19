@@ -2,6 +2,7 @@ import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 import json
 from backend.tools.agents.file_agent.agent import is_vision_model, flow_fn
+from backend.tools.agents.file_agent.prompts import FILE_AGENT_VISION_SYSTEM_PROMPT
 
 # Testing is_vision_model
 def test_is_vision_model_true():
@@ -75,11 +76,20 @@ async def test_flow_fn_image_with_vision(mock_agent):
         mock_fm_instance = mock_fm.return_value
         mock_fm_instance.encode_file_for_vision.return_value = ("base64data", "image/jpeg")
         
+        captured_kwargs = {}
+        async def mock_inf(*args, **kwargs):
+            captured_kwargs.update(kwargs)
+            yield "inference_chunk"
+            
+        mock_agent.run_inference_step = mock_inf
+        
         gen = flow_fn(mock_agent, "file_agent", "file_id", "query")
         res = [chunk async for chunk in gen]
         
         assert any("Using vision analysis" in r for r in res)
         assert any("inference_chunk" in r for r in res)
+        assert captured_kwargs.get("tools") == []
+        assert captured_kwargs.get("messages")[0]["content"] == FILE_AGENT_VISION_SYSTEM_PROMPT
 
 @pytest.mark.anyio
 async def test_flow_fn_image_encode_fails(mock_agent):

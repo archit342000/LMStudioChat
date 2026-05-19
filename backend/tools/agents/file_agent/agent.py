@@ -9,7 +9,7 @@ from backend.rag import RAGProvider, FileRAG
 from backend.models import get_embedding_model, load_model_config
 from backend.files.manager import FileManager
 from backend.logging import log_tool_call
-from backend.tools.agents.file_agent.prompts import FILE_AGENT_SYSTEM_PROMPT
+from backend.tools.agents.file_agent.prompts import FILE_AGENT_SYSTEM_PROMPT, FILE_AGENT_VISION_SYSTEM_PROMPT
 from backend.tools.definitions import get_file_agent_tools
 
 logger = logging.getLogger(__name__)
@@ -118,7 +118,7 @@ async def flow_fn(
             ]
             
             messages = [
-                {"role": "system", "content": FILE_AGENT_SYSTEM_PROMPT},
+                {"role": "system", "content": FILE_AGENT_VISION_SYSTEM_PROMPT},
                 {"role": "user", "content": user_content}
             ]
             
