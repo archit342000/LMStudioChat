@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.2.1
+* **Formatting Directives**: Explicitly documented frontend Markdown capabilities (Mermaid diagrams, Admonitions, Workspace Links, Task Lists, Math/KaTeX, Footnotes) and injected them into the system prompts to ensure the AI leverages rich UI formatting.
+* **User Instruction Precedence**: Updated the core personality prompt to firmly enforce that explicit user requests regarding style, volume, tone, and formatting strictly override default efficiency rules, while maintaining the system's absolute authority over operational and security constraints.
+* **Version Bump**: Incremented version globally to 4.2.1.
+
 ## v4.2.0
 * **Persona Mechanims Redesign**: Implemented a new persona mechanim where the personas are persisted in the database and can be reused across conversations. 
 * **Chat Settings and System Settings UI fixes**: Minor fixes to make the design more consistent.

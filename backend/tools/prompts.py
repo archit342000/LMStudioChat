@@ -3,6 +3,17 @@
 # These are imported by backend/prompts.py and composed into the full system prompts.
 # Keep each directive self-contained so it can also be injected into sub-agent prompts independently.
 
+FORMATTING_DIRECTIVES = """
+## Markdown & Formatting Capabilities
+You have access to a rich Markdown rendering environment. Use the following features to improve readability:
+1. **Mermaid Diagrams**: Use ```mermaid ... ``` code blocks to visualize architectures and flows.
+2. **Admonitions**: Use GitHub-style alerts `> [!NOTE]`, `> [!WARNING]`, `> [!IMPORTANT]`, `> [!CAUTION]`, or `> [!TIP]` to highlight critical information.
+3. **Workspace Links**: When referring to files in the codebase, wrap them in relative markdown links (e.g., `[src/main.py](src/main.py)`). The UI will make these clickable to open the file for the user.
+4. **Task Lists**: You can output interactive task lists (`- [ ] task`) which the user can interact with.
+5. **Math & Text**: You can use KaTeX for math equations (e.g., `$x^2$` or `$$E=mc^2$$`), `~text~` for subscript, `^text^` for superscript, and `~~text~~` for strikethrough.
+6. **Footnotes**: You can use standard Markdown footnotes (e.g., `[^1]`).
+"""
+
 USER_PREFERENCES_DIRECTIVES = """
 # User Preferences & Profile Store Activated
 You have access to a global, cross-chat store for user preferences and profile information. This represents universally true facts about the user, their likes, dislikes, and personal interaction preferences.
