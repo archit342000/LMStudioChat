@@ -3900,7 +3900,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (
         statusEl &&
         (statusEl.textContent.includes("Uploading") ||
-          statusEl.textContent.includes("Processing"))
+          statusEl.textContent === "Processing...")
       ) {
         hasUploadingFiles = true;
       }
@@ -5499,6 +5499,7 @@ document.addEventListener("DOMContentLoaded", () => {
    * Handles validation, optimistic UI preview, and backend upload via XHR for progress tracking.
    */
   async function handleFileUpload(file) {
+    let currentFileId = null;
     const fileType = getFileType(file);
     const allowedTypes = [
       "application/pdf",
@@ -5586,9 +5587,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     const removeBtn = fileItem.querySelector(".remove-file-btn");
     removeBtn.addEventListener("click", () => {
-      uploadedFiles = uploadedFiles.filter(
-        (f) => f.name === file.name && !f.file_id,
-      );
+      if (currentFileId) {
+        uploadedFiles = uploadedFiles.filter(
+          (f) => f.file_id !== currentFileId,
+        );
+      } else {
+        uploadedFiles = uploadedFiles.filter(
+          (f) => !(f.name === file.name && !f.file_id),
+        );
+      }
       if (fileItem.parentNode) fileItem.parentNode.removeChild(fileItem);
       checkSendButtonState();
     });
@@ -5621,6 +5628,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (statusEl) statusEl.textContent = "Processing...";
       if (sizeEl) sizeEl.textContent = formatFileSize(file.size);
 
+      currentFileId = uploadResult.file_id;
       const fileData = {
         file_id: uploadResult.file_id,
         name: uploadResult.original_filename,
@@ -5692,9 +5700,15 @@ document.addEventListener("DOMContentLoaded", () => {
         "File Upload Failed",
         error.message || "An error occurred while uploading.",
       );
-      uploadedFiles = uploadedFiles.filter(
-        (f) => f.name === file.name && !f.file_id,
-      );
+      if (currentFileId) {
+        uploadedFiles = uploadedFiles.filter(
+          (f) => f.file_id !== currentFileId,
+        );
+      } else {
+        uploadedFiles = uploadedFiles.filter(
+          (f) => !(f.name === file.name && !f.file_id),
+        );
+      }
       setTimeout(() => {
         if (fileItem.parentNode) fileItem.parentNode.removeChild(fileItem);
         checkSendButtonState();
@@ -5777,9 +5791,12 @@ document.addEventListener("DOMContentLoaded", () => {
       const files = e.target.files;
       if (!files || files.length === 0) return;
 
-      for (const file of files) {
-        await handleFileUpload(file);
-      }
+      // Process file uploads concurrently instead of sequentially so that 
+      // all files are immediately added to the preview UI
+      const uploadPromises = Array.from(files).map((file) =>
+        handleFileUpload(file),
+      );
+      await Promise.all(uploadPromises);
       fileInput.value = ""; // Reset input
     });
   }
@@ -5805,9 +5822,12 @@ document.addEventListener("DOMContentLoaded", () => {
 
       const files = e.dataTransfer.files;
       if (files && files.length > 0) {
-        for (const file of files) {
-          await handleFileUpload(file);
-        }
+        // Process file uploads concurrently instead of sequentially so that 
+        // all files are immediately added to the preview UI
+        const uploadPromises = Array.from(files).map((file) =>
+          handleFileUpload(file),
+        );
+        await Promise.all(uploadPromises);
       }
     });
   }

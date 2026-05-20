@@ -3913,6 +3913,29 @@ background: var(--accent-border);
   gap: 8px;
 }
 
+#file-preview-container {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-border) transparent;
+  padding-right: 4px;
+}
+
+#file-preview-container::-webkit-scrollbar {
+  width: 4px;
+}
+
+#file-preview-container::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+#file-preview-container::-webkit-scrollbar-thumb {
+  background: var(--accent-border);
+  border-radius: 4px;
+}
+
+.dark #file-preview-container::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.08);
+}
+
 /* Empty state for file list */
 /* File item - updated for new upload flow */.file-item {
   display: flex;

@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v4.3.2
+* **Concurrent File Uploading**: Enabled parallel/concurrent processing of file uploads in the frontend, preventing optimistic UI rendering from being blocked sequentially.
+* **Resilient State Deletion**: Fixed the array filtering bug that incorrectly wiped out other uploaded files from `uploadedFiles` during file removal or upload failure.
+* **Processing Status Cleanups**: Fixed the send button lockout issue caused by `"Processing Failed"` matching the word `"Processing"`, and resolved issues with click listeners on files in the `"Processing..."` state.
+* **Visual Polish**: Added custom thin scrollbar styling and padding-right to the uploaded files stack (`#file-preview-container`) for consistent premium aesthetics.
+* **Version Bump**: Incremented version globally to 4.3.2.
+
 ## v4.3.1
 * **Preserve User Input Drafts**: Prevented the message input textarea from being cleared when the assistant response streaming completes or during live state synchronization.
 * **Version Bump**: Incremented version globally to 4.3.1.
