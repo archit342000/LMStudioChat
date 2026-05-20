@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v4.3.1
+* **Preserve User Input Drafts**: Prevented the message input textarea from being cleared when the assistant response streaming completes or during live state synchronization.
+* **Version Bump**: Incremented version globally to 4.3.1.
+
 ## v4.3.0
 * **Virtual Context Compression**: Implemented an automated sliding-window history compression pipeline to maintain coherence and prevent context window exhaustion in extremely long conversations:
     - **Dynamic Slicing & Summary Cache**: Keeps all historical messages persisted in the database, while caching a high-density conversation summary, active image attachments, and virtual file footnote references to reconstruct the active context.

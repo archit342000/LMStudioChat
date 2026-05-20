@@ -1572,7 +1572,7 @@ document.addEventListener("DOMContentLoaded", () => {
     return Date.now().toString(36) + Math.random().toString(36).substr(2);
   }
 
-  function resetGenerationState() {
+  function resetGenerationState(keepInput = false) {
     if (isGenerating && currentAbortController) {
       try {
         currentAbortController.abort();
@@ -1585,7 +1585,7 @@ document.addEventListener("DOMContentLoaded", () => {
       sendBtn.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M22 2L11 13M22 2l-7 20-4-9-9-4 20-7z" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
       sendBtn.classList.remove("stop-mode");
     }
-    if (textArea) {
+    if (textArea && !keepInput) {
       textArea.value = "";
       textArea.style.height = "auto";
     }
@@ -1709,8 +1709,8 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  async function loadChat(id, pushState = true) {
-    resetGenerationState();
+  async function loadChat(id, pushState = true, keepInput = false) {
+    resetGenerationState(keepInput);
     pendingEditIndex = null;
     try {
       const response = await fetch(`${API_MODULES.CHATS}/${id}?chat_id=${id}`);
@@ -6139,7 +6139,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (isReattach && response.status === 204) {
         isGenerating = false;
         updateUIState(false);
-        loadChat(currentChatId, false);
+        loadChat(currentChatId, false, true);
         return;
       }
 
@@ -6491,7 +6491,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // Sync the full chat state natively with the DB now that the turn is complete
       if (currentChatId) {
-        await loadChat(currentChatId, false);
+        await loadChat(currentChatId, false, true);
       }
     } catch (error) {
       if (error.name === "AbortError") {
@@ -6775,7 +6775,7 @@ document.addEventListener("DOMContentLoaded", () => {
         );
         if (res.ok) {
           // Refresh history to ensure UI sync
-          loadChat(currentChatId, false);
+          loadChat(currentChatId, false, true);
         } else {
           console.error("Delete failed", await res.text());
         }
@@ -6873,7 +6873,7 @@ document.addEventListener("DOMContentLoaded", () => {
             method: "DELETE",
           },
         );
-        await loadChat(currentChatId, false);
+        await loadChat(currentChatId, false, true);
         sendMessage(null, null, true);
       } catch (error) {
         console.error("Failed to delete for retry:", error);
@@ -7340,7 +7340,7 @@ document.addEventListener("DOMContentLoaded", () => {
           method: "POST",
         });
         // Reload chat to reflect rolled-back state
-        loadChat(currentChatId, false);
+        loadChat(currentChatId, false, true);
       } catch (e) {
         console.error("Failed to stop via API:", e);
       }
