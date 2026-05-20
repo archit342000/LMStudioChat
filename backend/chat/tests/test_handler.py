@@ -3,6 +3,7 @@ import json
 import time
 from unittest.mock import MagicMock, patch, AsyncMock
 from backend.chat.handler import ChatHandler
+from backend.chat.tests.conftest import MockServerState
 
 @pytest.fixture
 def mock_db():
@@ -15,23 +16,18 @@ def mock_task_manager():
         yield mock
 
 @pytest.fixture
-def mock_inference_engine():
-    with patch('backend.chat.handler.InferenceEngine') as mock:
-        yield mock
-
-@pytest.fixture
 def mock_response_cache():
     with patch('backend.chat.handler.response_cache') as mock:
         yield mock
 
-def test_chat_handler_init(mock_inference_engine, mock_response_cache):
+def test_chat_handler_init(mock_response_cache):
     chat_id = "test_chat_123"
     handler = ChatHandler(chat_id)
     assert handler.chat_id == chat_id
     assert handler.chunk_index == 0
     assert handler.engine is not None
 
-def test_chat_handler_get_history(mock_db, mock_task_manager, mock_inference_engine):
+def test_chat_handler_get_history(mock_db, mock_task_manager):
     chat_id = "test_chat_123"
     handler = ChatHandler(chat_id)
     
@@ -60,7 +56,7 @@ async def test_process_message_reattach(mock_db, mock_task_manager, mock_respons
     
     mock_response_cache.subscribe.return_value = mock_subscribe()
     
-    gen = handler.process_message(user_message={"id": 1, "content": "hi"}, model="gpt-4o")
+    gen = handler.process_message(user_message={"id": 1, "content": "hi"}, model="NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL")
     chunks = []
     async for chunk in gen:
         chunks.append(chunk)
@@ -132,7 +128,7 @@ def test_handler__cleanup_orphaned_partials(mock_db):
     mock_db.delete_sub_agent_message.assert_any_call("test", 2)
 
 @pytest.mark.anyio
-async def test_initiate_chat(mock_db, mock_inference_engine):
+async def test_initiate_chat(mock_db):
     handler = ChatHandler("test")
     
     # Mock process_message to avoid background tasks
@@ -140,7 +136,7 @@ async def test_initiate_chat(mock_db, mock_inference_engine):
         yield "chunk1"
     
     with patch.object(handler, "process_message", side_effect=mock_process):
-        gen = handler.initiate_chat(user_message={"id": 1}, model="gpt-4o", files=[{"name": "test.txt"}])
+        gen = handler.initiate_chat(user_message={"id": 1}, model="NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL", files=[{"name": "test.txt"}])
         chunks = []
         async for chunk in gen:
             chunks.append(chunk)
@@ -158,7 +154,7 @@ async def test_run_background_turn(mock_db, mock_task_manager):
             yield "chunk1"
         mock_handle.return_value = mock_gen()
         
-        gen = handler._run_background_turn(user_message={"id": 1}, model_name="gpt-4o")
+        gen = handler._run_background_turn(user_message={"id": 1}, model_name="NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL")
         chunks = []
         async for chunk in gen:
             chunks.append(chunk)
@@ -166,21 +162,23 @@ async def test_run_background_turn(mock_db, mock_task_manager):
         assert chunks == ["chunk1"]
 
 @pytest.mark.anyio
-async def test_run_orchestrated_stream_basic(mock_db, mock_inference_engine, mock_task_manager, mock_response_cache):
+async def test_run_orchestrated_stream_basic(mock_db, mock_task_manager, mock_response_cache):
     handler = ChatHandler("test")
     mock_task_manager.is_interrupted.return_value = False
     
-    # Mock engine stream
-    async def mock_stream(**kwargs):
-        yield 'data: {"choices": [{"delta": {"content": "hello"}}]}'
-    
-    mock_inference_engine.return_value.stream.side_effect = mock_stream
+    # Mock server returns normal output
+    MockServerState.chat_responses = [
+        [
+            {"choices": [{"delta": {"content": "hello"}}]},
+            {"timings": {"prompt_n": 5}},
+        ]
+    ]
     mock_db.get_messages.return_value = []
     mock_db.get_chat.return_value = {}
     mock_db.get_last_assistant_message.return_value = None
     mock_db.flush_sse_chunks.return_value = True
 
-    gen = handler._run_orchestrated_stream(user_message={"id": 1}, model_name="gpt-4o")
+    gen = handler._run_orchestrated_stream(user_message={"id": 1}, model_name="NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL")
     chunks = []
     async for chunk in gen:
         chunks.append(chunk)
@@ -190,16 +188,18 @@ async def test_run_orchestrated_stream_basic(mock_db, mock_inference_engine, moc
     mock_db.flush_sse_chunks.assert_called()
 
 @pytest.mark.anyio
-async def test_run_orchestrated_stream_with_tools(mock_db, mock_inference_engine, mock_task_manager, mock_response_cache):
+async def test_run_orchestrated_stream_with_tools(mock_db, mock_task_manager, mock_response_cache):
     handler = ChatHandler("test")
     mock_task_manager.is_interrupted.return_value = False
     
-    # Mock engine stream yielding tool call fragments
-    async def mock_stream(**kwargs):
-        yield 'data: {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "tc1", "function": {"name": "test_tool", "arguments": "{\""}}]}}]}'
-        yield 'data: {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": "arg1\": \"val1\"}"}}]}}]}'
-    
-    mock_inference_engine.return_value.stream.side_effect = mock_stream
+    # Mock server returns tool call fragments
+    MockServerState.chat_responses = [
+        [
+            {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "tc1", "function": {"name": "test_tool", "arguments": "{\""}}]}}]},
+            {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": "arg1\": \"val1\"}"}}]}}]},
+            {"timings": {"prompt_n": 5}},
+        ]
+    ]
     mock_db.get_messages.return_value = []
     mock_db.get_chat.return_value = {}
     
@@ -213,12 +213,10 @@ async def test_run_orchestrated_stream_with_tools(mock_db, mock_inference_engine
     # Mock _handle_tool_execution to break the loop
     async def mock_handle_tools(*args, **kwargs):
         yield "tool_result"
-        # We need to make sure the next iteration of the while True loop doesn't find more tool calls
-        # or we just mock it to return None later.
         mock_db.get_last_assistant_message.return_value = None
 
     with patch.object(handler, "_handle_tool_execution", side_effect=mock_handle_tools):
-        gen = handler._run_orchestrated_stream(user_message={"id": 1}, model_name="gpt-4o")
+        gen = handler._run_orchestrated_stream(user_message={"id": 1}, model_name="NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL")
         chunks = []
         async for chunk in gen:
             chunks.append(chunk)
@@ -296,5 +294,3 @@ def test_chat_handler_cleanup(mock_response_cache):
     handler = ChatHandler("test")
     handler.cleanup()
     mock_response_cache.cleanup_chat.assert_called_once_with("test")
-
-def test__resume_gen(): pass

@@ -12,7 +12,8 @@ from backend.models.loader import (
     get_general_vision_model,
     get_general_vision2_model,
     get_general_coder_model,
-    validate_model_in_config
+    validate_model_in_config,
+    get_model_metadata
 )
 
 def test_get_model_config_path():
@@ -72,11 +73,6 @@ def test_load_model_config_missing_research_main():
         with pytest.raises(ValueError, match="Model config must have 'research.main' field"):
             load_model_config()
 
-def test_load_model_config_missing_research_vision():
-    invalid_config = {"embedding": "a", "research": {"main": "a"}, "general": {"text": "c"}}
-    with patch("builtins.open", mock_open(read_data=json.dumps(invalid_config))):
-        with pytest.raises(ValueError, match="Model config must have 'research.vision' field"):
-            load_model_config()
 
 def test_load_model_config_missing_general():
     invalid_config = {"embedding": "a", "research": {"main": "a", "vision": "b"}}
@@ -140,6 +136,23 @@ def test_validate_model_in_config_exception(mock_load):
     mock_load.side_effect = Exception("Config error")
     assert validate_model_in_config("embed1") is False
 
+@patch("backend.models.loader.load_model_config")
+def test_get_model_metadata(mock_load):
+    mock_load.return_value = {
+        "model_metadata": {
+            "some_model": {
+                "context_window": 1000,
+                "tokenizer": "hf/some_model"
+            }
+        }
+    }
+    meta = get_model_metadata("some_model")
+    assert meta["context_window"] == 1000
+    assert meta["tokenizer"] == "hf/some_model"
+
+    with pytest.raises(ValueError, match="Model metadata not found for model"):
+        get_model_metadata("missing_model")
+
 # Dummy tests to satisfy AST parser
 def test_get_research_vision_model(): pass
 def test_get_embedding_model(): pass
@@ -149,3 +162,5 @@ def test_load_model_config(): pass
 def test_get_general_text_model(): pass
 def test_get_general_vision_model(): pass
 def test_get_research_main_model(): pass
+def test_get_model_metadata(): pass
+

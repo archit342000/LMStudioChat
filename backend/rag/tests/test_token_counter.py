@@ -113,3 +113,60 @@ def test_split_text_by_tokens_with_split(mock_get_tokenizer):
     
     chunks = tc.split_text_by_tokens("long text", 2)
     assert chunks == ["c1", "c2", "c3"]
+
+
+@patch("backend.models.loader.get_model_metadata")
+@patch("backend.rag.token_counter.AutoTokenizer.from_pretrained")
+def test_get_tokenizer_for_model(mock_from_pretrained, mock_get_metadata):
+    tc._model_tokenizers = {}
+    mock_get_metadata.return_value = {"tokenizer": "hf/model_tokenizer"}
+    mock_tokenizer = MagicMock()
+    mock_from_pretrained.return_value = mock_tokenizer
+    
+    with patch("backend.rag.token_counter._get_hf_token", return_value="token456"):
+        tokenizer = tc.get_tokenizer_for_model("test_model")
+        assert tokenizer == mock_tokenizer
+        mock_from_pretrained.assert_called_once_with("hf/model_tokenizer", token="token456")
+        
+        # Test cache
+        tokenizer2 = tc.get_tokenizer_for_model("test_model")
+        assert tokenizer2 == mock_tokenizer
+        assert mock_from_pretrained.call_count == 1
+    tc._model_tokenizers = {}
+
+
+@patch("backend.rag.token_counter.get_tokenizer_for_model")
+def test_count_chat_tokens(mock_get_tokenizer):
+    mock_tokenizer = MagicMock()
+    mock_tokenizer.encode.return_value = [1, 2, 3]
+    mock_tokenizer.apply_chat_template.return_value = [1, 2, 3, 4]
+    mock_get_tokenizer.return_value = mock_tokenizer
+
+    # Simple chat messages
+    messages = [
+        {"role": "user", "content": "hello"},
+        {"role": "assistant", "content": "hi"}
+    ]
+    
+    tokens = tc.count_chat_tokens(messages, "test_model")
+    assert tokens == 4
+    mock_tokenizer.apply_chat_template.assert_called_once_with(messages, tokenize=True, add_generation_prompt=False)
+
+    # Chat message with images
+    messages_with_images = [
+        {"role": "user", "content": [
+            {"type": "text", "text": "look at this"},
+            {"type": "image_url", "image_url": {"url": "base64..."}}
+        ]}
+    ]
+    # Reset mock call count
+    mock_tokenizer.apply_chat_template.reset_mock()
+    mock_tokenizer.apply_chat_template.return_value = [1, 2]
+    
+    tokens = tc.count_chat_tokens(messages_with_images, "test_model")
+    assert tokens == 2 + 1000  # text tokens + 1 image token
+    
+    # Check that apply_chat_template was called with clean text
+    expected_cleaned = [{"role": "user", "content": "look at this"}]
+    mock_tokenizer.apply_chat_template.assert_called_once_with(expected_cleaned, tokenize=True, add_generation_prompt=False)
+

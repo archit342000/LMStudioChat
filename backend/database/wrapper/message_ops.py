@@ -312,6 +312,18 @@ class MessageOpsMixin(BaseMixin):
                 c.execute("BEGIN IMMEDIATE")
                 
                 try:
+                    # Invalidate history_compression if deleting messages before/equal to boundary
+                    c.execute("SELECT history_compression FROM chats WHERE id = ?", (chat_id,))
+                    meta_row = c.fetchone()
+                    if meta_row and meta_row[0]:
+                        try:
+                            comp_data = json.loads(meta_row[0])
+                            boundary_id = comp_data.get("boundary_message_id")
+                            if boundary_id is not None and message_id <= boundary_id:
+                                c.execute("UPDATE chats SET history_compression = NULL WHERE id = ?", (chat_id,))
+                        except Exception:
+                            pass
+
                     # 2. Identify all messages to be deleted (target + all subsequent)
                     c.execute("SELECT id FROM messages WHERE chat_id = ? AND id >= ?", (chat_id, message_id))
                     ids_to_purge = [row[0] for row in c.fetchall()]

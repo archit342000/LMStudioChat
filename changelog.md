@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v4.3.0
+* **Virtual Context Compression**: Implemented an automated sliding-window history compression pipeline to maintain coherence and prevent context window exhaustion in extremely long conversations:
+    - **Dynamic Slicing & Summary Cache**: Keeps all historical messages persisted in the database, while caching a high-density conversation summary, active image attachments, and virtual file footnote references to reconstruct the active context.
+    - **Centralized Model Metadata**: Standardized context limits and HuggingFace tokenizer configurations for all supported models.
+    - **Precise Token Counting**: Integrated native HuggingFace template tokenizers with a ChatML fallback, correctly accounting for text formatting and image tokens (1000 tokens per image).
+    - **Deletion Safeguard**: Implemented an automatic database-level check that invalidates and clears compression metadata if messages at or prior to the compression boundary are deleted, gracefully reverting the chat history to a clean, uncompressed state.
+* **Version Bump**: Incremented version globally to 4.3.0.
+
 ## v4.2.1
 * **Formatting Directives**: Explicitly documented frontend Markdown capabilities (Mermaid diagrams, Admonitions, Workspace Links, Task Lists, Math/KaTeX, Footnotes) and injected them into the system prompts to ensure the AI leverages rich UI formatting.
 * **User Instruction Precedence**: Updated the core personality prompt to firmly enforce that explicit user requests regarding style, volume, tone, and formatting strictly override default efficiency rules, while maintaining the system's absolute authority over operational and security constraints.

@@ -94,6 +94,7 @@ def init_db():
                 browsing_session_id TEXT,
                 browsing_mode INTEGER DEFAULT 0,
                 persona_snapshot TEXT,
+                history_compression TEXT,
                 FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
             )
         ''')
@@ -330,7 +331,8 @@ def init_db():
             ('thinking_profile', "TEXT DEFAULT 'general'"),
             ('browsing_session_id', 'TEXT'),
             ('browsing_mode', 'INTEGER DEFAULT 0'),
-            ('persona_snapshot', 'TEXT')
+            ('persona_snapshot', 'TEXT'),
+            ('history_compression', 'TEXT')
         ]
         for col_name, col_def in chat_columns:
             try:

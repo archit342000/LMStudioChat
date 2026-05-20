@@ -244,7 +244,15 @@ async def fetch_with_playwright(url: str, max_chars: int = 40000, detail_level: 
     try:
         p = await _get_playwright()
         browser = await asyncio.wait_for(
-            p.chromium.launch(headless=True, args=['--no-sandbox', '--disable-setuid-sandbox']),
+            p.chromium.launch(
+                headless=True, 
+                args=[
+                    '--no-sandbox', 
+                    '--disable-setuid-sandbox',
+                    '--disable-background-networking',
+                    '--disable-client-side-phishing-detection'
+                ]
+            ),
             timeout=TIMEOUT_BROWSER_LAUNCH
         )
         page = await browser.new_page(
@@ -510,7 +518,9 @@ async def browser_start_session(session_id: str, stealth_level: str = "minimal",
                 '--disable-setuid-sandbox', 
                 '--disable-blink-features=AutomationControlled',
                 '--disable-dev-shm-usage',
-                '--window-size=1920,1080'
+                '--window-size=1920,1080',
+                '--disable-background-networking',
+                '--disable-client-side-phishing-detection'
             ]
         )
         
@@ -799,6 +809,8 @@ async def portal_init(request: Request):
             "--window-size=1920,1080",
             "--no-first-run", 
             "--disable-default-apps",
+            "--disable-background-networking",
+            "--disable-client-side-phishing-detection",
             "--user-agent=Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/135.0.0.0 Safari/537.36",
             "https://www.google.com"
         ], env={**os.environ, "DISPLAY": ":99"})

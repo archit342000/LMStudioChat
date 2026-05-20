@@ -144,3 +144,82 @@ def split_text_by_tokens(text: str, max_tokens: int) -> list:
         chunks.append(tokenizer.decode(chunk_ids, skip_special_tokens=True))
 
     return chunks
+
+
+_model_tokenizers = {}
+
+
+def get_tokenizer_for_model(model_name: str) -> AutoTokenizer:
+    """Get the tokenizer for a specific LLM, loading it lazily and caching it.
+
+    Args:
+        model_name: The exact model name string.
+
+    Returns:
+        AutoTokenizer: The transformers tokenizer instance.
+    """
+    global _model_tokenizers
+    if model_name in _model_tokenizers:
+        return _model_tokenizers[model_name]
+
+    from backend.models.loader import get_model_metadata
+    metadata = get_model_metadata(model_name)
+    tokenizer_name = metadata["tokenizer"]
+
+    hf_token = _get_hf_token()
+    tokenizer = AutoTokenizer.from_pretrained(
+        tokenizer_name,
+        token=hf_token if hf_token else None
+    )
+    _model_tokenizers[model_name] = tokenizer
+    return tokenizer
+
+
+def count_chat_tokens(messages: list, model_name: str) -> int:
+    """Count tokens in a list of chat messages using the model's tokenizer.
+
+    Args:
+        messages: A list of message dictionaries (e.g., {"role": ..., "content": ...}).
+        model_name: The name of the model.
+
+    Returns:
+        int: The total number of tokens.
+    """
+    tokenizer = get_tokenizer_for_model(model_name)
+    
+    cleaned_messages = []
+    num_images = 0
+    
+    for msg in messages:
+        role = msg.get("role", "")
+        content = msg.get("content", "")
+        
+        text_parts = []
+        if isinstance(content, list):
+            for part in content:
+                if isinstance(part, dict):
+                    if part.get("type") == "text":
+                        text_parts.append(part.get("text", ""))
+                    elif part.get("type") == "image_url":
+                        num_images += 1
+                elif isinstance(part, str):
+                    text_parts.append(part)
+            cleaned_content = "\n".join(text_parts)
+        else:
+            cleaned_content = str(content or "")
+            
+        cleaned_messages.append({"role": role, "content": cleaned_content})
+        
+    # Calculate text tokens
+    try:
+        tokens = tokenizer.apply_chat_template(cleaned_messages, tokenize=True, add_generation_prompt=False)
+        text_tokens = len(tokens)
+    except Exception:
+        # Fallback to simple ChatML formatting approximation if template fails
+        approx_text = ""
+        for msg in cleaned_messages:
+            approx_text += f"<|im_start|>{msg['role']}\n{msg['content']}<|im_end|>\n"
+        text_tokens = len(tokenizer.encode(approx_text, add_special_tokens=False))
+        
+    return text_tokens + (num_images * 1000)
+

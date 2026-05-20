@@ -225,7 +225,7 @@ class ChatOpsMixin(BaseMixin):
                 allowed_fields = [
                     'title', 'user_preferences', 'research_mode', 'is_vision', 
                     'last_model', 'vision_model', 'max_tokens', 'thinking_budget_tokens', 'workspace_id', 'persona_id',
-                    'persona_snapshot',
+                    'persona_snapshot', 'history_compression',
                     'research_completed', 'had_research', 
                     'file_system_mode', 'browsing_mode', 'enable_thinking', 'temperature', 'top_p', 
                     'top_k', 'min_p', 'presence_penalty', 'frequency_penalty',

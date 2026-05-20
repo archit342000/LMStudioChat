@@ -95,6 +95,22 @@ class InferenceEngine:
         """
         Executes a standard, blocking chat completion request with retry logic.
         """
+        if chat_id and not params.get("skip_compression"):
+            from backend.inference.compression import check_and_trigger_compression
+            params_copy = params.copy()
+            params_copy.pop("skip_compression", None)
+            params_copy.pop("max_tokens", None)
+            messages = await check_and_trigger_compression(
+                chat_id=chat_id,
+                messages=messages,
+                model=model,
+                max_tokens=params.get("max_tokens"),
+                **params_copy
+            )
+        else:
+            params = params.copy()
+            params.pop("skip_compression", None)
+
         attempts = 0
         max_attempts = config.LLM_RETRY_COUNT
 
@@ -187,6 +203,22 @@ class InferenceEngine:
         """
         Executes a streaming chat completion request with retry logic.
         """
+        if chat_id and not params.get("skip_compression"):
+            from backend.inference.compression import check_and_trigger_compression
+            params_copy = params.copy()
+            params_copy.pop("skip_compression", None)
+            params_copy.pop("max_tokens", None)
+            messages = await check_and_trigger_compression(
+                chat_id=chat_id,
+                messages=messages,
+                model=model,
+                max_tokens=params.get("max_tokens"),
+                **params_copy
+            )
+        else:
+            params = params.copy()
+            params.pop("skip_compression", None)
+
         attempts = 0
         max_attempts = config.LLM_RETRY_COUNT
         
