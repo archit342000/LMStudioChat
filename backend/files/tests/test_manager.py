@@ -347,13 +347,13 @@ def test_read_file_range_lines(file_manager, mock_db):
     assert "4: line 4" in result["content"]
     
     # Too many lines
-    with patch('backend.config.FILE_AGENT_MAX_LINES_PER_REQUEST', 5):
+    with patch('backend.config.DOCUMENT_AGENT_MAX_LINES_PER_REQUEST', 5):
         result = file_manager.read_file_range("f1", start_line=1, end_line=10)
         assert result["success"] is False
         assert "too many lines" in result["error"]
 
     # Truncation
-    with patch('backend.config.FILE_AGENT_MAX_CHARS_PER_READ', 10):
+    with patch('backend.config.DOCUMENT_AGENT_MAX_CHARS_PER_READ', 10):
         result = file_manager.read_file_range("f1", start_line=1, end_line=2)
         assert result["truncated"] is True
         assert "[WARNING: Content truncated" in result["content"]
@@ -376,7 +376,7 @@ def test_read_file_range_pages(file_manager, mock_db):
     assert "not found" in result["error"]
 
     # Truncation
-    with patch('backend.config.FILE_AGENT_MAX_CHARS_PER_READ', 2):
+    with patch('backend.config.DOCUMENT_AGENT_MAX_CHARS_PER_READ', 2):
         result = file_manager.read_file_range("f1", page=1)
         assert result["truncated"] is True
 

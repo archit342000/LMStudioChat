@@ -325,131 +325,16 @@ document.addEventListener("DOMContentLoaded", () => {
     return safeParts.join("/");
   }
 
-
   /**
    * 0.1 Modular API Registry
    * Standardized prefixes for the backend's modular Blueprint architecture.
    */
-  const API_BASE = "/api";
-  const API_MODULES = {
-    CHATS: `${API_BASE}/chats`,
-    TOOLS: `${API_BASE}/tools`,
-    FILE_SYSTEMS: `${API_BASE}/file_systems`,
-    FILES: `${API_BASE}/files`,
-    MODELS: `${API_BASE}/models`,
-    LOGS: `${API_BASE}/logs`,
-  };
-
+  
   /**
    * Tool Display Configuration
    * Maps internal tool names to user-friendly labels and icons.
    */
-  const TOOL_DISPLAY_CONFIG = {
-    grep_search: {
-      name: "Search Code",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line><line x1="11" y1="8" x2="11" y2="14"></line><line x1="8" y1="11" x2="14" y2="11"></line></svg>',
-    },
-    read_file: {
-      name: "Read File",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>',
-    },
-    write_file: {
-      name: "Save File",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline><polyline points="7 3 7 8 15 8"></polyline></svg>',
-    },
-    run_shell_command: {
-      name: "Terminal",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>',
-    },
-    list_directory: {
-      name: "List Files",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="8" y1="6" x2="21" y2="6"></line><line x1="8" y1="12" x2="21" y2="12"></line><line x1="8" y1="18" x2="21" y2="18"></line><line x1="3" y1="6" x2="3.01" y2="6"></line><line x1="3" y1="12" x2="3.01" y2="12"></line><line x1="3" y1="18" x2="3.01" y2="18"></line></svg>',
-    },
-    glob: {
-      name: "Find Files",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
-    },
-    replace: {
-      name: "Edit File",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>',
-    },
-    web_fetch: {
-      name: "Fetch URL",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"></path><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"></path></svg>',
-    },
-    google_web_search: {
-      name: "Google Search",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
-    },
-    search_web: {
-      name: "Web Search",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
-    },
-    request_clarification: {
-      name: "Question",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"></path><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>',
-    },
-    update_topic: {
-      name: "Context Update",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>',
-    },
-    enter_plan_mode: {
-      name: "Planning",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg>',
-    },
-    exit_plan_mode: {
-      name: "End Plan",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"></path><polyline points="17 21 17 13 7 13 7 21"></polyline></svg>',
-    },
-    invoke_agent: {
-      name: "Delegate",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>',
-    },
-    manage_user_preferences: {
-      name: "Preferences",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path><circle cx="12" cy="7" r="4"></circle></svg>',
-    },
-    visit_page_tool: {
-      name: "Visit Page",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>',
-    },
-    get_time: {
-      name: "Get Time",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>',
-    },
-    create_fs_file: {
-      name: "Create FileSystem",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="12" y1="18" x2="12" y2="12"></line><line x1="9" y1="15" x2="15" y2="15"></line></svg>',
-    },
-    list_file_systems: {
-      name: "List FileSystems",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>',
-    },
-    grep_files: {
-      name: "Search FileSystems",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>',
-    },
-    read_fs_file: {
-      name: "Read FileSystem",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"></path><circle cx="12" cy="12" r="3"></circle></svg>',
-    },
-    edit_file_system: {
-      name: "Edit FileSystem",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>',
-    },
-    patch_file_system: {
-      name: "Patch FileSystem",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"></path><path d="M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"></path></svg>',
-    },
-    manage_task_list: {
-      name: "Tasks",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="9 11 12 14 22 4"></polyline><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"></path></svg>',
-    },
-    research: {
-      name: "Research",
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="16" x2="12" y2="12"></line><line x1="12" y1="8" x2="12.01" y2="8"></line></svg>',
-    },
-  };
+  ;
 
   /**
    * 1. Selector Cache & UI Registry
@@ -467,6 +352,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const resizer = document.getElementById("sidebar-resizer");
   const textArea = document.getElementById("chat-textarea");
   const sendBtn = document.getElementById("send-btn");
+  const filePreviewContainer = document.getElementById("file-preview-container");
   const sendBtnWrapper = document.getElementById("send-btn-wrapper");
   const messagesContainer = document.getElementById("messages");
   const welcomeHero = document.getElementById("welcome-hero");
@@ -749,7 +635,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // --- End Persona Management ---
 
-
   // Sampling Parameter Sliders & Values
   const maxTokensSlider = document.getElementById("max-tokens-slider");
   const maxTokensVal = document.getElementById("max-tokens-val");
@@ -799,10 +684,7 @@ document.addEventListener("DOMContentLoaded", () => {
     "preferences-toggle-switch",
   );
   const uiResearchToggle = document.getElementById("deep-research-toggle");
-  // Legacy Research Mode Selector - PRESERVED FOR FUTURE USE (DIRECTIVE M)
-  const uiResearchDepthSelector = document.getElementById(
-    "research-mode-selector",
-  );
+  
   const toolsButton = document.getElementById("tools-button");
   const toolsDropdown = document.getElementById("tools-dropdown");
   const activeToolIconContainer = document.getElementById("active-tool-icon");
@@ -826,400 +708,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   let currentFileSystemViewMode = "code"; // "code" or "preview"
 
-  // Global CodeMirror Instance
-  window.fileSystemEditor = null;
-  let _cmThemeCompartment = null;
-  let _cmLanguageCompartment = null;
-  let _cmReadOnlyCompartment = null;
-  let _cmStyleCompartment = null;
-  let _cmState = null;
-  let _cmView = null;
-  let _cmKeymap = null;
-  let _cmBasicSetup = null;
-  let _cmMarkdown = null;
-  let _cmLanguages = null;
-  let _cmOneDarkTheme = null;
-  let _cmIndentWithTab = null;
-  let _cmMarkdownRichText = null;
-  let _cmParsers = {};
-
-  // Load CodeMirror 6 Modules
-  async function loadCodeMirror() {
-    try {
-      // Load via locally compiled esbuild bundle to guarantee a single unified dependencies graph
-      // and eliminate network module resolution bugs (e.g. esm.sh timeouts and 400 errors).
-      const deps = await import("/js/cm6.bundle.js");
-
-      const { EditorState, Compartment } = deps;
-      const { EditorView, keymap, lineNumbers } = deps;
-      const { basicSetup } = deps;
-      const { markdown, markdownLanguage } = deps;
-      const { languages } = deps;
-      const { oneDark } = deps;
-      const { indentWithTab, python, javascript, html, css, json, cpp } = deps;
-      const { HighlightStyle, syntaxHighlighting, tags: t } = deps;
-
-      // Define custom styles for Markdown so it looks like rich text and is monochrome
-      const markdownRichText = HighlightStyle.define([
-        { tag: t.heading1, fontSize: "1.6em", fontWeight: "bold", color: "inherit" },
-        { tag: t.heading2, fontSize: "1.4em", fontWeight: "bold", color: "inherit" },
-        { tag: t.heading3, fontSize: "1.2em", fontWeight: "bold", color: "inherit" },
-        { tag: t.heading4, fontSize: "1.1em", fontWeight: "bold", color: "inherit" },
-        { tag: t.heading5, fontSize: "1.0em", fontWeight: "bold", color: "inherit" },
-        { tag: t.heading6, fontSize: "0.9em", fontWeight: "bold", color: "inherit" },
-        { tag: t.strong, fontWeight: "bold", color: "inherit" },
-        { tag: t.emphasis, fontStyle: "italic", color: "inherit" },
-        { tag: t.strikethrough, textDecoration: "line-through", color: "inherit" },
-        { tag: t.link, color: "inherit", textDecoration: "underline" },
-        { tag: t.url, color: "inherit", textDecoration: "underline" },
-        {
-          tag: t.quote,
-          borderLeft: "4px solid var(--border-subtle)",
-          paddingLeft: "12px",
-          color: "var(--content-muted)",
-          fontStyle: "italic",
-        },
-        { tag: t.list, color: "inherit" },
-        { tag: t.monospace, color: "inherit" },
-        // Monochrome for code blocks inside markdown
-        { tag: t.keyword, color: "inherit" },
-        { tag: t.operator, color: "inherit" },
-        { tag: t.variableName, color: "inherit" },
-        { tag: t.propertyName, color: "inherit" },
-        { tag: t.string, color: "inherit" },
-        { tag: t.number, color: "inherit" },
-        { tag: t.bool, color: "inherit" },
-        { tag: t.null, color: "inherit" },
-        { tag: t.comment, color: "var(--content-muted)" },
-        { tag: t.className, color: "inherit" },
-        { tag: t.typeName, color: "inherit" },
-        { tag: t.labelName, color: "inherit" },
-        { tag: t.atom, color: "inherit" },
-        { tag: t.bool, color: "inherit" },
-        { tag: t.special(t.variableName), color: "inherit" },
-        { tag: t.attributeName, color: "inherit" },
-        { tag: t.meta, color: "inherit" },
-        { tag: t.processingInstruction, color: "inherit" },
-        { tag: t.punctuation, color: "inherit" },
-        { tag: t.inserted, color: "inherit" },
-        { tag: t.deleted, color: "inherit" },
-        { tag: t.changed, color: "inherit" },
-      ]);
-
-      _cmState = EditorState;
-      _cmView = EditorView;
-      _cmKeymap = keymap;
-      _cmBasicSetup = basicSetup;
-      _cmThemeCompartment = new Compartment();
-      _cmLanguageCompartment = new Compartment();
-      _cmReadOnlyCompartment = new Compartment();
-      _cmStyleCompartment = new Compartment();
-      _cmMarkdown = markdown;
-      _cmLanguages = languages;
-      _cmOneDarkTheme = oneDark;
-      _cmIndentWithTab = indentWithTab;
-      _cmMarkdownRichText = syntaxHighlighting(markdownRichText);
-
-      _cmParsers = { python, javascript, html, css, json, cpp };
-
-      console.log("CodeMirror 6 loaded successfully from local bundle.");
-    } catch (e) {
-      console.error("Failed to load CodeMirror 6:", e);
+  // --- Editor Manager Initialization ---
+  window.EditorManager.init({
+    getContent: () => currentFileSystemContentRaw,
+    setContent: (c) => { currentFileSystemContentRaw = c; },
+    getFileId: () => currentFileSystemId,
+    getChatId: () => currentChatId,
+    getWorkspaceId: () => currentFileSystemWorkspaceId,
+    onSave: (id, content) => saveDebounced(id, content),
+    onVersionEdit: () => {
+      if (typeof handleVersionEdit === "function") handleVersionEdit();
     }
-  }
-
-  async function initFileSystemEditor() {
-    if (!_cmView || !fileSystemCodemirrorContainer) return;
-
-    const isDark = document.documentElement.classList.contains("dark");
-    const themeExtension = isDark ? _cmOneDarkTheme : [];
-
-    // Determine initial language extension - START EMPTY to prevent bleed-over
-    let langExt = [];
-    let styleExt = [];
-
-    // Define an update listener to sync state back to currentFileSystemContentRaw
-    const updateListener = _cmView.updateListener.of((update) => {
-      if (update.docChanged) {
-        currentFileSystemContentRaw = update.state.doc.toString();
-
-        // Only trigger autosave and version branching if the change was made by the user
-        const isUserChange = update.transactions.some(
-          (tr) =>
-            tr.isUserEvent &&
-            (tr.isUserEvent("input") ||
-              tr.isUserEvent("delete") ||
-              tr.isUserEvent("undo") ||
-              tr.isUserEvent("redo") ||
-              tr.isUserEvent("paste") ||
-              tr.isUserEvent("drop")),
-        );
-
-        if (isUserChange) {
-          // Handle version branching when editing after navigating
-          if (typeof handleVersionEdit === "function") handleVersionEdit();
-
-          // Trigger save Debounce
-          if (currentFileSystemId) {
-            saveDebounced(currentFileSystemId, currentFileSystemContentRaw);
-          }
-        }
-      }
-    });
-
-    const state = _cmState.create({
-      doc: currentFileSystemContentRaw || "",
-      extensions: [
-        _cmBasicSetup,
-        _cmThemeCompartment.of(themeExtension),
-        _cmLanguageCompartment.of(langExt),
-        _cmReadOnlyCompartment.of(_cmState.readOnly.of(false)),
-        _cmStyleCompartment.of(styleExt),
-        updateListener,
-        _cmView.lineWrapping,
-        _cmKeymap ? _cmKeymap.of([_cmIndentWithTab]) : [],
-      ]
-        .flat()
-        .filter(Boolean),
-    });
-
-    window.fileSystemEditor = new _cmView({
-      state,
-      parent: fileSystemCodemirrorContainer,
-    });
-
-    // Atomic application of initial language
-    if (currentFileSystemLanguage) {
-      setEditorLanguage(currentFileSystemLanguage);
-    }
-  }
-
-  function updateEditorTheme(isDark) {
-    if (window.fileSystemEditor && _cmThemeCompartment && _cmOneDarkTheme) {
-      window.fileSystemEditor.dispatch({
-        effects: _cmThemeCompartment.reconfigure(isDark ? _cmOneDarkTheme : []),
-      });
-    }
-  }
-
-  function setEditorReadOnly(isReadOnly) {
-    if (window.fileSystemEditor && _cmReadOnlyCompartment && _cmState) {
-      window.fileSystemEditor.dispatch({
-        effects: _cmReadOnlyCompartment.reconfigure(
-          _cmState.readOnly.of(isReadOnly),
-        ),
-      });
-    }
-  }
-
-  async function setEditorLanguage(extensionStr) {
-    if (!window.fileSystemEditor || !_cmLanguageCompartment || !_cmStyleCompartment)
-      return;
-
-    // Step 1: Force UI Reset (Atomic)
-    if (fileSystemCodemirrorContainer) {
-      fileSystemCodemirrorContainer.classList.remove("is-markdown-mode");
-      if (fileSystemCodemirrorContainer.parentElement) {
-        fileSystemCodemirrorContainer.parentElement.classList.remove(
-          "is-markdown-mode"
-        );
-      }
-    }
-
-    // Step 2: Clear Styles Compartment (Atomic)
-    window.fileSystemEditor.dispatch({
-      effects: _cmStyleCompartment.reconfigure([]),
-    });
-
-    // Step 3: Determine New Parser
-    let langExt = [];
-    const cleanExt = (extensionStr || "markdown")
-      .replace(".", "")
-      .toLowerCase();
-    const isMarkdown = cleanExt === "markdown" || cleanExt === "md";
-
-    if (isMarkdown) {
-      if (_cmMarkdown) langExt = _cmMarkdown({ codeLanguages: _cmLanguages });
-    } else if (cleanExt === "python" || cleanExt === "py") {
-      if (_cmParsers.python) langExt = _cmParsers.python();
-    } else if (
-      cleanExt === "javascript" ||
-      cleanExt === "js" ||
-      cleanExt === "ts" ||
-      cleanExt === "typescript"
-    ) {
-      if (_cmParsers.javascript) langExt = _cmParsers.javascript();
-    } else if (cleanExt === "html") {
-      if (_cmParsers.html) langExt = _cmParsers.html();
-    } else if (cleanExt === "css") {
-      if (_cmParsers.css) langExt = _cmParsers.css();
-    } else if (cleanExt === "json") {
-      if (_cmParsers.json) langExt = _cmParsers.json();
-    } else if (cleanExt === "cpp" || cleanExt === "c" || cleanExt === "h") {
-      if (_cmParsers.cpp) langExt = _cmParsers.cpp();
-    } else {
-      // Find language by extension or name
-      if (_cmLanguages) {
-        const langDesc = _cmLanguages.find(
-          (l) =>
-            (l.extensions && l.extensions.includes(cleanExt)) ||
-            l.name.toLowerCase() === cleanExt,
-        );
-
-        if (langDesc) {
-          try {
-            const langSupport = await langDesc.load();
-            langExt = langSupport;
-          } catch (e) {
-            console.warn(
-              `Could not dynamically load language: ${cleanExt}. Defaulting to plain text.`,
-              e,
-            );
-          }
-        }
-      }
-    }
-
-    // Step 4: Apply Language Parser
-    window.fileSystemEditor.dispatch({
-      effects: _cmLanguageCompartment.reconfigure(langExt),
-    });
-
-    // Step 5: (Removed) Markdown files now render as standard line-numbered code.
-  }
-
-  function renderFileSystemPreview(content, language) {
-    if (!fileSystemPreviewContainer) return;
-
-    const cleanExt = (language || "markdown").replace(".", "").toLowerCase();
-    const isMarkdown = cleanExt === "markdown" || cleanExt === "md";
-    const isHtml = cleanExt === "html";
-
-    if (isMarkdown) {
-      fileSystemPreviewContainer.style.padding = "2rem";
-      if (typeof marked !== "undefined") {
-        let htmlContent = formatMarkdown(content || "");
-        // Remove 'disabled' attribute from checkboxes to allow interaction
-        htmlContent = htmlContent.replace(/<input([^>]*?)disabled([^>]*?)>/gi, '<input$1$2>');
-        fileSystemPreviewContainer.innerHTML = htmlContent;
-        setTimeout(renderMermaidBlocks, 100);
-
-        // Add event listeners to checkboxes to persist state
-        const checkboxes = fileSystemPreviewContainer.querySelectorAll('input[type="checkbox"]');
-        checkboxes.forEach((cb, index) => {
-          cb.addEventListener('change', () => {
-             let cbCount = -1;
-             let newContent = currentFileSystemContentRaw.replace(/^[ \t]*[-*+][ \t]+\[([ xX])\]/gm, (match, innerText) => {
-                cbCount++;
-                if (cbCount === index) {
-                   return match.replace(`[${innerText}]`, cb.checked ? '[x]' : '[ ]');
-                }
-                return match;
-             });
-             if (newContent !== currentFileSystemContentRaw) {
-                currentFileSystemContentRaw = newContent;
-                if (window.fileSystemEditor) {
-                  window.fileSystemEditor.dispatch({
-                    changes: { from: 0, to: window.fileSystemEditor.state.doc.length, insert: currentFileSystemContentRaw }
-                  });
-                }
-                saveDebounced(currentFileSystemId, currentFileSystemContentRaw);
-             }
-          });
-        });
-      } else {
-        fileSystemPreviewContainer.innerHTML = `<pre>${content}</pre>`;
-      }
-    } else if (isHtml) {
-      fileSystemPreviewContainer.style.padding = "0";
-      // Use iframe for safe HTML rendering
-      const iframe = document.createElement("iframe");
-      iframe.style.width = "100%";
-      iframe.style.height = "100%";
-      iframe.style.border = "none";
-      iframe.style.background = "white";
-      fileSystemPreviewContainer.innerHTML = "";
-      fileSystemPreviewContainer.appendChild(iframe);
-
-      // Pre-process HTML to replace relative URLs with the new raw API endpoints
-      let processedContent = content || "";
-      processedContent = processedContent.replace(
-        /(href|src)=["'](?!http|https|data|blob|\/)([^"']+)["']/gi,
-        (match, attr, filename) => {
-          let qs = `chat_id=${encodeURIComponent(currentChatId || '')}&filename=${encodeURIComponent(filename)}`;
-          if (currentFileSystemWorkspaceId) {
-             qs += `&workspace_id=${encodeURIComponent(currentFileSystemWorkspaceId)}`;
-          }
-          return `${attr}="/api/file_systems/raw?${qs}"`;
-        }
-      );
-
-      // Write content to iframe
-      const doc = iframe.contentWindow.document;
-      doc.open();
-      doc.write(processedContent);
-      doc.close();
-
-      // Attach event listeners to persist input changes
-      const iDoc = iframe.contentWindow.document;
-      iDoc.body.addEventListener('change', (e) => {
-         const target = e.target;
-         if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.tagName === 'SELECT') {
-            const allInputs = Array.from(iDoc.querySelectorAll('input, textarea, select'));
-            const index = allInputs.indexOf(target);
-            if (index === -1) return;
-
-            let currentIdx = -1;
-            let newContent = currentFileSystemContentRaw.replace(/<(input|textarea|select)([^>]*)>/gi, (match, tag, attrs) => {
-                currentIdx++;
-                if (currentIdx === index) {
-                    let newAttrs = attrs;
-                    let trailingSlash = '';
-                    if (newAttrs.endsWith('/')) {
-                        trailingSlash = '/';
-                        newAttrs = newAttrs.substring(0, newAttrs.length - 1);
-                    }
-                    if (tag.toLowerCase() === 'input' && (target.type === 'checkbox' || target.type === 'radio')) {
-                        if (target.checked) {
-                            if (!/checked/i.test(newAttrs)) newAttrs += ' checked ';
-                        } else {
-                            newAttrs = newAttrs.replace(/\s?checked(?:=(?:'[^']*'|"[^"]*"|[^>\s]+))?/gi, '');
-                        }
-                    } else {
-                        const val = target.value.replace(/"/g, '&quot;');
-                        if (/value(?:=(?:'[^']*'|"[^"]*"|[^>\s]+))?/i.test(newAttrs)) {
-                            newAttrs = newAttrs.replace(/value(?:=(?:'[^']*'|"[^"]*"|[^>\s]+))?/gi, `value="${val}"`);
-                        } else {
-                            newAttrs += ` value="${val}" `;
-                        }
-                    }
-                    return `<${tag}${newAttrs}${trailingSlash}>`;
-                }
-                return match;
-            });
-
-            if (newContent !== currentFileSystemContentRaw) {
-                currentFileSystemContentRaw = newContent;
-                if (window.fileSystemEditor) {
-                  window.fileSystemEditor.dispatch({
-                    changes: { from: 0, to: window.fileSystemEditor.state.doc.length, insert: currentFileSystemContentRaw }
-                  });
-                }
-                saveDebounced(currentFileSystemId, currentFileSystemContentRaw);
-            }
-         }
-      });
-    } else {
-      fileSystemPreviewContainer.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; color: var(--content-muted);">Preview not available for this file type.</div>`;
-    }
-  }
-
-  // Call load immediately
-  loadCodeMirror().then(() => {
-    initFileSystemEditor();
   });
 
-  const chatTitleHeader = document.getElementById("chat-title-header");
+const chatTitleHeader = document.getElementById("chat-title-header");
   const chatTitleDisplay = document.getElementById("chat-title-display");
   const navFilesBtn = document.getElementById("nav-files-btn");
   const rightSidebarResizer = document.getElementById("right-sidebar-resizer");
@@ -1247,8 +749,6 @@ document.addEventListener("DOMContentLoaded", () => {
   const toggleRegularSearchBtn = document.getElementById(
     "toggle-regular-search",
   );
-  const researchActions = document.getElementById("research-actions");
-  const discardResearchBtn = document.getElementById("discard-research-btn");
 
   /**
    * 2. Application State Management
@@ -1285,10 +785,8 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // FileSystem/Artifact Registry
   let _allFileSystems = [];
-  let _file_systemSearchQuery = "";
-  let _file_systemTypeFilter = "all";
-  let _currentFolderFilter = "";
-
+    let _file_systemTypeFilter = "all";
+  
   // Workspace & Organization State
   let chatWorkspaces = JSON.parse(localStorage.getItem("chatWorkspaces") || "[]");
   let activeClarificationIds = []; // IDs of tool calls waiting for input
@@ -1309,27 +807,18 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  let artifactFoldersExpanded = JSON.parse(
-    localStorage.getItem("artifactFoldersExpanded") || "{}",
-  );
-  let chatArtifactFolders = JSON.parse(
+    let chatArtifactFolders = JSON.parse(
     localStorage.getItem("chatArtifactFolders") || "{}",
   );
-  let currentChatArtifactFolders = [];
-
+  
   /**
    * Storage Helpers for Workspaces and Artifacts
    */
   function saveWorkspaces() {
     localStorage.setItem("chatWorkspaces", JSON.stringify(chatWorkspaces));
   }
-  function saveArtifactFoldersExpanded() {
-    localStorage.setItem(
-      "artifactFoldersExpanded",
-      JSON.stringify(artifactFoldersExpanded),
-    );
-  }
-  function saveChatArtifactFolders() {
+
+function saveChatArtifactFolders() {
     localStorage.setItem(
       "chatArtifactFolders",
       JSON.stringify(chatArtifactFolders),
@@ -1364,17 +853,7 @@ document.addEventListener("DOMContentLoaded", () => {
   };
 
   // LLM Sampling Parameters
-  const THINKING_PROFILES = {
-    none: {
-      enable_thinking: false,
-    },
-    general: {
-      enable_thinking: true,
-    },
-    precision: {
-      enable_thinking: true,
-    },
-  };
+  ;
 
   let storedSamplingParams =
     JSON.parse(localStorage.getItem("my_ai_sampling_params")) || {};
@@ -1481,7 +960,7 @@ document.addEventListener("DOMContentLoaded", () => {
         ? "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
         : "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css";
     }
-    updateEditorTheme(isDark);
+    window.EditorManager.updateTheme(isDark);
 
     // Update radio buttons
     themeRadios.forEach((radio) => {
@@ -1497,8 +976,6 @@ document.addEventListener("DOMContentLoaded", () => {
     .addEventListener("change", () => {
       if (themeMode === "system") applyTheme();
     });
-
-
 
   // Initialize Model UI
   currentModelDisplay.textContent = selectedModelName;
@@ -1634,7 +1111,7 @@ document.addEventListener("DOMContentLoaded", () => {
     currentFileSystemContentRaw = "";
     currentFileSystemId = null;
     currentFileSystemLanguage = "markdown";
-    setEditorLanguage(currentFileSystemLanguage);
+    window.EditorManager.setLanguage(currentFileSystemLanguage);
 
     updateResearchUI();
     updateSearchDepthUI();
@@ -1820,7 +1297,7 @@ document.addEventListener("DOMContentLoaded", () => {
       currentFileSystemContentRaw = "";
       currentFileSystemId = null;
       currentFileSystemLanguage = "markdown";
-      setEditorLanguage(currentFileSystemLanguage);
+      window.EditorManager.setLanguage(currentFileSystemLanguage);
 
       if (chat.persona_id) {
         selectedPersonaId = chat.persona_id;
@@ -2084,7 +1561,7 @@ document.addEventListener("DOMContentLoaded", () => {
       renderChatList();
       
       // Render mermaid blocks that may be in the history
-      setTimeout(renderMermaidBlocks, 100);
+      setTimeout(window.renderMermaidBlocks, 100);
 
       // Resume detection: show banner if backend flags resume_needed
       // and no task is currently running (prevents double-trigger)
@@ -2975,267 +2452,10 @@ document.addEventListener("DOMContentLoaded", () => {
    * Shows a custom Luminous-styled prompt dialog with folder selection support.
    * @returns {Promise<string|null>} Resolves with the user input or null if cancelled.
    */
-  async function showPromptModal(
-    title,
-    message,
-    currentVal = "",
-    folderList = null,
-  ) {
-    return new Promise((resolve) => {
-      const modal = document.getElementById("prompt-modal");
-      const titleEl = document.getElementById("prompt-title");
-      const msgEl = document.getElementById("prompt-message");
-      const inputEl = document.getElementById("prompt-input");
-      const selectContainer = document.getElementById(
-        "prompt-select-container",
-      );
-      const selectEl = document.getElementById("prompt-select");
-      const confirmBtn = document.getElementById("prompt-action-btn");
-      const cancelBtn = document.getElementById("prompt-cancel-btn");
-
-      titleEl.textContent = title;
-      msgEl.textContent = message;
-
-      const iconSvg = document.getElementById("prompt-icon-svg");
-      if (iconSvg) {
-        iconSvg.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>`;
-      }
-
-      confirmBtn.textContent = "Confirm";
-      cancelBtn.textContent = "Cancel";
-
-      inputEl.value = currentVal;
-
-      // --- Folder/Workspace Choice vs Text Input ---
-      if (folderList !== null) {
-        selectContainer.style.display = "block";
-        inputEl.style.display = "none";
-
-        selectEl.innerHTML = '<option value="">(No Workspace)</option>';
-        folderList.forEach((f) => {
-          const opt = document.createElement("option");
-          opt.value = f.name;
-          opt.textContent = f.displayName || f.name;
-          if (f.name === currentVal) opt.selected = true;
-          selectEl.appendChild(opt);
-        });
-
-        const optNew = document.createElement("option");
-        optNew.value = "__new__";
-        optNew.textContent = "+ Create New Workspace...";
-        selectEl.appendChild(optNew);
-
-        selectEl.onchange = () => {
-          if (selectEl.value === "__new__") {
-            inputEl.style.display = "block";
-            inputEl.value = "";
-            inputEl.focus();
-          } else {
-            inputEl.style.display = "none";
-          }
-        };
-
-        if (currentVal && !folderList.find((f) => f.name === currentVal)) {
-          inputEl.style.display = "block";
-          selectEl.value = "__new__";
-        }
-      } else {
-        selectContainer.style.display = "none";
-        inputEl.style.display = "block";
-      }
-
-      modal.style.display = "flex";
-      void modal.offsetWidth; // Force reflow
-      modal.classList.add("open");
-      if (inputEl.style.display !== "none") inputEl.focus();
-
-      const cleanup = () => {
-        modal.classList.remove("open");
-        setTimeout(() => {
-          modal.style.display = "none";
-        }, 300);
-        confirmBtn.onclick = null;
-        cancelBtn.onclick = null;
-        inputEl.onkeydown = null;
-      };
-
-      confirmBtn.onclick = () => {
-        let finalVal = inputEl.value;
-        if (folderList !== null && selectEl.value !== "__new__")
-          finalVal = selectEl.value;
-        cleanup();
-        resolve(finalVal);
-      };
-
-      cancelBtn.onclick = () => {
-        cleanup();
-        resolve(null);
-      };
-
-      inputEl.onkeydown = (e) => {
-        if (e.key === "Enter") confirmBtn.click();
-        if (e.key === "Escape") cancelBtn.click();
-      };
-    });
-  }
 
   /**
    * Shows a custom Luminous-styled dialog (Alert or Confirm)
    */
-  /**
-   * Shows a universal modal dialog.
-   * @param {string} title - Modal title.
-   * @param {string} message - Content message.
-   * @param {object} options - Configuration for type and buttons.
-   * @returns {Promise<any>}
-   */
-  async function showModal(title, message, options = {}) {
-    const {
-      type = "confirm",
-      isDanger = false,
-      confirmText = type === "alert" ? "OK" : "Confirm",
-      cancelText = "Cancel",
-      placeholder = "Enter value...",
-      defaultValue = "",
-      showExtensions = false,
-    } = options;
-
-    // SVG Registry for Modal Icons
-    const ICONS = {
-      confirm: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg>`,
-      alert: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6 9 17l-5-5"/></svg>`,
-      prompt: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>`,
-      danger: `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>`,
-    };
-
-    return new Promise((resolve) => {
-      const modal = document.getElementById("confirm-modal");
-      const titleEl = document.getElementById("confirm-title");
-      const messageEl = document.getElementById("confirm-message");
-      const confirmBtn = document.getElementById("confirm-action-btn");
-      const cancelBtn = document.getElementById("confirm-cancel-btn");
-      const iconContainer = document.getElementById("confirm-icon-container");
-      const iconSvg = document.getElementById("confirm-icon-svg");
-      const inputContainer = document.getElementById("confirm-input-container");
-      const inputField = document.getElementById("confirm-input");
-      const extContainer = document.getElementById(
-        "confirm-extension-container",
-      );
-      const extSelect = document.getElementById("confirm-extension-select");
-
-      // Fallback for missing DOM elements
-      if (
-        !modal ||
-        !titleEl ||
-        !messageEl ||
-        !confirmBtn ||
-        !cancelBtn ||
-        !iconSvg
-      ) {
-        if (type === "prompt") resolve(prompt(message));
-        else if (type === "alert") {
-          alert(message);
-          resolve(true);
-        } else resolve(confirm(message));
-        return;
-      }
-
-      titleEl.textContent = title;
-      messageEl.textContent = message;
-      confirmBtn.textContent = confirmText;
-      cancelBtn.textContent = cancelText;
-
-      // Icon & Style Logic
-      iconSvg.innerHTML = isDanger
-        ? ICONS.danger
-        : ICONS[type] || ICONS.confirm;
-      cancelBtn.style.display = type === "alert" ? "none" : "flex";
-
-      if (isDanger) {
-        confirmBtn.style.background = "var(--color-rose)";
-        confirmBtn.style.borderColor = "var(--color-rose)";
-        iconContainer.style.color = "var(--color-rose)";
-        confirmBtn.style.color = "white";
-      } else {
-        confirmBtn.style.background = "";
-        confirmBtn.style.borderColor = "";
-        confirmBtn.style.color = "";
-        iconContainer.style.color = "var(--accent)";
-      }
-
-      // --- Input Field Lifecycle ---
-      if (inputContainer && inputField) {
-        if (type === "prompt") {
-          inputContainer.classList.remove("hidden");
-          inputField.placeholder = placeholder;
-          inputField.value = defaultValue;
-          if (showExtensions && extContainer) {
-            extContainer.classList.remove("hidden");
-          } else if (extContainer) {
-            extContainer.classList.add("hidden");
-          }
-          setTimeout(() => inputField.focus(), 100);
-          inputField.onkeydown = (e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              confirmBtn.click();
-            }
-          };
-        } else {
-          inputContainer.classList.add("hidden");
-          if (extContainer) extContainer.classList.add("hidden");
-          inputField.onkeydown = null;
-        }
-      }
-
-      const cleanup = () => {
-        modal.classList.remove("open");
-        confirmBtn.removeEventListener("click", onConfirm);
-        cancelBtn.removeEventListener("click", onCancel);
-      };
-
-      const onConfirm = () => {
-        let value = true;
-        if (type === "prompt" && inputField) {
-          value = showExtensions
-            ? { title: inputField.value, ext: extSelect ? extSelect.value : "" }
-            : inputField.value;
-        }
-        cleanup();
-        resolve(value);
-      };
-
-      const onCancel = () => {
-        cleanup();
-        resolve(false);
-      };
-
-      confirmBtn.addEventListener("click", onConfirm, { once: true });
-      cancelBtn.addEventListener("click", onCancel, { once: true });
-
-      const onEsc = (e) => {
-        if (e.key === "Escape") onCancel();
-      };
-      document.addEventListener("keydown", onEsc, { once: true });
-
-      modal.classList.add("open");
-    });
-  }
-
-  async function showPrompt(title, message, options = {}) {
-    return await showModal(title, message, {
-      type: "prompt",
-      ...options,
-    });
-  }
-
-  async function showConfirm(title, message, isDanger = false) {
-    return await showModal(title, message, { type: "confirm", isDanger });
-  }
-
-  async function showAlert(title, message) {
-    return await showModal(title, message, { type: "alert" });
-  }
 
   function showLightbox(src, alt) {
     let lightbox = document.getElementById("lightbox-modal");
@@ -3295,23 +2515,8 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-    // 3. Research Depth UI Styling
-    if (uiResearchDepthSelector) {
-      uiResearchDepthSelector.classList.toggle("hidden", !isResearchMode);
-      uiResearchDepthSelector.setAttribute("data-mode", "regular");
-      uiResearchDepthSelector.style.opacity = "1";
-      uiResearchDepthSelector.style.pointerEvents = "auto";
-
-      const btns = uiResearchDepthSelector.querySelectorAll(".mode-btn");
-      btns.forEach((btn) => {
-        btn.classList.toggle(
-          "active",
-          btn.getAttribute("data-mode") === "regular",
-        );
-      });
-    }
-
     // Update the Tools Button icon based on active complex modes
+    const attachBtn = document.getElementById("attach-btn");
     if (activeToolIconContainer) {
       if (isResearchMode) {
         activeToolIconContainer.innerHTML = `<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M6 3h12M12 3v11M9 21h6a4 4 0 0 0 4-4V10a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v7a4 4 0 0 0 4 4z"/></svg>`;
@@ -3390,37 +2595,14 @@ document.addEventListener("DOMContentLoaded", () => {
       }
     }
 
-  
-
-
   // --- Chat Input Lockdown Logic ---
-    const indexApproval = chatHistory.findIndex(
-      (m) =>
-        m.content === "Plan Approved. Proceed with research." ||
-        m.content === "Proceed with research.",
-    );
-    let hasApprovedResearch = false;
-    if (isResearchMode) {
-      const hasFinalMessage = chatHistory.some(
-        (m, i) => i > indexApproval && m.role === "assistant",
-      );
-      hasApprovedResearch =
-        indexApproval > -1 && !isResearchCompleted && !hasFinalMessage;
-    }
-
     if (textArea) {
-      textArea.disabled = hasApprovedResearch;
-      textArea.placeholder = hasApprovedResearch
-        ? "Chat is locked during research. Use 'Discard' to restart."
-        : "Start a conversation...";
-      textArea.style.opacity = hasApprovedResearch ? "0.6" : "1";
+      textArea.disabled = false;
+      textArea.placeholder = "Start a conversation...";
+      textArea.style.opacity = "1";
     }
 
-    if (researchActions)
-      researchActions.style.display = hasApprovedResearch ? "flex" : "none";
-
-    const attachBtn = document.getElementById("attach-btn");
-    if (attachBtn) {
+        if (attachBtn) {
       if (isResearchMode) {
         attachBtn.style.opacity = "0.3";
         attachBtn.style.pointerEvents = "none";
@@ -3533,14 +2715,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // LEGACY: Research Mode Selector Click Handlers (PRESERVED FOR FUTURE USE)
-    if (uiResearchDepthSelector) {
-      const btns = uiResearchDepthSelector.querySelectorAll(".mode-btn");
-      btns.forEach((btn) => {
-        btn.addEventListener("click", () => {
-          updateResearchUI();
-        });
-      });
-    }
   }
 
   if (toggleRegularSearchBtn) {
@@ -3655,60 +2829,6 @@ document.addEventListener("DOMContentLoaded", () => {
         updateResearchUI();
       }
     });
-
-  if (discardResearchBtn) {
-    discardResearchBtn.addEventListener("click", async () => {
-      if (!currentChatId) return;
-      if (
-        await showConfirm(
-          "Discard Research",
-          "Are you sure you want to abandon the current research session and restart? All gathered data and state will be cleared.",
-          true,
-        )
-      ) {
-        try {
-          // 1. Stop local generation if active
-          resetGenerationState();
-
-          // 2. Capture current query to restore it for the user
-          let lastQuery = "";
-          if (chatHistory.length > 0 && chatHistory[0].role === "user") {
-            lastQuery = chatHistory[0].content;
-            if (Array.isArray(lastQuery)) {
-              const textPart = lastQuery.find((p) => p.type === "text");
-              lastQuery = textPart ? textPart.text : "";
-            }
-          }
-
-          const response = await fetch(
-            `${API_MODULES.CHATS}/${currentChatId}/discard`,
-            { method: "POST" },
-          );
-          if (response.ok) {
-            // 3. Reload the chat
-            await loadChat(currentChatId);
-
-            // 4. Restore query to textarea so user can refine and resubmit
-            if (textArea && lastQuery) {
-              textArea.value = lastQuery;
-              textArea.focus();
-              // Trigger auto-resize
-              textArea.style.height = "auto";
-              textArea.style.height = textArea.scrollHeight + "px";
-            }
-          } else {
-            showAlert(
-              "Error",
-              "Failed to discard research. Please check backend logs.",
-            );
-          }
-        } catch (e) {
-          console.error("Discard error:", e);
-          showAlert("Error", "An error occurred while discarding research.");
-        }
-      }
-    });
-  }
 
   async function fetchModels(forceLoad = false) {
     if (modelSelectDropdown) {
@@ -4213,12 +3333,21 @@ document.addEventListener("DOMContentLoaded", () => {
         sidebar.classList.remove("sidebar-collapsed");
         sidebar.classList.add("sidebar-expanded");
         toggleIconPath.setAttribute("d", "M15 6l-6 6 6 6");
+        if (window.innerWidth <= 768) {
+          document.documentElement.style.setProperty("--sidebar-width", "0px");
+        } else {
+          document.documentElement.style.setProperty("--sidebar-width", "16rem");
+        }
       } else {
         sidebar.classList.remove("sidebar-expanded");
         sidebar.classList.add("sidebar-collapsed");
         toggleIconPath.setAttribute("d", "M9 6l6 6-6 6");
+        if (window.innerWidth <= 768) {
+          document.documentElement.style.setProperty("--sidebar-width", "0px");
+        } else {
+          document.documentElement.style.setProperty("--sidebar-width", "4.5rem");
+        }
       }
-      syncSidebarWidth();
     });
   });
 
@@ -4814,7 +3943,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Set title
     const labels = {
-      file_agent: "File Agent",
+      document_agent: "Document Agent",
       file_system_agent: "FileSystem Agent",
       browsing_agent: "Browsing Agent",
       search_web: "Search Agent",
@@ -5460,379 +4589,23 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  const attachBtn = document.getElementById("attach-btn");
-
-  /**
+/**
    * Determines MIME type based on File API or extension fallback.
    */
-  function getFileType(file) {
-    if (file.type) return file.type;
-    const ext = file.name.split(".").pop().toLowerCase();
-    const extToMime = {
-      pdf: "application/pdf",
-      docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      doc: "application/msword",
-      txt: "text/plain",
-      csv: "text/csv",
-      md: "text/markdown",
-      json: "application/json",
-      js: "application/javascript",
-      py: "text/x-python",
-      html: "text/html",
-      css: "text/css",
-      png: "image/png",
-      jpg: "image/jpeg",
-      jpeg: "image/jpeg",
-      gif: "image/gif",
-      webp: "image/webp",
-      heic: "image/heic",
-      mp4: "video/mp4",
-      webm: "video/webm",
-      mp3: "audio/mpeg",
-      wav: "audio/wav",
-    };
-    return extToMime[ext] || "";
-  }
 
-  /**
-   * File Upload Pipeline
-   * Handles validation, optimistic UI preview, and backend upload via XHR for progress tracking.
-   */
-  async function handleFileUpload(file) {
-    let currentFileId = null;
-    const fileType = getFileType(file);
-    const allowedTypes = [
-      "application/pdf",
-      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-      "text/plain",
-      "text/csv",
-      "text/markdown",
-      "application/json",
-      "application/javascript",
-      "text/x-python",
-      "text/html",
-      "text/css",
-      "image/png",
-      "image/jpeg",
-      "image/gif",
-      "image/webp",
-      "image/heic",
-      "video/mp4",
-      "video/webm",
-      "audio/mpeg",
-      "audio/wav",
-    ];
+// Helper function to upload file with progress tracking
 
-    // Capability Validation: Legacy blocks multimedia if the current model lacks Vision capability
-    // This is now handled by the Agentic File Tool which routes to vision models on the backend.
+// → formatFileSize, getIconClassForMime, getIconHtmlForMime moved to static/js/utils.js
 
-    if (!allowedTypes.includes(fileType)) {
-      // Fallback: Heuristic check for readable text
-      const isReadable = await new Promise((resolve) => {
-        const reader = new FileReader();
-        reader.onload = (e) => {
-          const arr = new Uint8Array(e.target.result);
-          for (let i = 0; i < arr.length; i++) {
-            if (arr[i] === 0) {
-              resolve(false); // Found null byte, likely binary
-              return;
-            }
-          }
-          resolve(true); // No null bytes, assume safe text
-        };
-        reader.onerror = () => resolve(false);
-        // Read up to first 1024 bytes
-        const slice = file.slice(0, Math.min(file.size, 1024));
-        reader.readAsArrayBuffer(slice);
-      });
+/* ═══════════════════════════════════════════
+       ATTACHMENT MANAGER INITIALIZATION
+       ═══════════════════════════════════════════ */
+  window.AttachmentManager.init({
+    getChatId: () => currentChatId,
+    onUploadStateChange: () => checkSendButtonState()
+  });
 
-      if (!isReadable) {
-        await showAlert(
-          "File Type Not Supported",
-          `${file.name} appears to be a binary file and is not supported. Only text, code, and media files are allowed.`,
-        );
-        return;
-      }
-    }
-
-    if (file.size > 100 * 1024 * 1024) {
-      // 100MB limit
-      await showAlert(
-        "File Too Large",
-        `${file.name} exceeds the 100MB limit.`,
-      );
-      return;
-    }
-
-    const formData = new FormData();
-    formData.append("file", file);
-    formData.append("chat_id", currentChatId);
-
-    // Render Optimistic Upload Item
-    const fileItem = document.createElement("div");
-    fileItem.className = "file-item";
-    fileItem.innerHTML = `
-            <div class="file-icon">
-                <div class="upload-spinner" style="width: 16px; height: 16px; border: 2px solid currentColor; border-top-color: transparent; animation: spin 1s linear infinite;"></div>
-            </div>
-            <div class="file-info">
-                <div class="file-name">${file.name}</div>
-                <div class="file-meta">
-                    <span class="upload-status">Uploading...</span>
-                    <span class="upload-size">${formatFileSize(0)} / ${formatFileSize(file.size)}</span>
-                </div>
-            </div>
-            <button class="remove-file-btn" title="Remove file"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-        `;
-
-    const removeBtn = fileItem.querySelector(".remove-file-btn");
-    removeBtn.addEventListener("click", () => {
-      if (currentFileId) {
-        uploadedFiles = uploadedFiles.filter(
-          (f) => f.file_id !== currentFileId,
-        );
-      } else {
-        uploadedFiles = uploadedFiles.filter(
-          (f) => !(f.name === file.name && !f.file_id),
-        );
-      }
-      if (fileItem.parentNode) fileItem.parentNode.removeChild(fileItem);
-      checkSendButtonState();
-    });
-
-    if (filePreviewContainer) {
-      filePreviewContainer.classList.remove("hidden");
-      filePreviewContainer.appendChild(fileItem);
-    }
-    checkSendButtonState();
-
-    try {
-      // --- Phase 1: Physical Upload ---
-      const uploadResult = await uploadFileWithProgress(
-        file,
-        formData,
-        (loaded, total) => {
-          const percent = Math.round((loaded / total) * 100);
-          const statusEl = fileItem.querySelector(".upload-status");
-          const sizeEl = fileItem.querySelector(".upload-size");
-          if (statusEl) statusEl.textContent = `Uploading ${percent}%`;
-          if (sizeEl)
-            sizeEl.textContent = `${formatFileSize(loaded)} / ${formatFileSize(file.size)}`;
-        },
-      );
-
-      // --- Phase 2: Server-Side Processing ---
-      const statusEl = fileItem.querySelector(".upload-status");
-      const spinnerEl = fileItem.querySelector(".upload-spinner");
-      const sizeEl = fileItem.querySelector(".upload-size");
-      if (statusEl) statusEl.textContent = "Processing...";
-      if (sizeEl) sizeEl.textContent = formatFileSize(file.size);
-
-      currentFileId = uploadResult.file_id;
-      const fileData = {
-        file_id: uploadResult.file_id,
-        name: uploadResult.original_filename,
-        size: uploadResult.file_size,
-        mime_type: uploadResult.mime_type,
-      };
-      uploadedFiles.push(fileData);
-
-      /**
-       * Polling loop for processing status (extraction, embedding, etc).
-       */
-      const pollProcessingStatus = async () => {
-        try {
-          const response = await fetch(
-            `${API_MODULES.FILES}/${fileData.file_id}/status`,
-          );
-          if (response.ok) {
-            const result = await response.json();
-            const status = result.processing_status;
-
-            if (!status) {
-              setTimeout(pollProcessingStatus, 1000);
-              return;
-            }
-
-            if (status === "completed") {
-              if (fileItem.parentNode) {
-                fileItem.innerHTML = `
-                                    <div class="file-icon file-type-icon ${getIconClassForMime(fileData.mime_type)}">${getIconHtmlForMime(fileData.mime_type)}</div>
-                                    <div class="file-info">
-                                        <div class="file-name">${fileData.name}</div>
-                                        <div class="file-meta"><span class="file-status">Ready</span><span class="file-size">${formatFileSize(fileData.size)}</span></div>
-                                    </div>
-                                    <button class="remove-file-btn" title="Remove file"><svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg></button>
-                                `;
-                const newRemoveBtn = fileItem.querySelector(".remove-file-btn");
-                newRemoveBtn.addEventListener("click", () => {
-                  uploadedFiles = uploadedFiles.filter(
-                    (f) => f.file_id !== fileData.file_id,
-                  );
-                  if (fileItem.parentNode)
-                    fileItem.parentNode.removeChild(fileItem);
-                  checkSendButtonState();
-                });
-              }
-              checkSendButtonState(); // Enable send button when all processed
-            } else if (status === "failed") {
-              if (fileItem.parentNode) {
-                const statusEl = fileItem.querySelector(".upload-status");
-                if (statusEl) statusEl.textContent = "Processing Failed";
-              }
-              checkSendButtonState();
-            } else {
-              setTimeout(pollProcessingStatus, 1000);
-            }
-          } else {
-            setTimeout(pollProcessingStatus, 1000);
-          }
-        } catch (error) {
-          setTimeout(pollProcessingStatus, 1000);
-        }
-      };
-      pollProcessingStatus();
-    } catch (error) {
-      console.error("File upload error:", error);
-      const statusEl = fileItem.querySelector(".upload-status");
-      if (statusEl) statusEl.textContent = "Upload Failed";
-      await showAlert(
-        "File Upload Failed",
-        error.message || "An error occurred while uploading.",
-      );
-      if (currentFileId) {
-        uploadedFiles = uploadedFiles.filter(
-          (f) => f.file_id !== currentFileId,
-        );
-      } else {
-        uploadedFiles = uploadedFiles.filter(
-          (f) => !(f.name === file.name && !f.file_id),
-        );
-      }
-      setTimeout(() => {
-        if (fileItem.parentNode) fileItem.parentNode.removeChild(fileItem);
-        checkSendButtonState();
-      }, 2000);
-    }
-  }
-
-  // Helper function to upload file with progress tracking
-  function uploadFileWithProgress(file, formData, onProgress) {
-    return new Promise((resolve, reject) => {
-      const xhr = new XMLHttpRequest();
-
-      // Track upload progress
-      xhr.upload.onprogress = (event) => {
-        if (event.lengthComputable) {
-          onProgress(event.loaded, event.total);
-        }
-      };
-
-      xhr.onload = () => {
-        try {
-          const contentType = xhr.getResponseHeader("content-type");
-          let result;
-          if (contentType && contentType.includes("application/json")) {
-            result = JSON.parse(xhr.responseText);
-          } else {
-            result = { success: false, error: `Server returned ${xhr.status}` };
-          }
-
-          if (xhr.status === 200 && result.success) {
-            resolve(result);
-          } else {
-            let errorMsg =
-              result.error || `Upload failed with status ${xhr.status}`;
-            if (xhr.status === 413) {
-              errorMsg = "File too large. Maximum size is 100MB.";
-            }
-            reject(new Error(errorMsg));
-          }
-        } catch (e) {
-          reject(new Error("Failed to parse upload response"));
-        }
-      };
-
-      xhr.onerror = () => {
-        reject(new Error("Network error during upload"));
-      };
-
-      xhr.ontimeout = () => {
-        reject(new Error("Upload timed out"));
-      };
-
-      xhr.open("POST", `${API_MODULES.FILES}/upload`, true);
-      xhr.timeout = 3600000; // 1 hour timeout for very large files on slow hardware
-      xhr.setRequestHeader("Accept", "application/json");
-      xhr.send(formData);
-    });
-  }
-
-  // → formatFileSize, getIconClassForMime, getIconHtmlForMime moved to static/js/utils.js
-
-  // Attach button - opens file picker
-  if (attachBtn) {
-    attachBtn.addEventListener("click", () => {
-      fileInput.click();
-    });
-  }
-
-  // File Upload State
-  const fileInput = document.getElementById("file-input");
-  const fileUploadZone = document.getElementById("file-upload-zone");
-  const filePreviewContainer = document.getElementById(
-    "file-preview-container",
-  );
-  let uploadedFiles = []; // Array of { file_id, name, size, mime_type }
-
-  // File Upload Event Listeners
-  if (fileInput) {
-    fileInput.addEventListener("change", async (e) => {
-      const files = e.target.files;
-      if (!files || files.length === 0) return;
-
-      // Process file uploads concurrently instead of sequentially so that 
-      // all files are immediately added to the preview UI
-      const uploadPromises = Array.from(files).map((file) =>
-        handleFileUpload(file),
-      );
-      await Promise.all(uploadPromises);
-      fileInput.value = ""; // Reset input
-    });
-  }
-
-  if (fileUploadZone) {
-    // Click to open file picker (shows zone for attach button toggle)
-    fileUploadZone.addEventListener("click", () => {
-      fileInput.click();
-    });
-
-    fileUploadZone.addEventListener("dragover", (e) => {
-      e.preventDefault();
-      fileUploadZone.classList.add("dragover");
-    });
-
-    fileUploadZone.addEventListener("dragleave", () => {
-      fileUploadZone.classList.remove("dragover");
-    });
-
-    fileUploadZone.addEventListener("drop", async (e) => {
-      e.preventDefault();
-      fileUploadZone.classList.remove("dragover");
-
-      const files = e.dataTransfer.files;
-      if (files && files.length > 0) {
-        // Process file uploads concurrently instead of sequentially so that 
-        // all files are immediately added to the preview UI
-        const uploadPromises = Array.from(files).map((file) =>
-          handleFileUpload(file),
-        );
-        await Promise.all(uploadPromises);
-      }
-    });
-  }
-
-  // 5. Chat Interaction Core (Backend API with RAG)
+// 5. Chat Interaction Core (Backend API with RAG)
   /**
    * CORE MESSAGING ENGINE: Sends a user message and orchestrates the AI response streaming.
    * Handles both standard chat and specialized Research Agent execution.
@@ -5881,7 +4654,7 @@ document.addEventListener("DOMContentLoaded", () => {
       !isResume &&
       !isReattach &&
       !content &&
-      !uploadedFiles.length &&
+      !window.AttachmentManager.getStagedFiles().length &&
       !approvedPlanPayload &&
       !resumeState
     )
@@ -5919,7 +4692,7 @@ document.addEventListener("DOMContentLoaded", () => {
           content: "The research plan is approved. Proceed with execution.",
         });
       } else {
-        const sentFiles = [...uploadedFiles];
+        const sentFiles = window.AttachmentManager.getStagedFiles();
         appendMessage(
           "User",
           content,
@@ -5980,31 +4753,6 @@ document.addEventListener("DOMContentLoaded", () => {
       console.log("Resuming existing task, skipping VRAM cleanup.");
     } else {
       await unloadAllModels([selectedModel]);
-    }
-
-    // Block follow-up messages in Research mode ONLY if an active execution is underway
-    const indexApproval = chatHistory.findIndex(
-      (m) =>
-        m.content === "Plan Approved. Proceed with research." ||
-        m.content === "Proceed with research.",
-    );
-    const isExecuting =
-      isResearchMode && indexApproval > -1 && !isResearchCompleted;
-
-    if (
-      isResearchMode &&
-      isExecuting &&
-      !isResume &&
-      !approvedPlanPayload &&
-      !resumeState
-    ) {
-      await showAlert(
-        "Research in Progress",
-        "Research is currently executing. You can chat once the final report is generated.",
-      );
-      isGenerating = false;
-      updateUIState(false);
-      return;
     }
 
     updateResearchUI();
@@ -6072,7 +4820,7 @@ document.addEventListener("DOMContentLoaded", () => {
     messages.push(...chatHistory);
 
     // Clean up file state - files are stored in chat history for persistence
-    const sentFiles = [...uploadedFiles];
+    const sentFiles = window.AttachmentManager.getStagedFiles();
 
     let reqModel = selectedModel;
     let reqModelName = selectedModelName;
@@ -6106,7 +4854,7 @@ document.addEventListener("DOMContentLoaded", () => {
       };
 
       // Clear uploadedFiles after request is constructed (files are now part of request)
-      uploadedFiles = [];
+      window.AttachmentManager.clearStagedFiles();
       // Clear file preview container from DOM
       if (filePreviewContainer) {
         filePreviewContainer.innerHTML = "";
@@ -6539,7 +5287,7 @@ document.addEventListener("DOMContentLoaded", () => {
       updateUIState(false);
       
       // Render any mermaid diagrams now that streaming is complete
-      setTimeout(renderMermaidBlocks, 100);
+      setTimeout(window.renderMermaidBlocks, 100);
 
       if (isResearchMode) updateResearchUI();
       if (activityFeed) {
@@ -6987,17 +5735,8 @@ document.addEventListener("DOMContentLoaded", () => {
   ); // Use capture phase because 'load' doesn't bubble
 
   let lastScrollTime = 0;
-  function renderMermaidBlocks() {
-    if (typeof mermaid !== 'undefined') {
-      try {
-        mermaid.run({ querySelector: '.mermaid' });
-      } catch (e) {
-        console.warn("Mermaid rendering failed or no elements found.", e);
-      }
-    }
-  }
 
-  /**
+/**
    * Orchestrates container scrolling with smart behavior.
    * Prevents autoscroll if the user has manually scrolled up to read earlier history.
    */
@@ -7046,7 +5785,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Strip System Note about files from user messages to prevent UI clutter
     if (role === "user" && text) {
-      text = text.replace(/\n\n\[System Note: The user has attached the following files\. Use the `file_agent` tool with the provided file_id to read their contents if needed:[\s\S]*?\]/g, "");
+      text = text.replace(/\n\n\[System Note: The user has attached the following files\. Use the `document_agent` tool with the provided file_id to read their contents if needed:[\s\S]*?\]/g, "");
       text = text.replace(/\n\n\[System Note: The user has attached the following files\. Use the `read_file` tool with the provided file_id to read their contents if needed:[\s\S]*?\]/g, "");
     }
 
@@ -7210,12 +5949,24 @@ document.addEventListener("DOMContentLoaded", () => {
 
       // SCOPED ANCHORING: Also render persistent collections (like task lists)
       // that were attached via get_woven_history.
+      // Guard: skip a task_list collection if the interleaved feed already
+      // contains a tool_result from the same agent — that means the task list
+      // tool result was already rendered inline and a second render would
+      // produce a duplicate container.
       if (collections && collections.length > 0) {
         collections.forEach((coll) => {
           if (coll.collection_type === "task_list") {
             const agentName =
               coll.parent_type === "main" ? "Assistant" : coll.parent_type;
-              
+
+            const alreadyRenderedInFeed =
+              interleaved &&
+              interleaved.some(
+                (item) =>
+                  item.type === "tool_result" && item.agentName === agentName,
+              );
+            if (alreadyRenderedInFeed) return;
+
             let items = coll.items;
             if (typeof items === "string") {
               try {
@@ -7579,9 +6330,6 @@ document.addEventListener("DOMContentLoaded", () => {
    * @param {Array} activities - Array of activity objects
    * @returns {Array} Sorted array of activities
    */
-  function sortActivitiesChronologically(activities) {
-    return activities.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
-  }
 
   /**
    * Render an activity feed as expandable items
@@ -7595,568 +6343,18 @@ document.addEventListener("DOMContentLoaded", () => {
    * structurally identical to what getSharedAgentCard produces during live streaming.
    * Main agent activities (thinking, tool_call, tool_result with no agentName) render inline.
    */
-  function _buildActivityFeedContent(activities) {
-    if (!activities || activities.length === 0) return "";
-
-    const sorted = sortActivitiesChronologically([...activities]);
-    let finalHtml = "";
-    let currentAgentName = null;
-    let currentItemsHtml = "";
-
-    const renderSubAgentCard = (name, items) => {
-      if (!items) return "";
-      const key = name.toLowerCase();
-      let label = name.replace(/_/g, " ");
-      if (key === "research") label = "Research Agent";
-      if (key === "file_system_agent") label = "FileSystem Agent";
-
-      return `
-                <div class="activity-item sub-agent-container collapsed" data-agent-name="${key}">
-                    <div class="activity-header">
-                        <div class="sub-agent-icon-wrapper" style="margin-right: 6px; display: flex; align-items: center; justify-content: center; color: var(--content-muted);">${getAgentIcon(key)}</div>
-                        <div class="activity-type" style="margin-right: auto;">${label}</div>
-                        <div class="thought-chevron" style="margin-left: auto;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                    </div>
-                    <div class="activity-content sub-agent-activity-feed" style="margin-left: 0; border-left: none;">${items}</div>
-                </div>
-            `;
-    };
-
-    for (const activity of sorted) {
-      // Determine agent name for this activity
-      let agentName =
-        activity.agentName ||
-        activity.agent_name ||
-        (activity.parent_type !== "main" ? activity.parent_type : "Assistant");
-      if (agentName === "Thinking") agentName = "Assistant";
-
-      const normalized = agentName.toLowerCase();
-      const isAssistant =
-        normalized === "assistant" || normalized === "assistant_active";
-
-      if (currentAgentName !== null && normalized !== currentAgentName.toLowerCase()) {
-        // Agent switched — if previous was sub-agent, close its card
-        if (currentAgentName.toLowerCase() !== "assistant" && currentAgentName.toLowerCase() !== "assistant_active") {
-          finalHtml += renderSubAgentCard(currentAgentName, currentItemsHtml);
-        } else {
-          finalHtml += currentItemsHtml;
-        }
-        currentItemsHtml = "";
-      }
-
-      currentAgentName = agentName;
-      currentItemsHtml += _renderSubAgentActivityItemHtml(activity);
-    }
-
-    // Flush final items
-    if (currentAgentName !== null) {
-      if (currentAgentName.toLowerCase() !== "assistant" && currentAgentName.toLowerCase() !== "assistant_active") {
-        finalHtml += renderSubAgentCard(currentAgentName, currentItemsHtml);
-      } else {
-        finalHtml += currentItemsHtml;
-      }
-    }
-
-    return finalHtml;
-  }
 
   /**
    * Render a single activity item for display INSIDE a sub-agent container.
    * Produces the same inner structure as renderActivityItem but without an outer agent wrapper.
    */
-  function _renderSubAgentActivityItemHtml(activity) {
-    const type = activity.type || "thinking";
-    const content = activity.content || "";
-    const timestamp = activity.timestamp || Date.now();
-
-    const chevronSvg = `<div class="thought-chevron" style="margin-left: auto;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>`;
-
-    if (type === "thinking") {
-      return `
-                <div class="activity-item thinking-item collapsed" data-role="thinking" data-timestamp="${timestamp}">
-                    <div class="activity-header">
-                        <div class="activity-type">Reasoning</div>
-                        ${chevronSvg}
-                    </div>
-                    <div class="activity-content sub-agent-thinking" data-raw="${escapeHtml(content)}">${escapeHtml(content)}</div>
-                </div>
-            `;
-    } else if (type === "content") {
-      return `
-                <div class="activity-item content-item collapsed" data-role="content" data-timestamp="${timestamp}">
-                    <div class="activity-header">
-                        <span class="activity-type">Assistant Response</span>
-                        ${chevronSvg}
-                    </div>
-                    <div class="activity-content sub-agent-response" data-raw="${escapeHtml(content)}">${escapeHtml(content)}</div>
-                </div>
-            `;
-    }
-
-    let typeLabel, typeClass, contentHtml;
-
-    if (type === "tool_call") {
-      typeClass = "tool-call-activity";
-      let toolName = "Unknown Tool";
-      let args = {};
-      try {
-        const parsed =
-          typeof content === "string" ? JSON.parse(content) : content;
-        toolName = parsed.function?.name || "Unknown Tool";
-        args = parsed.function?.arguments || {};
-        if (typeof args === "string") {
-          try {
-            args = JSON.parse(args);
-          } catch (e) {}
-        }
-      } catch (e) {}
-
-      const config = TOOL_DISPLAY_CONFIG[toolName] || {
-        name: toolName,
-        icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
-      };
-      typeLabel = config.name;
-      contentHtml = `<code class="font-mono">${escapeHtml(JSON.stringify(args, null, 2))}</code>`;
-
-      return `
-                <div class="activity-item tool-call-item collapsed ${typeClass}" data-role="tool_call" data-timestamp="${timestamp}">
-                    <div class="activity-header">
-                        <div class="activity-type">${config.icon} <span>Call: ${escapeHtml(typeLabel)}</span></div>
-                        ${chevronSvg}
-                    </div>
-                    <div class="activity-content tool-call-content">${contentHtml}</div>
-                </div>
-            `;
-    } else if (type === "tool_result") {
-      typeLabel = "Result";
-      typeClass = "tool-result-activity";
-      let isTaskTool = false;
-      try {
-        const parsed =
-          typeof content === "string" ? JSON.parse(content) : content;
-        const targetObj = parsed.output ?? parsed;
-        if (
-          Array.isArray(targetObj) &&
-          targetObj.length > 0 &&
-          typeof targetObj[0] === "object" &&
-          targetObj[0].hasOwnProperty("status") &&
-          targetObj[0].hasOwnProperty("description")
-        ) {
-          isTaskTool = true;
-          contentHtml = renderTaskListCard(targetObj);
-          typeLabel = "Task List";
-        } else {
-          contentHtml = `<code class="font-mono">${escapeHtml(JSON.stringify(targetObj, null, 2))}</code>`;
-        }
-      } catch (e) {
-        contentHtml = escapeHtml(content);
-      }
-
-      return `
-                <div class="activity-item tool-result-item collapsed ${typeClass}" data-role="tool_result" data-timestamp="${timestamp}">
-                    <div class="activity-header">
-                        <div class="activity-type">Tool Result: ${typeLabel}</div>
-                        ${chevronSvg}
-                    </div>
-                    <div class="activity-content tool-result-content" ${isTaskTool ? 'style="padding-top: 0;"' : ""}>${contentHtml}</div>
-                </div>
-            `;
-    } else if (type === "event") {
-      return `
-                <div class="activity-item event-divider" data-role="event" data-timestamp="${timestamp}" style="display: flex; align-items: center; justify-content: center; margin: 1.5rem 0; gap: 1rem;">
-                    <div style="flex: 1; height: 1px; background-color: var(--border-subtle, var(--border-subtle));"></div>
-                    <span class="event-text" style="color: var(--content-muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;" data-raw="${escapeHtml(content)}">${escapeHtml(content)}</span>
-                    <div style="flex: 1; height: 1px; background-color: var(--border-subtle, var(--border-subtle));"></div>
-                </div>
-            `;
-    } else {
-      typeLabel = type.charAt(0).toUpperCase() + type.slice(1);
-      typeClass = "generic-activity";
-      contentHtml = `<div style="white-space: pre-wrap; font-family: var(--font-mono, monospace); font-size: 0.85em;">${escapeHtml(content)}</div>`;
-    }
-
-    return `
-            <div class="activity-item ${typeClass} collapsed" data-timestamp="${timestamp}">
-                <div class="activity-header">
-                    <span class="activity-type">${typeLabel}</span>
-                </div>
-                <div class="activity-content">${contentHtml}</div>
-            </div>
-        `;
-  }
 
   /**
    * Public wrapper: returns the full <div class="activity-feed"> block.
    * Use _buildActivityFeedContent when you need just the inner HTML.
    */
-  function renderActivityFeed(activities) {
-    if (!activities || activities.length === 0) return "";
-    return `<div class="activity-feed">${_buildActivityFeedContent(activities)}</div>`;
-  }
-
-  function renderToolArguments(args) {
-    if (!args || Object.keys(args).length === 0) return "";
-
-    let html = '<div class="tool-args">';
-    for (const [key, value] of Object.entries(args)) {
-      let displayValue = value;
-      if (typeof value === "object") {
-        displayValue = JSON.stringify(value);
-      }
-      const isLong = String(displayValue).length > 60;
-      const truncatedValue = isLong
-        ? String(displayValue).substring(0, 57) + "..."
-        : displayValue;
-
-      html += `
-                <div class="arg-badge" title="${escapeHtml(String(displayValue))}">
-                    <span class="arg-key">${escapeHtml(key)}:</span>
-                    <span class="arg-value">${escapeHtml(String(truncatedValue))}</span>
-                </div>
-            `;
-    }
-    html += "</div>";
-    return html;
-  }
-
-  function renderToolCallActivity(activity) {
-    const content = activity.content || "";
-    const timestamp = activity.timestamp || Date.now();
-    let toolName = "Unknown Tool";
-    let args = {};
-    let isClarificationTool = false;
-
-    try {
-      const parsed = JSON.parse(content);
-      toolName = parsed.function?.name || "Unknown Tool";
-      args = parsed.function?.arguments || {};
-      if (typeof args === "string") {
-        try {
-          args = JSON.parse(args);
-        } catch (e) {}
-      }
-      isClarificationTool = toolName === "request_clarification";
-    } catch (e) {}
-
-    const config = TOOL_DISPLAY_CONFIG[toolName] || {
-      name: toolName,
-      icon: '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
-    };
-
-    const clarifierClass = isClarificationTool ? " clarifier-tool-call" : "";
-    const clarifierAttr = isClarificationTool
-      ? ' data-clarification="true"'
-      : "";
-
-    const contentHtml = renderToolArguments(args);
-
-    return `
-            <div class="activity-item tool-call-activity collapsed${clarifierClass}" data-timestamp="${timestamp}"${clarifierAttr}>
-                <div class="activity-header">
-                    ${config.icon}
-                    <span class="activity-type">${escapeHtml(config.name)}</span>
-                    <span class="sse-chunk-sub-label">${escapeHtml(toolName)}</span>
-                </div>
-                <div class="activity-content tool-call-content">
-                    ${contentHtml}
-                    <div style="margin-top: 10px; font-size: 0.75rem; opacity: 0.5;">
-                        <details>
-                            <summary style="cursor: pointer; user-select: none;">Raw Arguments</summary>
-                            <pre style="margin-top: 5px; font-size: 0.7rem;"><code class="language-json">${escapeHtml(JSON.stringify(args, null, 2))}</code></pre>
-                        </details>
-                    </div>
-                </div>
-            </div>
-        `;
-  }
-
-  function renderTaskListCard(tasks) {
-    let html =
-      '<div class="task-list-card" style="background: var(--surface-secondary); border: 1px solid var(--glass-border); border-radius: var(--radius-xl); padding: 12px; margin-top: 8px; font-family: var(--font-body);">';
-    html +=
-      '<div style="font-weight: 600; font-size: 0.9em; color: var(--content-primary); margin-bottom: 12px; display: flex; align-items: center; gap: 8px;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg> Task Checklist</div>';
-    html +=
-      '<ul style="list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 10px;">';
-
-    tasks.forEach((task) => {
-      let icon = "";
-      let opacity = "1";
-      let textDecoration = "none";
-      if (task.status === "DONE") {
-        icon =
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-emerald)" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg>';
-        opacity = "0.6";
-        textDecoration = "line-through";
-      } else if (task.status === "DROPPED") {
-        icon =
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-rose)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>';
-        opacity = "0.5";
-        textDecoration = "line-through";
-      } else if (task.status === "BLOCKED") {
-        icon =
-          '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="var(--color-amber)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>';
-        opacity = "0.8";
-      } else {
-        icon =
-          '<div style="width: 13px; height: 13px; border: 2px solid var(--content-muted); border-radius: 3px; margin-top: 1px;"></div>';
-      }
-
-      html += `<li style="display: flex; flex-direction: column; opacity: ${opacity};">
-                <div style="display: flex; gap: 8px; align-items: flex-start;">
-                    <div style="flex-shrink: 0; margin-top: 2px;">${icon}</div>
-                    <div style="flex-grow: 1;">
-                        <div style="font-weight: 500; font-size: 0.85em; text-decoration: ${textDecoration}; line-height: 1.4; color: var(--content-primary);">${escapeHtml(task.description)}</div>
-                        ${task.notes ? `<div style="font-size: 0.75em; color: var(--content-muted); margin-top: 4px; border-left: 2px solid var(--glass-border); padding-left: 6px;">${escapeHtml(task.notes)}</div>` : ""}
-                    </div>
-                </div>
-            </li>`;
-    });
-
-    html += "</ul></div>";
-    return html;
-  }
-
-  function renderToolResultActivity(activity) {
-    const content = activity.content || "";
-    const timestamp = activity.timestamp || Date.now();
-    let resultJson = "";
-    let isTaskTool = false;
-    let taskListHtml = "";
-
-    try {
-      const parsed = JSON.parse(content);
-      if (
-        Array.isArray(parsed) &&
-        parsed.length > 0 &&
-        typeof parsed[0] === "object" &&
-        parsed[0].hasOwnProperty("status") &&
-        parsed[0].hasOwnProperty("description")
-      ) {
-        isTaskTool = true;
-        taskListHtml = renderTaskListCard(parsed);
-      }
-      resultJson = JSON.stringify(parsed, null, 2);
-    } catch (e) {
-      resultJson = content;
-    }
-
-    if (isTaskTool) {
-      return `
-                <div class="activity-item tool-result-activity" data-timestamp="${timestamp}">
-                    <div class="activity-header">
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                            <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                            <polyline points="22 4 12 14.01 9 11.01"/>
-                        </svg>
-                        <span class="activity-type">Task List Updated</span>
-                    </div>
-                    <div class="activity-content tool-result-content" style="padding-top: 0;">
-                        ${taskListHtml}
-                    </div>
-                </div>
-            `;
-    }
-
-    const isLong = resultJson.length > 5000;
-    const displayJson = isLong
-      ? resultJson.substring(0, 5000) +
-        "\n\n... (output truncated for performance)"
-      : resultJson;
-
-    return `
-            <div class="activity-item tool-result-activity collapsed" data-timestamp="${timestamp}">
-                <div class="activity-header">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                        <path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/>
-                        <polyline points="22 4 12 14.01 9 11.01"/>
-                    </svg>
-                    <span class="activity-type">Result</span>
-                </div>
-                <div class="activity-content tool-result-content">
-                    <code class="language-json">${escapeHtml(displayJson)}</code>
-                </div>
-            </div>
-        `;
-  }
 
   // → parseResearchPlan moved to static/js/utils.js
-
-  function showClarificationPopOver(question, options, callbackId) {
-    const popoverId = "clarification-popover";
-    let popover = document.getElementById(popoverId);
-    if (!popover) {
-      popover = document.createElement("div");
-      popover.id = popoverId;
-      popover.className = "clarification-popover";
-      const inputContainer = document.querySelector(".input-container");
-      if (inputContainer) {
-        inputContainer.appendChild(popover);
-      } else {
-        document.body.appendChild(popover);
-      }
-    }
-
-    const optionsArray = Array.isArray(options) ? options : [];
-
-    popover.innerHTML = `
-            <div class="clarification-popover-arrow"></div>
-            <div class="clarification-popover-header">
-                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
-                <h3>Clarification Required</h3>
-            </div>
-            <div class="clarification-popover-question">${formatMarkdown(question)}</div>
-            <ul class="clarification-options-list">
-                ${optionsArray
-                  .map(
-                    (opt, i) => `
-                    <li class="clarification-option-item" data-value="${escapeHtml(opt)}">
-                        <div class="clarification-option-main">
-                            <div class="clarification-radio"><div class="clarification-radio-inner"></div></div>
-                            <span class="clarification-option-text">${escapeHtml(opt)}</span>
-                        </div>
-                    </li>
-                `,
-                  )
-                  .join("")}
-                <li class="clarification-option-item custom-option selected">
-                    <div class="clarification-option-main">
-                        <div class="clarification-radio"><div class="clarification-radio-inner"></div></div>
-                        <span class="clarification-option-text">Custom response...</span>
-                    </div>
-                    <div class="clarification-custom-container">
-                        <textarea class="clarification-custom-textarea" placeholder="Type your answer here..."></textarea>
-                    </div>
-                </li>
-            </ul>
-            <div class="clarification-popover-footer">
-                <button class="clarification-btn clarification-btn-cancel">Cancel</button>
-                <button class="clarification-btn clarification-btn-confirm" disabled>Confirm Response</button>
-            </div>
-        `;
-
-    const confirmBtn = popover.querySelector(".clarification-btn-confirm");
-    const cancelBtn = popover.querySelector(".clarification-btn-cancel");
-    const items = popover.querySelectorAll(".clarification-option-item");
-    const customItem = popover.querySelector(".custom-option");
-    const customTextarea = popover.querySelector(
-      ".clarification-custom-textarea",
-    );
-
-    let currentResponse = "";
-
-    const updateUI = () => {
-      confirmBtn.disabled = !currentResponse.trim();
-    };
-
-    items.forEach((item) => {
-      item.onclick = () => {
-        items.forEach((i) => i.classList.remove("selected"));
-        item.classList.add("selected");
-
-        if (item === customItem) {
-          currentResponse = customTextarea.value;
-          customTextarea.focus();
-        } else {
-          currentResponse = item.dataset.value;
-        }
-        updateUI();
-      };
-    });
-
-    customTextarea.onfocus = () => {
-      items.forEach((i) => i.classList.remove("selected"));
-      customItem.classList.add("selected");
-      currentResponse = customTextarea.value;
-      updateUI();
-    };
-
-    customTextarea.oninput = () => {
-      currentResponse = customTextarea.value;
-      updateUI();
-    };
-
-    confirmBtn.onclick = async () => {
-      const finalContent = currentResponse.trim();
-      if (!finalContent) return;
-
-      confirmBtn.disabled = true;
-      confirmBtn.textContent = "Processing...";
-
-      try {
-        const res = await fetch(`${API_MODULES.TOOLS}/clarification/response`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            callback_id: callbackId,
-            chat_id: currentChatId,
-            type: "answer",
-            content: finalContent,
-          }),
-        });
-
-        if (res.ok) {
-          popover.style.display = "none";
-          // Local cleanup to prevent re-trigger during re-renders before next loadChat
-          activeClarificationIds = activeClarificationIds.filter(
-            (id) => id !== callbackId,
-          );
-        } else {
-          const data = await res.json();
-          showNotification(
-            "Error: " + (data.error || "Failed to resume."),
-            "error",
-          );
-          confirmBtn.disabled = false;
-          confirmBtn.textContent = "Confirm Response";
-        }
-      } catch (e) {
-        console.error("Error submitting clarification:", e);
-        confirmBtn.disabled = false;
-        confirmBtn.textContent = "Confirm Response";
-      }
-    };
-
-    cancelBtn.onclick = async () => {
-      if (
-        await showConfirm(
-          "Cancel Process",
-          "Are you sure you want to stop this process?",
-          true,
-        )
-      ) {
-        fetch(`${API_MODULES.CHATS}/${currentChatId}/resume`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ action: "cancel" }),
-        });
-        popover.style.display = "none";
-      }
-    };
-
-    popover.style.display = "flex";
-    customTextarea.focus();
-  }
-
-  /**
-   * Get a representative SVG icon for a sub-agent based on its name.
-   */
-  /**
-   * Get a representative SVG icon for a sub-agent based on its backend parent_type.
-   */
-  function getAgentIcon(agentName) {
-    const name = String(agentName || "").toLowerCase();
-
-    // Research Agent
-    if (name === "research") {
-      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>`;
-    }
-    // File System Agent
-    if (name === "file_system_agent") {
-      return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/></svg>`;
-    }
-    // Default / Assistant
-    return `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 8V4H8"/><rect width="16" height="12" x="4" y="8" rx="2"/><path d="M2 14h2"/><path d="M20 14h2"/><path d="M15 13v2"/><path d="M9 13v2"/></svg>`;
-  }
 
   function getSharedAgentCard(activityFeed, rawAgentName, attemptId = null) {
     if (!activityFeed) return null;
@@ -8364,10 +6562,20 @@ document.addEventListener("DOMContentLoaded", () => {
                     typeof parsed.function.arguments === "string"
                       ? JSON.parse(parsed.function.arguments)
                       : parsed.function.arguments;
-                  showClarificationPopOver(
+                  window.showClarificationPopOver(
                     args.question,
                     args.options,
                     parsed.id,
+                    {
+                      chatId: currentChatId,
+                      onSuccess: (id) => {
+                        activeClarificationIds = activeClarificationIds.filter(
+                          (cid) => cid !== id,
+                        );
+                      },
+                      showNotification: window.showAlert,
+                      showConfirm: showConfirm
+                    }
                   );
                   // Ensure it's in the list for re-renders during this session
                   if (!activeClarificationIds.includes(parsed.id)) {
@@ -8468,10 +6676,20 @@ document.addEventListener("DOMContentLoaded", () => {
                   typeof parsed.function.arguments === "string"
                     ? JSON.parse(parsed.function.arguments)
                     : parsed.function.arguments;
-                showClarificationPopOver(
+                window.showClarificationPopOver(
                   args.question,
                   args.options,
                   parsed.id,
+                  {
+                    chatId: currentChatId,
+                    onSuccess: (id) => {
+                      activeClarificationIds = activeClarificationIds.filter(
+                        (cid) => cid !== id,
+                      );
+                    },
+                    showNotification: window.showAlert,
+                    showConfirm: showConfirm
+                  }
                 );
                 if (!activeClarificationIds.includes(parsed.id)) {
                   activeClarificationIds.push(parsed.id);
@@ -8587,342 +6805,6 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   }
 
-  function renderResearchActivity(feed, type, data) {
-    if (!feed) return;
-    const item = document.createElement("div");
-
-    if (type === "planning") {
-      // Planning uses a single persistent element that updates in-place
-      let planningEl = feed.querySelector(".research-planning-indicator");
-      if (!planningEl) {
-        planningEl = document.createElement("div");
-        planningEl.className = "research-planning-indicator";
-        planningEl.innerHTML = `
-                    <div class="planning-icon-wrapper">
-                        <div class="planning-spinner"></div>
-                    </div>
-                    <div class="planning-body">
-                        <div class="planning-title">Generating Research Plan</div>
-                        <div class="planning-detail"></div>
-                    </div>
-                `;
-        feed.appendChild(planningEl);
-      }
-
-      const detailEl = planningEl.querySelector(".planning-detail");
-      const titleEl = planningEl.querySelector(".planning-title");
-      const iconWrapper = planningEl.querySelector(".planning-icon-wrapper");
-
-      // Update state
-      planningEl.dataset.state = data.state || "thinking";
-
-      if (data.state === "complete") {
-        titleEl.textContent = "Plan Ready";
-        detailEl.textContent = "";
-        iconWrapper.innerHTML = '<span class="planning-check">✓</span>';
-        planningEl.classList.add("complete");
-      } else if (data.state === "warning") {
-        detailEl.textContent = data.message || "";
-      } else if (data.state === "validating") {
-        titleEl.textContent = "Validating Plan";
-        detailEl.textContent = data.message || "";
-      } else {
-        // 'thinking' — show reasoning snippet
-        if (data.message) {
-          const truncated =
-            data.message.length > 120
-              ? "..." + data.message.slice(-120)
-              : data.message;
-          detailEl.textContent = truncated;
-        }
-      }
-      return;
-    }
-
-    if (type === "needs_retry") {
-      item.className = "research-retry-indicator";
-      item.innerHTML = `
-                <div style="display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; border: 1px solid rgba(255,100,100,0.3); border-radius: 8px; background: rgba(255,50,50,0.05); margin-top: 0.5rem;">
-                    <div style="display: flex; align-items: center; gap: 0.5rem; color: #ff6b6b; font-weight: 600;">
-                        <span>⚠️</span> <span>${escapeHtml(data.message)}</span>
-                    </div>
-                    <button class="btn-primary" style="align-self: flex-start; padding: 0.5rem 1rem; font-size: 0.875rem;" data-retry-state="${escapeHtml(data.state)}">
-                        Resume Research from Failed State
-                    </button>
-                </div>
-            `;
-      const retryBtn = item.querySelector("button");
-      retryBtn.addEventListener("click", () => {
-        const rs = retryBtn.getAttribute("data-retry-state");
-        retryBtn.disabled = true;
-        retryBtn.textContent = "Resuming...";
-        // Trigger sendMessage with resumeState
-        sendMessage(null, null, false, rs);
-      });
-      // If this is a retry/alert, we want it OUTSIDE the collapsible activity feed
-      // so it remains visible even if the user has closed the activity view.
-      const statusContainer = feed
-        .closest(".message-content")
-        ?.querySelector(".research-status-bars");
-      if (statusContainer) {
-        statusContainer.appendChild(item);
-      } else {
-        feed.appendChild(item);
-      }
-      return;
-    }
-
-    if (type === "clarification") {
-      // Forward to the universal pop-over system
-      showClarificationPopOver(
-        data.question,
-        data.options || [],
-        data.callback_id,
-      );
-
-      // Still render a visual placeholder in the feed
-      item.className = "research-activity-item compact clarifier-request";
-      item.innerHTML = `
-                <div class="activity-icon status">❓</div>
-                <div class="activity-body">
-                    <div class="activity-label">Clarification Requested</div>
-                    <div class="activity-detail">${escapeHtml(data.question)}</div>
-                </div>
-            `;
-      feed.appendChild(item);
-      return;
-    }
-
-    if (type === "phase") {
-      item.className = "research-phase-indicator";
-      if (data.collapsible) {
-        item.classList.add("collapsible");
-        item.innerHTML = `
-                    <div class="phase-header">
-                        <span>${data.icon || "🔬"}</span> <span>${escapeHtml(data.message)}</span>
-                    </div>
-                    <div class="phase-content"></div>
-                `;
-      } else {
-        item.innerHTML = `
-                    <div class="phase-header" style="cursor: default;">
-                        <span>${data.icon || "🔬"}</span> <span>${escapeHtml(data.message)}</span>
-                    </div>
-                `;
-      }
-      feed.appendChild(item);
-
-      // Add click-to-toggle logic for collapsible phases
-      if (data.collapsible) {
-        const header = item.querySelector(".phase-header");
-        if (header) {
-          header.addEventListener("click", (e) => {
-            e.stopPropagation();
-            item.classList.toggle("expanded");
-          });
-        }
-      }
-      return;
-    }
-
-    if (type === "reflection") {
-      const currentPhase = feed.querySelector(
-        ".research-phase-indicator.collapsible:last-of-type",
-      );
-      const targetContainer = currentPhase
-        ? currentPhase.querySelector(".phase-content")
-        : feed;
-      item.className = "research-activity-item compact";
-      item.innerHTML = `
-                <div class="activity-icon status">🧠</div>
-                <div class="activity-body">
-                    <div class="activity-detail">${escapeHtml(data.message)}</div>
-                </div>
-            `;
-      targetContainer.appendChild(item);
-      return;
-    }
-
-    if (type === "follow_up_search") {
-      const currentPhase = feed.querySelector(
-        ".research-phase-indicator.collapsible:last-of-type",
-      );
-      const targetContainer = currentPhase
-        ? currentPhase.querySelector(".phase-content")
-        : feed;
-      item.className = "research-activity-item compact";
-      let queriesHtml = "";
-      if (data.queries && data.queries.length) {
-        queriesHtml = data.queries
-          .map((q) => `<code>${escapeHtml(q)}</code>`)
-          .join(" ");
-      }
-      item.innerHTML = `
-                <div class="activity-icon status">🔎</div>
-                <div class="activity-body">
-                    <div class="activity-label">${escapeHtml(data.message)}</div>
-                    ${queriesHtml ? `<div class="activity-detail">${queriesHtml}</div>` : ""}
-                </div>
-            `;
-      targetContainer.appendChild(item);
-      return;
-    }
-
-    if (type === "retrieval_planning") {
-      item.className = "research-activity-item compact";
-      item.innerHTML = `
-                <div class="activity-icon status">${data.icon || "🔗"}</div>
-                <div class="activity-body">
-                    <div class="activity-detail">${escapeHtml(data.message)}</div>
-                </div>
-            `;
-      feed.appendChild(item);
-      return;
-    }
-
-    if (type === "search") {
-      const targetContainer =
-        feed.querySelector(
-          ".research-phase-indicator.collapsible:last-of-type .phase-content",
-        ) || feed;
-      let existingItem = targetContainer.querySelector(
-        `[data-step-id="${data.step_id}"]`,
-      );
-
-      if (!existingItem) {
-        existingItem = document.createElement("div");
-        existingItem.className = "research-activity-item activity-item compact";
-        existingItem.dataset.stepId = data.step_id;
-        existingItem.innerHTML = `
-                    <div class="activity-header">
-                        <span class="activity-icon search">🔍</span>
-                        <span class="activity-label">${escapeHtml(data.displayMessage || "Searching...")}</span>
-                    </div>
-                    <div class="activity-content">
-                        <code>${escapeHtml(data.query)}</code>
-                    </div>
-                `;
-        targetContainer.appendChild(existingItem);
-
-        // Add click-to-toggle logic for search items
-        const header = existingItem.querySelector(".activity-header");
-        if (header) {
-          header.addEventListener("click", (e) => {
-            e.stopPropagation();
-            existingItem.classList.toggle("expanded");
-          });
-        }
-      } else {
-        const label = existingItem.querySelector(".activity-label");
-        if (label) label.textContent = data.displayMessage || "Searching...";
-      }
-      return;
-    }
-
-    if (
-      type === "search_results" ||
-      type === "status" ||
-      type === "visit" ||
-      type === "visit_complete"
-    ) {
-      const currentPhase = feed.querySelector(
-        ".research-phase-indicator.collapsible:last-of-type",
-      );
-      const targetContainer = currentPhase
-        ? currentPhase.querySelector(".phase-content")
-        : feed;
-
-      if (type === "search_results") {
-        const stepItem = targetContainer.querySelector(
-          `[data-step-id="${data.step_id}"]`,
-        );
-        if (stepItem && data.results) {
-          let resultsDiv = stepItem.querySelector(".activity-search-results");
-          if (!resultsDiv) {
-            resultsDiv = document.createElement("div");
-            resultsDiv.className = "activity-search-results";
-            stepItem.querySelector(".activity-body").appendChild(resultsDiv);
-          }
-          data.results.forEach((r) => {
-            const pill = document.createElement("a");
-            pill.className = "activity-search-result-pill";
-            pill.href = r.url;
-            pill.target = "_blank";
-            pill.rel = "noopener";
-            pill.title = r.snippet || r.title;
-            pill.innerHTML = `<svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 13v6a2 2 0 01-2 2H5a2 2 0 01-2-2V8a2 2 0 012-2h6M15 3h6v6M10 14L21 3" stroke-linecap="round" stroke-linejoin="round"/></svg>${escapeHtml(r.title)}`;
-            resultsDiv.appendChild(pill);
-          });
-        }
-        return;
-      }
-
-      if (type === "status") {
-        const stepItem = targetContainer.querySelector(
-          `[data-step-id="${data.step_id}"]`,
-        );
-        if (stepItem) {
-          const label = stepItem.querySelector(".activity-label");
-          if (label) label.textContent = data.message;
-          const icon = stepItem.querySelector(".activity-icon");
-          if (icon && data.icon) icon.textContent = data.icon;
-        } else {
-          item.className = "research-activity-item compact";
-          item.innerHTML = `
-                        <div class="activity-icon status">${data.icon || "⚙️"}</div>
-                        <div class="activity-body">
-                            <div class="activity-detail">${escapeHtml(data.message)}</div>
-                        </div>
-                    `;
-          targetContainer.appendChild(item);
-        }
-        return;
-      }
-
-      if (type === "visit") {
-        item.className = "research-activity-item compact processing";
-        const urlDisplay =
-          data.url.length > 50 ? data.url.substring(0, 47) + "..." : data.url;
-        item.innerHTML = `
-                    <div class="activity-icon visit">📄</div>
-                    <div class="activity-body">
-                        <div class="activity-detail" style="font-weight: 500;"><a class="activity-visit-url" href="${escapeHtml(data.url)}" target="_blank" rel="noopener">${escapeHtml(urlDisplay)}</a></div>
-                    </div>
-                `;
-        item.dataset.url = data.url;
-        targetContainer.appendChild(item);
-        return;
-      }
-
-      if (type === "visit_complete") {
-        const visitItem = targetContainer.querySelector(
-          `[data-url="${data.url}"]`,
-        );
-        if (visitItem) {
-          visitItem.classList.remove("processing");
-          const body = visitItem.querySelector(".activity-body");
-          if (body && (data.preview || data.full_content)) {
-            const detail = document.createElement("div");
-            detail.className = "activity-visit-card";
-            detail.innerHTML = data.full_content
-              ? `
-                             <div class="activity-visit-preview">${escapeHtml(data.preview)}</div>
-                             <details class="activity-visit-full-content">
-                                 <summary>${(data.chars || 0).toLocaleString()} chars</summary>
-                                 <div class="full-content-text">${escapeHtml(data.full_content)}</div>
-                             </details>
-                         `
-              : `
-                             <div class="activity-visit-preview">${escapeHtml(data.preview || "")}</div>
-                         `;
-            body.appendChild(detail);
-          }
-        }
-        return;
-      }
-    }
-  }
-
   // → escapeHtml moved to static/js/utils.js
 
   // Auto-resize textarea
@@ -9008,9 +6890,8 @@ document.addEventListener("DOMContentLoaded", () => {
       const res = await fetch(`${API_MODULES.FILE_SYSTEMS}?chat_id=${chatId}`);
       const data = await res.json();
       if (data.success) {
-        _allFileSystems = data.file_systems;
-        applyFileSystemFilter();
-        return data.file_systems.length; // Issue 3.5: return count for fileSystemMode auto-inference
+        window.FileSystemUI.updateData(data.file_systems);
+        return data.file_systems.length;
       }
       return 0;
     } catch (e) {
@@ -9022,337 +6903,14 @@ document.addEventListener("DOMContentLoaded", () => {
   }
 
   // Apply current search query + folder filter, then re-render
-  function applyFileSystemFilter() {
-    const q = _file_systemSearchQuery.trim().toLowerCase();
-    const folder = _currentFolderFilter;
 
-    let filtered = _allFileSystems;
+// Keep the old name as an alias so callers outside still work
 
-    // Filter out useless internal files (plans, research, sections)
-    filtered = filtered.filter((c) => {
-      if (!c || !c.id) return true;
-      return !(c.id.startsWith("plan_") || c.id === "plan" || c.id.startsWith("research_") || c.id.startsWith("section_"));
-    });
+// Build a single file_system item DOM node
 
-    // Folder filter (matches top-level directory)
-    if (folder) {
-      filtered = filtered.filter((c) => {
-        const path = c.filename || c.title;
-        const cFolder = path.includes("/") ? path.split("/")[0] : "";
-        return cFolder === folder;
-      });
-    }
+// Render filtered list with true nested tree
 
-    // Search filter — match filename/path or snippet
-    if (q) {
-      filtered = filtered.filter((c) => {
-        const path = c.filename || c.title;
-        const titleMatch = path.toLowerCase().includes(q);
-        const contentMatch =
-          (c.content && c.content.toLowerCase().includes(q)) ||
-          (c.preview && c.preview.toLowerCase().includes(q));
-        return titleMatch || contentMatch;
-      });
-    }
-
-    renderFilteredFileSystemList(filtered, q);
-  }
-
-  // Keep the old name as an alias so callers outside still work
-  function renderFileSystemList(file_systems) {
-    _allFileSystems = file_systems || [];
-    applyFileSystemFilter();
-  }
-
-  // Build a single file_system item DOM node
-  function buildFileSystemItem(file_system, highlightQuery) {
-    const item = document.createElement("div");
-    item.className = `file-system-item ${currentFileSystemId === file_system.id ? "active" : ""}`;
-    item.dataset.file_systemId = file_system.id;
-
-    let typeBadge = "";
-    if (file_system.language && file_system.language !== "markdown") {
-      typeBadge = `<span class="type-badge" style="background: var(--surface-2); color: var(--content-muted); border: 1px solid var(--border);">${escapeHtml(file_system.language)}</span>`;
-    }
-
-    // Build snippet — highlight search match if present
-    let snippet = "";
-    if (file_system.content && file_system.content.length > 0) {
-      let previewContent = file_system.content.replace(/\n/g, " ");
-      if (highlightQuery) {
-        // Find match position, center snippet around it
-        const matchIdx = previewContent.toLowerCase().indexOf(highlightQuery);
-        if (matchIdx !== -1) {
-          const start = Math.max(0, matchIdx - 40);
-          const end = Math.min(
-            previewContent.length,
-            matchIdx + highlightQuery.length + 60,
-          );
-          const raw = previewContent.substring(start, end);
-          const escaped = escapeHtml(raw);
-          const escapedQuery = escapeHtml(highlightQuery);
-          const highlighted = escaped.replace(
-            new RegExp(
-              escapedQuery.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"),
-              "gi",
-            ),
-            (m) => `<mark class="file-system-highlight">${m}</mark>`,
-          );
-          snippet = `<div class="file-system-snippet">${start > 0 ? "…" : ""}${highlighted}${end < previewContent.length ? "…" : ""}</div>`;
-        } else {
-          const sub = previewContent.substring(0, 120);
-          snippet = `<div class="file-system-snippet">${escapeHtml(sub)}${previewContent.length > 120 ? "…" : ""}</div>`;
-        }
-      } else {
-        const sub = previewContent.substring(0, 120);
-        snippet = `<div class="file-system-snippet">${escapeHtml(sub)}${previewContent.length > 120 ? "…" : ""}</div>`;
-      }
-    }
-
-    const dateStr = new Date(file_system.timestamp * 1000).toLocaleString([], {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-    const displayTitle = file_system.displayTitle || file_system.title;
-
-    const downloadButton = `
-        <div class="file-system-export-inline">
-            <button class="file-system-action-btn download-btn" title="Download File">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-            </button>
-        </div>
-    `;
-
-    item.innerHTML = `
-            <div class="file-system-item-header">
-                <div class="file-system-item-title">${escapeHtml(displayTitle)}</div>
-                <div class="file-system-item-badges">${typeBadge}</div>
-            </div>
-            ${snippet}
-            <div class="file-system-item-meta">${dateStr}</div>
-            <div class="file-system-item-actions">
-                ${downloadButton}
-                <button class="file-system-action-btn delete-btn" title="Delete Artifact">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-rose)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>
-                </button>
-            </div>
-        `;
-
-    item.addEventListener("click", () => loadFileSystem(file_system.id, file_system.workspace_id));
-
-    // FileSystem context menu / Long press support
-    let cLongPressTimer;
-    let cIsLongPress = false;
-    let cStartY = 0;
-    let cStartX = 0;
-
-    item.addEventListener(
-      "touchstart",
-      (e) => {
-        cIsLongPress = false;
-        cStartY = e.touches[0].clientY;
-        cStartX = e.touches[0].clientX;
-        cLongPressTimer = setTimeout(() => {
-          cIsLongPress = true;
-          if (navigator.vibrate) navigator.vibrate(50);
-          showContextMenu("file_system", file_system.id, file_system.fullPath || file_system.title, e, file_system.workspace_id);
-        }, 600);
-      },
-      { passive: true },
-    );
-
-    item.addEventListener(
-      "touchmove",
-      (e) => {
-        if (
-          Math.abs(e.touches[0].clientY - cStartY) > 10 ||
-          Math.abs(e.touches[0].clientX - cStartX) > 10
-        ) {
-          clearTimeout(cLongPressTimer);
-        }
-      },
-      { passive: true },
-    );
-
-    item.addEventListener(
-      "touchend",
-      (e) => {
-        clearTimeout(cLongPressTimer);
-        if (cIsLongPress) {
-          if (e.cancelable) e.preventDefault();
-        }
-      },
-      { passive: false },
-    );
-
-    item.addEventListener("contextmenu", (e) => {
-      e.preventDefault();
-      showContextMenu("file_system", file_system.id, file_system.fullPath || file_system.title, e, file_system.workspace_id);
-    });
-
-    item.querySelector(".download-btn")?.addEventListener("click", (e) => {
-      e.stopPropagation();
-      downloadFileSystem(file_system.id, file_system.workspace_id);
-    });
-    item.querySelector(".delete-btn")?.addEventListener("click", async (e) => {
-      e.stopPropagation();
-      const confirmed = await showConfirm(
-        "Delete Artifact",
-        `Are you sure you want to delete "${file_system.displayTitle || file_system.title}"? This action cannot be undone.`,
-        true,
-      );
-      if (confirmed) {
-        await deleteFileSystem(file_system.id, file_system.workspace_id);
-      }
-    });
-
-    return item;
-  }
-
-  // Render filtered list with true nested tree
-  function renderFilteredFileSystemList(file_systems, highlightQuery) {
-    if (!file_systemListContainer) return;
-    file_systemListContainer.innerHTML = "";
-
-    if (file_systems.length === 0) {
-      const q = (_file_systemSearchQuery || "").trim();
-      file_systemListContainer.innerHTML = `<div class="file-system-list-empty-state">
-                <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.35;">
-                    ${q ? '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>' : '<rect x="2" y="7" width="20" height="14" rx="2"/><path d="M16 7V5a2 2 0 0 0-4 0v2"/>'}
-                </svg>
-                <p>${q ? `No artifacts match "${escapeHtml(q)}"` : "No saved artifacts yet"}</p>
-            </div>`;
-      return;
-    }
-
-    // Build the tree from filenames (paths)
-    const tree = { folders: {}, files: [] };
-    const folderPaths = new Set();
-    
-    file_systems.forEach((file_system) => {
-      const path = file_system.filename || file_system.title;
-      const parts = path.split('/');
-      
-      let current = tree;
-      let currentPath = "";
-      
-      if (file_system.type === "directory") {
-        for (let i = 0; i < parts.length; i++) {
-          const folderName = parts[i];
-          currentPath += (currentPath ? "/" : "") + folderName;
-          folderPaths.add(currentPath);
-          
-          if (!current.folders[folderName]) {
-            current.folders[folderName] = { folders: {}, files: [], path: currentPath };
-          }
-          current = current.folders[folderName];
-        }
-        return; // It's just an empty directory placeholder, do not push to files
-      }
-      
-      for (let i = 0; i < parts.length - 1; i++) {
-        const folderName = parts[i];
-        currentPath += (currentPath ? "/" : "") + folderName;
-        folderPaths.add(currentPath);
-        
-        if (!current.folders[folderName]) {
-          current.folders[folderName] = { folders: {}, files: [], path: currentPath };
-        }
-        current = current.folders[folderName];
-      }
-      
-      // Update display title to basename
-      file_system.displayTitle = parts[parts.length - 1];
-      file_system.fullPath = path;
-      current.files.push(file_system);
-    });
-
-    currentChatArtifactFolders = Array.from(folderPaths);
-
-    // Recursive function to render tree
-    function renderTree(node, container, level = 0) {
-      const sortedFolders = Object.keys(node.folders).sort();
-      
-      sortedFolders.forEach(folderName => {
-        const folderNode = node.folders[folderName];
-        const folderPath = folderNode.path;
-        const isExpanded = artifactFoldersExpanded[folderPath] !== false; // Default true
-        
-        const folderDiv = document.createElement("div");
-        folderDiv.className = `folder-item ${isExpanded ? "expanded" : ""}`;
-        folderDiv.style.marginLeft = level > 0 ? "2px" : "0";
-
-        const folderHeader = document.createElement("div");
-        folderHeader.className = "folder-header";
-
-        const folderIconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity: 0.7;"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>`;
-        const chevronSvg = `<svg class="folder-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-
-        const nameWrapper = document.createElement("div");
-        nameWrapper.style.cssText = "display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0;";
-        const nameSpan = document.createElement("span");
-        nameSpan.style.cssText = "overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; font-weight: 600; color: var(--content-primary);";
-        nameSpan.textContent = folderName;
-        nameWrapper.innerHTML = folderIconSvg;
-        nameWrapper.appendChild(nameSpan);
-
-        // Count logic: sum of all files in this subtree
-        let totalFiles = 0;
-        function countFiles(n) {
-           let count = n.files.length;
-           for(let k in n.folders) {
-              count += countFiles(n.folders[k]);
-           }
-           return count;
-        }
-        totalFiles = countFiles(folderNode);
-
-        const countSpan = document.createElement("span");
-        countSpan.style.cssText = "font-size: 0.7rem; color: var(--content-muted); background: var(--surface-secondary); padding: 1px 6px; border-radius: 6px; font-weight: 500;";
-        countSpan.textContent = totalFiles;
-
-        folderHeader.innerHTML = chevronSvg;
-        folderHeader.appendChild(nameWrapper);
-        folderHeader.appendChild(countSpan);
-
-        folderHeader.onclick = () => {
-          const expanding = !folderDiv.classList.contains("expanded");
-          folderDiv.classList.toggle("expanded", expanding);
-          artifactFoldersExpanded[folderPath] = expanding;
-          saveArtifactFoldersExpanded();
-        };
-
-        folderHeader.oncontextmenu = (e) => {
-          e.preventDefault();
-          showContextMenu("file-system-folder", folderPath, null, e);
-        };
-
-        const folderContent = document.createElement("div");
-        folderContent.className = "folder-content";
-        
-        renderTree(folderNode, folderContent, level + 1);
-
-        folderDiv.appendChild(folderHeader);
-        folderDiv.appendChild(folderContent);
-        container.appendChild(folderDiv);
-      });
-      
-      // Sort files alphabetically
-      node.files.sort((a, b) => a.displayTitle.localeCompare(b.displayTitle));
-      
-      node.files.forEach(file_system => {
-         const item = buildFileSystemItem(file_system, highlightQuery);
-         if (level > 0) {
-             item.style.marginLeft = "2px";
-         }
-         container.appendChild(item);
-      });
-    }
-    
-    renderTree(tree, file_systemListContainer, 0);
-  }
-
-  async function loadFileSystem(file_systemId, workspaceId = null) {
+async function loadFileSystem(file_systemId, workspaceId = null) {
     try {
       const wsParam = workspaceId ? `&workspace_id=${workspaceId}` : "";
       const res = await fetch(
@@ -9362,7 +6920,7 @@ document.addEventListener("DOMContentLoaded", () => {
       if (data.success) {
         // Initialize version state for undo/redo
         if (currentChatId) {
-          await loadVersionsWithCurrentState(file_systemId, currentChatId, workspaceId);
+          await window.VersionManager.loadVersionsWithCurrentState(file_systemId, currentChatId, workspaceId);
         }
         // Call openReportFileSystem but prevent auto-save-loop by passing the ID
         openReportFileSystem(
@@ -9664,21 +7222,20 @@ document.addEventListener("DOMContentLoaded", () => {
 
   if (file_systemSearchInput) {
     file_systemSearchInput.addEventListener("input", () => {
-      _file_systemSearchQuery = file_systemSearchInput.value;
+      const q = file_systemSearchInput.value;
       if (file_systemSearchClear) {
-        file_systemSearchClear.classList.toggle("hidden", !_file_systemSearchQuery);
+        file_systemSearchClear.classList.toggle("hidden", !q);
       }
-      applyFileSystemFilter();
+      window.FileSystemUI.setSearchQuery(q);
     });
   }
 
   if (file_systemSearchClear) {
     file_systemSearchClear.addEventListener("click", () => {
       if (file_systemSearchInput) file_systemSearchInput.value = "";
-      _file_systemSearchQuery = "";
-      _currentFolderFilter = ""; // Clear folder filter when clearing search
       file_systemSearchClear.classList.add("hidden");
-      applyFileSystemFilter();
+      window.FileSystemUI.setSearchQuery("");
+      window.FileSystemUI.setFolderFilter("");
     });
   }
 
@@ -9686,14 +7243,11 @@ document.addEventListener("DOMContentLoaded", () => {
     file_systemFilterRow.addEventListener("click", (e) => {
       const pill = e.target.closest(".file-system-filter-pill");
       if (!pill) return;
-      // Update active pill
+      // Update active pill (visual only, actual filter was never implemented in original logic)
       file_systemFilterRow
         .querySelectorAll(".file-system-filter-pill")
         .forEach((p) => p.classList.remove("active"));
       pill.classList.add("active");
-      _file_systemTypeFilter = pill.dataset.filter;
-      _currentFolderFilter = ""; // Clear folder filter when changing type
-      applyFileSystemFilter();
     });
   }
 
@@ -9762,18 +7316,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // Apply language parser first, then insert content so the parser is active
     // when CodeMirror tokenises the new text. setEditorLanguage is async because
     // uncommon languages (rust, yaml, go…) are loaded dynamically.
-    await setEditorLanguage(currentFileSystemLanguage);
+    await window.EditorManager.setLanguage(currentFileSystemLanguage);
 
     // Update editors with new content (runs after language parser is ready)
-    if (window.fileSystemEditor) {
-      window.fileSystemEditor.dispatch({
-        changes: {
-          from: 0,
-          to: window.fileSystemEditor.state.doc.length,
-          insert: currentFileSystemContentRaw,
-        },
-      });
-    }
+    window.EditorManager.setEditorContent(currentFileSystemContentRaw);
 
     // Handle view mode toggle (Code/Preview)
     const cleanExt = (currentFileSystemLanguage || "markdown")
@@ -9804,7 +7350,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Update preview if in preview mode
     if (currentFileSystemViewMode === "preview" && supportsPreview) {
-      renderFileSystemPreview(
+      window.EditorManager.renderPreview(
         currentFileSystemContentRaw,
         currentFileSystemLanguage,
       );
@@ -9839,30 +7385,37 @@ document.addEventListener("DOMContentLoaded", () => {
       }
 
       // Permanently hide undo/redo/history for plan file_systems
-      if (fileSystemPanelUndoBtn) fileSystemPanelUndoBtn.classList.add("hidden");
-      if (fileSystemPanelRedoBtn) fileSystemPanelRedoBtn.classList.add("hidden");
-      if (fileSystemPanelHistoryBtn) fileSystemPanelHistoryBtn.classList.add("hidden");
+      const undoBtn = document.getElementById("file-system-panel-undo-btn");
+      const redoBtn = document.getElementById("file-system-panel-redo-btn");
+      const historyBtn = document.getElementById("file-system-panel-history-btn");
+      
+      if (undoBtn) undoBtn.classList.add("hidden");
+      if (redoBtn) redoBtn.classList.add("hidden");
+      if (historyBtn) historyBtn.classList.add("hidden");
     } else {
       if (fileSystemPanelApproveBtn) fileSystemPanelApproveBtn.classList.add("hidden");
       if (fileSystemPanelSuggestBtn) fileSystemPanelSuggestBtn.classList.add("hidden");
       if (file_systemPlanEditArea) file_systemPlanEditArea.classList.add("hidden"); // Ensure edit area is closed
 
       // Re-show undo/redo/history for normal artifacts
-      if (fileSystemPanelUndoBtn) fileSystemPanelUndoBtn.classList.remove("hidden");
-      if (fileSystemPanelRedoBtn) fileSystemPanelRedoBtn.classList.remove("hidden");
-      if (fileSystemPanelHistoryBtn)
-        fileSystemPanelHistoryBtn.classList.remove("hidden");
+      const undoBtn = document.getElementById("file-system-panel-undo-btn");
+      const redoBtn = document.getElementById("file-system-panel-redo-btn");
+      const historyBtn = document.getElementById("file-system-panel-history-btn");
+      
+      if (undoBtn) undoBtn.classList.remove("hidden");
+      if (redoBtn) redoBtn.classList.remove("hidden");
+      if (historyBtn) historyBtn.classList.remove("hidden");
     }
 
     // Lock research plan file_system from editing
     const isPlanFileSystem =
       data.id && (data.id.startsWith("plan_") || data.id === "plan");
     if (isPlanFileSystem) {
-      setEditorReadOnly(true);
+      window.EditorManager.setReadOnly(true);
       if (fileSystemCodemirrorContainer)
         fileSystemCodemirrorContainer.style.opacity = "0.7"; // Visual hint
     } else {
-      setEditorReadOnly(isGenerating);
+      window.EditorManager.setReadOnly(isGenerating);
       if (fileSystemCodemirrorContainer)
         fileSystemCodemirrorContainer.style.opacity = "1";
     }
@@ -9890,18 +7443,18 @@ document.addEventListener("DOMContentLoaded", () => {
         // Refresh immediately for new file_system
         fetchFileSystems(currentChatId);
         // Also initialize version history state
-        loadVersionsWithCurrentState(data.id, currentChatId, data.workspace_id);
+        window.VersionManager.loadVersionsWithCurrentState(data.id, currentChatId, data.workspace_id);
       } else {
         // Use debounce for updates to avoid spam
         debouncedFetchFileSystems(currentChatId);
         // Also refresh version state (for UNDO/REDO buttons)
-        loadVersionsWithCurrentState(data.id, currentChatId, data.workspace_id);
+        window.VersionManager.loadVersionsWithCurrentState(data.id, currentChatId, data.workspace_id);
       }
     }
   }
 
   function updateFileSystemLockState() {
-    setEditorReadOnly(isGenerating);
+    window.EditorManager.setReadOnly(isGenerating);
     // Approve and Suggest buttons remain enabled even during generation
     // to allow interaction as soon as the plan appears.
   }
@@ -10109,7 +7662,7 @@ document.addEventListener("DOMContentLoaded", () => {
             fileSystemCodemirrorContainer.classList.add("hidden");
           if (fileSystemPreviewContainer) {
             fileSystemPreviewContainer.classList.remove("hidden");
-            renderFileSystemPreview(
+            window.EditorManager.renderPreview(
               currentFileSystemContentRaw,
               currentFileSystemLanguage,
             );
@@ -10185,7 +7738,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
           // Refresh version state
           if (result.success && currentFileSystemId && currentChatId) {
-            loadVersionsWithCurrentState(currentFileSystemId, currentChatId, currentFileSystemWorkspaceId);
+            window.VersionManager.loadVersionsWithCurrentState(currentFileSystemId, currentChatId, currentFileSystemWorkspaceId);
           }
         })
         .catch((err) => {
@@ -10222,531 +7775,50 @@ document.addEventListener("DOMContentLoaded", () => {
   // Removed old fileSystemPanelEditor listener since CodeMirror's updateListener handles it
 
   /* ═══════════════════════════════════════════
-       VERSION HISTORY SYSTEM
+       VERSION HISTORY SYSTEM (via VersionManager)
        ═══════════════════════════════════════════ */
-
-  // Undo/Redo buttons
-  const fileSystemPanelUndoBtn = document.getElementById("file-system-panel-undo-btn");
-  const fileSystemPanelRedoBtn = document.getElementById("file-system-panel-redo-btn");
-
-  const versionHistoryModal = document.getElementById("version-history-modal");
-  const closeVersionHistoryBtn = document.getElementById(
-    "close-version-history",
-  );
-  const versionHistoryFileSystemName = document.getElementById(
-    "version-history-file-system-name",
-  );
-  const versionListLoading = document.getElementById("version-list-loading");
-  // Fix: ID mismatch between index.html ('version-list') and script.js ('version-list-items')
-  const versionListItems = document.getElementById("version-list");
-  const versionDiffPanel = document.getElementById("version-diff-panel");
-  const versionDiffTitle = document.getElementById("version-diff-title");
-  const versionDiffBody = document.getElementById("version-diff-body");
-  const versionRestoreBtn = document.getElementById("version-restore-btn");
-  const fileSystemPanelHistoryBtn = document.getElementById(
-    "file-system-panel-history-btn",
-  );
-
-  let _versionHistoryFileSystemId = null;
-  let _versionHistoryVersions = [];
-  let _selectedVersionNumber = null;
-  let _selectedNavIndex = null;
-
-  // Undo/Redo state
-  let _currentVersionNumber = null; // Current active version number for the file_system
-  let _versionHistoryCache = null; // Cached versions list
-  let _navigationPath = []; // Non-linear version path (e.g. [1,2,3,4,5,6,4,7])
-  let _navigationIndex = -1; // Current pointer in the navigation path
-
-  // Get current version number for a file_system
-  async function getCurrentVersionNumber(file_systemId, chatId) {
-    try {
-      const res = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}/current-version?chat_id=${chatId}`,
-      );
-      if (res.ok) {
-        const data = await res.json();
-        if (data.success && data.current_version) {
-          return data.current_version;
-        }
+  window.VersionManager.init({
+    getChatId: () => currentChatId,
+    getFileSystemId: () => currentFileSystemId,
+    getWorkspaceId: () => currentFileSystemWorkspaceId,
+    onRestoreContent: (newContent) => {
+      currentFileSystemContentRaw = newContent;
+      if (window.fileSystemEditor) {
+        window.fileSystemEditor.dispatch({
+          changes: {
+            from: 0,
+            to: window.fileSystemEditor.state.doc.length,
+            insert: currentFileSystemContentRaw,
+          },
+        });
       }
-    } catch (err) {
-      console.error("Failed to get current version:", err);
+    },
+    refreshSidebar: () => {
+      if (currentChatId) fetchFileSystems(currentChatId);
     }
-    return null;
-  }
-
-  // Update undo/redo button states
-  function updateUndoRedoButtons() {
-    if (_navigationIndex === -1 || !_navigationPath) return;
-
-    const isFirstInPath = _navigationIndex <= 0;
-    const isLastInPath = _navigationIndex >= _navigationPath.length - 1;
-
-    if (fileSystemPanelUndoBtn) {
-      fileSystemPanelUndoBtn.disabled = isFirstInPath;
-    }
-    if (fileSystemPanelRedoBtn) {
-      fileSystemPanelRedoBtn.disabled = isLastInPath;
-    }
-  }
-
-  // Load versions and set current version
-  async function loadVersionsWithCurrentState(file_systemId, chatId, workspaceId = null) {
-    try {
-      const wsParam = workspaceId ? `&workspace_id=${workspaceId}` : "";
-      // 1. Fetch versions
-      const versionsRes = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}/versions?chat_id=${chatId}${wsParam}`,
-      );
-      if (!versionsRes.ok) throw new Error("Failed to load versions");
-      const versionsData = await versionsRes.json();
-      if (!versionsData.success) throw new Error(versionsData.error || "Failed to load versions");
-
-      _versionHistoryCache = versionsData.versions.sort((a, b) => a.version_number - b.version_number);
-
-      // 2. Fetch FileSystem Meta (for navigation path)
-      const metaRes = await fetch(`${API_MODULES.FILE_SYSTEMS}/${file_systemId}?chat_id=${chatId}${wsParam}`);
-      if (!metaRes.ok) throw new Error("Failed to load file_system metadata");
-      const metaData = await metaRes.json();
-
-      if (metaData.success) {
-        try {
-          _navigationPath = JSON.parse(metaData.navigation_history || "[]");
-          _navigationIndex = parseInt(metaData.navigation_index, 10);
-        } catch (e) {
-          _navigationPath = [];
-          _navigationIndex = -1;
-        }
-
-        // Sync current version number with the navigation index
-        if (_navigationIndex >= 0 && _navigationIndex < _navigationPath.length) {
-          _currentVersionNumber = _navigationPath[_navigationIndex];
-        } else {
-          _currentVersionNumber = null;
-        }
-      }
-
-      updateUndoRedoButtons();
-      return _versionHistoryCache;
-    } catch (err) {
-      console.error("Failed to load versions/metadata:", err);
-      return [];
-    }
-  }
-
-  // Internal helper to apply version state to UI
-  async function _applyVersionState(versionNumber) {
-    if (!_versionHistoryCache) return;
-    const version = _versionHistoryCache.find(v => v.version_number === versionNumber);
-    if (!version) return;
-
-    _currentVersionNumber = versionNumber;
-    currentFileSystemContentRaw = version.content;
-
-    if (window.fileSystemEditor) {
-      window.fileSystemEditor.dispatch({
-        changes: {
-          from: 0,
-          to: window.fileSystemEditor.state.doc.length,
-          insert: currentFileSystemContentRaw,
-        },
-      });
-    }
-    const badge = document.getElementById("version-badge");
-    if (badge) {
-      badge.textContent = `V${versionNumber}`;
-      badge.classList.remove("hidden");
-    }
-    updateUndoRedoButtons();
-  }
-
-  // Navigate to a specific version
-  async function navigateToVersion(versionNumber, addToHistory = true) {
-    if (!_versionHistoryCache) return;
-
-    try {
-      if (addToHistory) {
-        // Prune future path if we are in the middle of history
-        if (_navigationIndex >= 0 && _navigationIndex < _navigationPath.length - 1) {
-          _navigationPath = _navigationPath.slice(0, _navigationIndex + 1);
-        }
-        _navigationPath.push(versionNumber);
-        _navigationIndex = _navigationPath.length - 1;
-      }
-
-      // Persist the current_version and navigation state in the DB
-      const patchData = {
-        chat_id: currentChatId,
-        workspace_id: currentFileSystemWorkspaceId,
-        current_version: versionNumber
-      };
-      if (addToHistory) {
-        patchData.navigation_history = JSON.stringify(_navigationPath);
-        patchData.navigation_index = _navigationIndex;
-      }
-
-      const res = await fetch(`${API_MODULES.FILE_SYSTEMS}/${currentFileSystemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(patchData),
-      });
-
-      if (res.ok) {
-        await _applyVersionState(versionNumber);
-      }
-    } catch (err) {
-      console.error("Failed to navigate to version:", err);
-    }
-  }
-
-  // Undo: traverse back in the navigation path
-  async function handleUndo() {
-    if (_navigationIndex <= 0) return;
-
-    _navigationIndex--;
-    const targetVersion = _navigationPath[_navigationIndex];
-
-    try {
-      await fetch(`${API_MODULES.FILE_SYSTEMS}/${currentFileSystemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: currentChatId,
-          workspace_id: currentFileSystemWorkspaceId,
-          navigation_index: _navigationIndex,
-          current_version: targetVersion
-        }),
-      });
-      await _applyVersionState(targetVersion);
-    } catch (err) {
-      console.error("Undo failed:", err);
-    }
-  }
-
-  // Redo: traverse forward in the navigation path
-  async function handleRedo() {
-    if (!_navigationPath || _navigationIndex >= _navigationPath.length - 1) return;
-
-    _navigationIndex++;
-    const targetVersion = _navigationPath[_navigationIndex];
-
-    try {
-      await fetch(`${API_MODULES.FILE_SYSTEMS}/${currentFileSystemId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          chat_id: currentChatId,
-          workspace_id: currentFileSystemWorkspaceId,
-          navigation_index: _navigationIndex,
-          current_version: targetVersion
-        }),
-      });
-      await _applyVersionState(targetVersion);
-    } catch (err) {
-      console.error("Redo failed:", err);
-    }
-  }
-
-  // Handle version navigation after navigating away and editing (Branching)
-  async function handleVersionEdit() {
-    if (!_currentVersionNumber || !_versionHistoryCache) return;
-
-    const maxVersion = _versionHistoryCache.length;
-    if (_currentVersionNumber < maxVersion) {
-      console.log(
-        "Branching edit: Current version is",
-        _currentVersionNumber,
-        "of",
-        maxVersion,
-      );
-      // In a branching model, we don't delete future versions.
-      // The next PATCH will automatically create a new version head (maxVersion + 1).
-      // We just need to make sure the local state is ready.
-    }
-  }
-
-  async function openVersionHistory() {
-    if (!currentFileSystemId || !currentChatId) return;
-
-    _versionHistoryFileSystemId = currentFileSystemId;
-    _versionHistoryVersions = [];
-    _selectedVersionNumber = null;
-
-    // Load current version state and versions
-    await loadVersionsWithCurrentState(currentFileSystemId, currentChatId, currentFileSystemWorkspaceId);
-
-    // Show modal
-    versionHistoryModal.classList.add("open");
-
-    // Update file_system name subtitle
-    if (versionHistoryFileSystemName) {
-      versionHistoryFileSystemName.textContent =
-        fileSystemPanelTitle?.textContent || currentFileSystemId;
-    }
-
-    // Reset to list view
-    if (versionDiffPanel) versionDiffPanel.classList.add("hidden");
-    if (versionRestoreBtn) versionRestoreBtn.style.display = "none";
-    const placeholder = document.getElementById("version-preview-placeholder");
-    if (placeholder) placeholder.classList.remove("hidden");
-    if (versionListItems) versionListItems.innerHTML = "";
-    if (versionListLoading) versionListLoading.classList.remove("hidden");
-
-    try {
-      const res = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${currentFileSystemId}/versions?chat_id=${currentChatId}`,
-      );
-      if (!res.ok) {
-        throw new Error("No versions found");
-      }
-      const data = await res.json();
-      if (!data.success)
-        throw new Error(data.error || "Failed to load versions");
-
-      // Sort newest first for display (if we still need this for some reason, but we use map now)
-      _versionHistoryVersions = data.versions.sort(
-        (a, b) => b.version_number - a.version_number,
-      );
-      renderVersionList();
-    } catch (err) {
-      if (versionListItems) {
-        versionListItems.innerHTML = `<div class="version-list-empty">
-                    <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity:0.4;margin-bottom:0.5rem;">
-                        <polyline points="12 8 12 12 14 14" stroke-linecap="round" stroke-linejoin="round"></polyline>
-                        <path d="M3.05 11a9 9 0 1 0 .5-4" stroke-linecap="round"></path>
-                    </svg>
-                    <p>No version history yet.<br>Versions are saved automatically when content changes.</p>
-                </div>`;
-      }
-    } finally {
-      if (versionListLoading) versionListLoading.classList.add("hidden");
-    }
-  }
-
-  function renderVersionList() {
-    if (!versionListItems || !_navigationPath || !_versionHistoryCache) return;
-    versionListItems.innerHTML = "";
-
-    // Show the navigation path in reverse (most recent navigation on top)
-    for (let i = _navigationPath.length - 1; i >= 0; i--) {
-      const vNum = _navigationPath[i];
-      const vMeta = _versionHistoryCache.find((v) => v.version_number === vNum);
-      if (!vMeta) continue;
-
-      const item = document.createElement("div");
-      const isActive = i === _navigationIndex;
-      item.className = `version-item${isActive ? " current-version" : ""}`;
-      item.dataset.navIndex = i;
-      item.dataset.versionNumber = vNum;
-
-      const date = new Date(vMeta.timestamp * 1000);
-      const dateStr = date.toLocaleString([], {
-        dateStyle: "short",
-        timeStyle: "short",
-      });
-      const author = vMeta.author || "system";
-      const comment = vMeta.comment || (i === 0 ? "Initial version" : "Navigated");
-
-      const isCurrentBadge = isActive
-        ? `<span class="version-current-badge">Current</span>`
-        : "";
-
-      item.innerHTML = `
-                <div style="display: flex; align-items: center; gap: 0.4rem;">
-                    <span class="version-item-number">v${vNum}</span>
-                    ${isCurrentBadge}
-                </div>
-                <div class="version-item-comment">${escapeHtml(comment)}</div>
-                <div class="version-item-meta">
-                    <span class="version-item-author">${escapeHtml(author)}</span>
-                    <span>·</span>
-                    <span>${dateStr}</span>
-                </div>
-            `;
-
-      item.addEventListener("click", () => {
-        // Preview the version and show its diff
-        openVersionDiff(vNum, vMeta, i);
-      });
-      versionListItems.appendChild(item);
-    }
-  }
-
-  async function openVersionDiff(versionNumber, versionMeta, navIndex = null) {
-    if (!versionDiffPanel || !versionDiffBody || !versionRestoreBtn) return;
-
-    _selectedVersionNumber = versionNumber;
-    _selectedNavIndex = navIndex;
-
-    // Show diff panel
-    versionDiffPanel.classList.remove("hidden");
-    const placeholder = document.getElementById("version-preview-placeholder");
-    if (placeholder) placeholder.classList.add("hidden");
-
-    // Mark item as active in list
-    document
-      .querySelectorAll(".version-item")
-      .forEach((el) => el.classList.remove("active"));
-    
-    let activeSelector = `.version-item[data-version-number="${versionNumber}"]`;
-    if (navIndex !== null) {
-      activeSelector = `.version-item[data-nav-index="${navIndex}"]`;
-    }
-    const activeItem = document.querySelector(activeSelector);
-    if (activeItem) activeItem.classList.add("active");
-
-    const isCurrentVersion = (versionNumber === _currentVersionNumber);
-
-    // Update diff panel header
-    const dateStr = new Date(versionMeta.timestamp * 1000).toLocaleString([], {
-      dateStyle: "short",
-      timeStyle: "short",
-    });
-    if (versionDiffTitle) {
-      versionDiffTitle.textContent = `v${versionNumber} — ${dateStr}`;
-    }
-
-    // Disable restore button for current version
-    if (versionRestoreBtn) {
-      versionRestoreBtn.style.display = ""; 
-      versionRestoreBtn.disabled = isCurrentVersion;
-      versionRestoreBtn.dataset.versionNumber = versionNumber;
-      versionRestoreBtn.dataset.navIndex = navIndex;
-      
-      // Update text to reflect status
-      versionRestoreBtn.textContent = isCurrentVersion ? "Already at this version" : "Restore this version";
-    }
-
-    versionDiffBody.innerHTML = `<div class="version-list-loading" style="height:100%;justify-content:center;"><div class="spinner" style="width:24px;height:24px;"></div><span>Loading version…</span></div>`;
-
-    try {
-      // Fetch the version content preview
-      const contentRes = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${_versionHistoryFileSystemId}/versions/${versionNumber}?chat_id=${currentChatId}`,
-      );
-      if (!contentRes.ok) throw new Error("Failed to load version content");
-      const contentData = await contentRes.json();
-      const thisContent = contentData.content || "";
-
-      versionDiffBody.innerHTML = "";
-
-      // Show full content preview
-      const pre = document.createElement("div");
-      pre.className = "version-preview-content";
-      pre.textContent = thisContent;
-      versionDiffBody.appendChild(pre);
-    } catch (err) {
-      versionDiffBody.innerHTML = `<div class="diff-no-changes"><p>Failed to load version content. Please try again.</p></div>`;
-    }
-  }
-
-  async function restoreVersion(versionNumber) {
-    if (!_versionHistoryFileSystemId || !versionNumber) return;
-
-    try {
-      const res = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${_versionHistoryFileSystemId}/versions/${versionNumber}/restore`,
-        {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ chat_id: currentChatId }),
-        },
-      );
-      const data = await res.json();
-
-      if (data.success) {
-        // Refresh version state for non-linear undo/redo
-        await loadVersionsWithCurrentState(_versionHistoryFileSystemId, currentChatId, currentFileSystemWorkspaceId);
-
-        // Reload file_system content in the panel
-        const wsParam = currentFileSystemWorkspaceId ? `&workspace_id=${currentFileSystemWorkspaceId}` : "";
-        const contentRes = await fetch(
-          `${API_MODULES.FILE_SYSTEMS}/${_versionHistoryFileSystemId}?chat_id=${currentChatId}${wsParam}`,
-        );
-        const contentData = await contentRes.json();
-
-        if (contentData.success) {
-          currentFileSystemContentRaw = contentData.content;
-          if (window.fileSystemEditor) {
-            window.fileSystemEditor.dispatch({
-              changes: {
-                from: 0,
-                to: window.fileSystemEditor.state.doc.length,
-                insert: currentFileSystemContentRaw,
-              },
-            });
-          }
-        }
-
-        // Close the modal
-        versionHistoryModal.classList.remove("open");
-
-        // Refresh sidebar
-        if (currentChatId) fetchFileSystems(currentChatId);
-
-        // Toast feedback
-        const toast = document.createElement("div");
-        toast.className = "toast-notification";
-        toast.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--color-emerald)" stroke-width="2.5"><path d="M20 6L9 17l-5-5" stroke-linecap="round" stroke-linejoin="round"/></svg> Restored to v${versionNumber}`;
-        document.body.appendChild(toast);
-        setTimeout(() => toast.classList.add("show"), 10);
-        setTimeout(() => {
-          toast.classList.remove("show");
-          setTimeout(() => toast.remove(), 300);
-        }, 3000);
-      } else {
-        await showModal(
-          "Restore Failed",
-          data.error || "Could not restore this version.",
-          { type: "alert" },
-        );
-      }
-    } catch (err) {
-      await showModal("Restore Failed", "A network error occurred.", {
-        type: "alert",
-      });
-    }
-  }
-
-  // Wire up history button
-  if (fileSystemPanelHistoryBtn) {
-    fileSystemPanelHistoryBtn.addEventListener("click", openVersionHistory);
-  }
-
-  // Wire up undo/redo buttons
-  if (fileSystemPanelUndoBtn) {
-    fileSystemPanelUndoBtn.addEventListener("click", handleUndo);
-  }
-  if (fileSystemPanelRedoBtn) {
-    fileSystemPanelRedoBtn.addEventListener("click", handleRedo);
-  }
-
-  // Close version history modal
-  if (closeVersionHistoryBtn) {
-    closeVersionHistoryBtn.addEventListener("click", () => {
-      versionHistoryModal.classList.remove("open");
-    });
-  }
-
-  // Backdrop click to close
-  if (versionHistoryModal) {
-    versionHistoryModal.addEventListener("click", (e) => {
-      if (e.target === versionHistoryModal) {
-        versionHistoryModal.classList.remove("open");
-      }
-    });
-  }
-
-  // Restore button
-  if (versionRestoreBtn) {
-    versionRestoreBtn.addEventListener("click", () => {
-      const vNum = parseInt(versionRestoreBtn.dataset.versionNumber, 10);
-      if (vNum) restoreVersion(vNum);
-    });
-  }
+  });
 
   /* ═══════════════════════════════════════════
+       FILE SYSTEM UI INITIALIZATION
+       ═══════════════════════════════════════════ */
+  window.FileSystemUI.init({
+    getActiveFileId: () => currentFileSystemId,
+    onFileClick: (id, workspaceId) => loadFileSystem(id, workspaceId),
+    onFileDownload: (id, workspaceId) => downloadFileSystem(id, workspaceId),
+    onFileDelete: async (id, title, workspaceId) => {
+      const confirmed = await showConfirm(
+        "Delete Artifact",
+        `Are you sure you want to delete "${title}"? This action cannot be undone.`,
+        true,
+      );
+      if (confirmed) {
+        await deleteFileSystem(id, workspaceId);
+      }
+    },
+    onContextMenu: (type, id, title, e, workspaceId) => showContextMenu(type, id, title, e, workspaceId)
+  });
+
+/* ═══════════════════════════════════════════
        DOWNLOAD (FileSystem Panel Header)
        ═══════════════════════════════════════════ */
 
@@ -11010,7 +8082,8 @@ document.addEventListener("DOMContentLoaded", () => {
           let items = col.items;
           if (typeof items === "string") items = JSON.parse(items);
           if (items && items.length > 0) {
-            collectionsHtml += renderUploadedFiles(JSON.stringify(items));
+            // collectionsHtml += renderUploadedFiles(JSON.stringify(items));
+            // renderUploadedFiles was removed/never existed. Preventing ReferenceError.
           }
         }
       } catch (e) {
@@ -11061,29 +8134,6 @@ document.addEventListener("DOMContentLoaded", () => {
      * @param {Object} subAgent - Sub-agent data with agent name and messages
      * @returns {string} HTML for the sub-agent section
      */
-  function _renderSubAgentSectionForTurn(subAgent) {
-    const agentName = subAgent.agent_name || subAgent.agent || "Sub-Agent";
-    const messages = subAgent.messages || [];
-    const activityCount = messages.length;
-
-    let label = agentName.replace(/_/g, " ");
-    if (agentName.toLowerCase() === "research") label = "Research Agent";
-    if (agentName.toLowerCase() === "file_system_agent") label = "FileSystem Agent";
-
-    return `
-            <div class="activity-item sub-agent-container collapsed" data-agent-name="${escapeHtml(agentName)}">
-                <div class="activity-header">
-                    <div class="sub-agent-icon-wrapper" style="margin-right: 6px; display: flex; align-items: center; justify-content: center; color: var(--content-muted);">${getAgentIcon(agentName)}</div>
-                    <div class="activity-type" style="margin-right: auto;">${escapeHtml(label)}</div>
-                    <span class="sub-agent-badge" style="margin-right: 12px; font-size: 0.7rem; opacity: 0.6;">${activityCount} ${activityCount === 1 ? "activity" : "activities"}</span>
-                    <div class="thought-chevron"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                </div>
-                <div class="activity-content sub-agent-activity-feed" style="margin-left: 0; border-left: none;">
-                    ${_renderSubAgentActivityFeed(messages)}
-                </div>
-            </div>
-        `;
-  }
 
   /**
    * Render activity feed for sub-agent messages
@@ -11091,63 +8141,6 @@ document.addEventListener("DOMContentLoaded", () => {
    * @param {Array} messages - Sub-agent messages
    * @returns {string} HTML for sub-agent activity feed
    */
-  function _renderSubAgentActivityFeed(messages) {
-    if (!messages || messages.length === 0) return "";
-
-    let html = "";
-
-    for (const msg of messages) {
-      // Re-use activity-item pattern for internal sub-agent sections
-      const roleLabel =
-        msg.role === "user"
-          ? "User"
-          : msg.role === "assistant"
-            ? "Assistant"
-            : msg.role;
-      const contentHtml = msg.content ? formatMarkdown(msg.content) : "";
-      const timestamp = msg.timestamp || Date.now();
-
-      // Reconstruct tool-calls if present in the message
-      let toolsHtml = "";
-      if (msg.tool_calls) {
-        try {
-          const tools =
-            typeof msg.tool_calls === "string"
-              ? JSON.parse(msg.tool_calls)
-              : msg.tool_calls;
-          if (Array.isArray(tools)) {
-            for (const tool of tools) {
-              const toolName = tool.function?.name || "tool";
-              const args = tool.function?.arguments || "{}";
-              toolsHtml += `
-                                <div class="sub-agent-tool-call" style="margin-top: 8px; padding-left: 4px; border-left: none;">
-                                    <div style="font-size: 0.65rem; font-weight: 700; color: var(--content-muted); margin-bottom: 4px;">TOOL CALL: ${escapeHtml(toolName)}</div>
-                                    <code style="font-size: 0.75rem; display: block; background: rgba(0,0,0,0.03); padding: 4px; border-radius: 4px;">${escapeHtml(typeof args === "string" ? args : JSON.stringify(args))}</code>
-                                </div>
-                            `;
-            }
-          }
-        } catch (e) {
-          console.error("Failed to parse sub-agent tools", e);
-        }
-      }
-
-      html += `
-                <div class="sub-agent-activity-item activity-item" data-timestamp="${timestamp}">
-                    <div class="sub-agent-activity-header activity-header">
-                        <span class="activity-type">${escapeHtml(roleLabel)}</span>
-                        <span class="activity-meta" style="font-size: 0.6rem; opacity: 0.6; margin-left: 8px;">${new Date(timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}</span>
-                    </div>
-                    <div class="sub-agent-activity-content activity-content">
-                        ${contentHtml}
-                        ${toolsHtml}
-                    </div>
-                </div>
-            `;
-    }
-
-    return html;
-  }
 
   function renderSubAgentTurn(activityFeed, turn) {
     if (!turn) return;
@@ -11214,56 +8207,5 @@ document.addEventListener("DOMContentLoaded", () => {
   /**
    * Helper to render a discrete activity item based on type.
    */
-  function renderActivityItem(activityFeed, item) {
-    if (item.type === "thinking") {
-      appendThinkingActivity(activityFeed, item.content);
-      sealThinkingActivity(activityFeed);
-    } else if (item.type === "tool_call") {
-      activityFeed.innerHTML += renderToolCallActivity({
-        content: item.content,
-      });
-    } else if (item.type === "tool_result") {
-      activityFeed.innerHTML += renderToolResultActivity(item);
-    } else if (item.type === "event" || item.type === "status") {
-      activityFeed.innerHTML += `
-                <div class="activity-item event-divider" data-role="event" style="display: flex; align-items: center; justify-content: center; margin: 1.5rem 0; gap: 1rem;">
-                    <div style="flex: 1; height: 1px; background-color: var(--border-subtle, var(--border-subtle));"></div>
-                    <span class="event-text" style="color: var(--content-muted); font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em;">${escapeHtml(item.content)}</span>
-                    <div style="flex: 1; height: 1px; background-color: var(--border-subtle, var(--border-subtle));"></div>
-                </div>`;
-    }
-  }
 
-  // --- Image Modal Logic ---
-  window.openImageModal = function(src) {
-    const modal = document.getElementById('image-modal');
-    const modalImg = document.getElementById('modal-img');
-    if (modal && modalImg) {
-      modalImg.src = src;
-      modal.classList.remove('hidden');
-      // Trigger reflow
-      void modal.offsetWidth;
-      modal.classList.add('open');
-    }
-  };
-
-  window.closeImageModal = function() {
-    const modal = document.getElementById('image-modal');
-    if (modal) {
-      modal.classList.remove('open');
-      setTimeout(() => {
-        modal.classList.add('hidden');
-      }, 300); // Matches transition duration
-    }
-  };
-
-  // Close image modal on Escape key
-  document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape') {
-      const modal = document.getElementById('image-modal');
-      if (modal && modal.classList.contains('open')) {
-        window.closeImageModal();
-      }
-    }
-  });
 });

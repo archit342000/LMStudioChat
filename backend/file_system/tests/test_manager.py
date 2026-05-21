@@ -100,6 +100,13 @@ async def test_create_fs_file(mock_db, mock_channel, mock_utils, mock_aiofiles):
     res = await manager.create_fs_file("chat_123", "test.txt", "content")
     assert res["success"] is False
 
+    # Test empty path validation
+    mock_utils["sanitize_path"].return_value = ""
+    res = await manager.create_fs_file("chat_123", "", "content")
+    assert res["success"] is False
+    assert "Invalid path" in res["error"]
+    mock_utils["sanitize_path"].side_effect = lambda x: x
+
 @pytest.mark.anyio
 async def test_create_fs_file_language_inference(mock_db, mock_channel, mock_utils, mock_aiofiles):
     mock_db.get_file_system_meta_by_path.return_value = None

@@ -307,13 +307,13 @@ PDF_OCR_LANGUAGES = ['en']
 PDF_EXTRACTION_MIN_CONTENT = 50
 
 # =============================================================================
-# FILE AGENT CONFIGURATION
+# DOCUMENT AGENT CONFIGURATION
 # =============================================================================
-FILE_AGENT_MAX_TURNS = int(os.getenv("FILE_AGENT_MAX_TURNS", 100))
-FILE_AGENT_FAILSAFE_TURNS = int(os.getenv("FILE_AGENT_FAILSAFE_TURNS", 5))
-FILE_AGENT_MAX_LINES_PER_REQUEST = int(os.getenv("FILE_AGENT_MAX_LINES_PER_REQUEST", 100)) # Rejection limit for reading too many lines
-FILE_AGENT_MAX_CHARS_PER_READ = int(os.getenv("FILE_AGENT_MAX_CHARS_PER_READ", 15000)) # Safety cap for token context per read
-FILE_AGENT_RAG_DEPTH_MAP = {"basic": 3, "standard": 5, "deep": 7}
+DOCUMENT_AGENT_MAX_TURNS = int(os.getenv("DOCUMENT_AGENT_MAX_TURNS", 100))
+DOCUMENT_AGENT_FAILSAFE_TURNS = int(os.getenv("DOCUMENT_AGENT_FAILSAFE_TURNS", 5))
+DOCUMENT_AGENT_MAX_LINES_PER_REQUEST = int(os.getenv("DOCUMENT_AGENT_MAX_LINES_PER_REQUEST", 100)) # Rejection limit for reading too many lines
+DOCUMENT_AGENT_MAX_CHARS_PER_READ = int(os.getenv("DOCUMENT_AGENT_MAX_CHARS_PER_READ", 15000)) # Safety cap for token context per read
+DOCUMENT_AGENT_RAG_DEPTH_MAP = {"basic": 3, "standard": 5, "deep": 7}
 
 # =============================================================================
 # FILE_SYSTEM EDITOR CONFIGURATION
@@ -336,13 +336,13 @@ BROWSER_STEALTH_LEVEL = os.getenv("BROWSER_STEALTH_LEVEL", "minimal")  # minimal
 # AGENT MAX OUTPUT TOKENS CONFIGURATION
 # =============================================================================
 SEARCH_WEB_AGENT_MAX_TOKENS = int(os.getenv("SEARCH_WEB_AGENT_MAX_TOKENS", 16384))
-FILE_AGENT_MAX_TOKENS = int(os.getenv("FILE_AGENT_MAX_TOKENS", 16384))
+DOCUMENT_AGENT_MAX_TOKENS = int(os.getenv("DOCUMENT_AGENT_MAX_TOKENS", 16384))
 FILE_SYSTEM_AGENT_MAX_TOKENS = int(os.getenv("FILE_SYSTEM_AGENT_MAX_TOKENS", 16384))
 BROWSING_AGENT_MAX_TOKENS = int(os.getenv("BROWSING_AGENT_MAX_TOKENS", 16384))
 VISIT_PAGE_AGENT_MAX_TOKENS = int(os.getenv("VISIT_PAGE_AGENT_MAX_TOKENS", 16384))
 
 SEARCH_WEB_AGENT_THINKING_BUDGET = int(os.getenv("SEARCH_WEB_AGENT_THINKING_BUDGET", 1024))
-FILE_AGENT_THINKING_BUDGET = int(os.getenv("FILE_AGENT_THINKING_BUDGET", 1024))
+DOCUMENT_AGENT_THINKING_BUDGET = int(os.getenv("DOCUMENT_AGENT_THINKING_BUDGET", 1024))
 FILE_SYSTEM_AGENT_THINKING_BUDGET = int(os.getenv("FILE_SYSTEM_AGENT_THINKING_BUDGET", 1024))
 BROWSING_AGENT_THINKING_BUDGET = int(os.getenv("BROWSING_AGENT_THINKING_BUDGET", 1024))
 VISIT_PAGE_AGENT_THINKING_BUDGET = int(os.getenv("VISIT_PAGE_AGENT_THINKING_BUDGET", 1024))

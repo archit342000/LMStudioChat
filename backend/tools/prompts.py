@@ -67,21 +67,19 @@ The `visit_page` tool allows you to read content from any public URL.
 - Use `detail_level="basic"` for standard articles and blogs. Use `detail_level="deep"` ONLY for complex, dynamic, or data-heavy dashboards where "basic" misses content.
 """
 
-FILE_AGENT_DIRECTIVES = """
-## File Agent Tool Rules
-The `file_agent` tool delegates investigation of an uploaded file (PDF, DOCX, TXT, Code, Images) to an autonomous sub-agent. This agent is capable of using RAG, grep, and precise line/page reading to fulfill your request.
+DOCUMENT_AGENT_DIRECTIVES = """
+## Document Agent Tool Rules
+The `document_agent` tool delegates investigation of an uploaded file (PDF, DOCX, TXT, Code, Images) to an autonomous sub-agent. This agent is capable of using RAG, grep, and precise line/page reading to fulfill your request.
 
 ### When to use
-Use `file_agent` whenever you need to extract information from, analyze, or verify the contents of an uploaded file. 
+Use `document_agent` whenever you need to extract information from, analyze, or verify the contents of an uploaded file. Use this ONLY for files you can see have been **uploaded** in the current conversation, for all other files, use the `file_system_agent`.
 
 ### Delegation Strategy
-The `file_agent` is autonomous. You do NOT need to micromanage its search strategy. Give it a clear, descriptive objective. The best practice is to have the sub-agent prepare the final deliverable item instead of using it to extract data for you to process. 
+The `document_agent` is autonomous. You do NOT need to micromanage its search strategy. Give it a clear, descriptive objective. The best practice is to have the sub-agent prepare the final deliverable item instead of using it to extract data for you to process. 
 
 ### Parameters
 1.  **query**: Mandatory. Give the sub-agent a comprehensive objective (e.g., "Find all instances where the variable `X` is mutated" or "Summarize the architectural guidelines for the database layer").
 
-### Multimodal Analysis
-If the file is an image, the sub-agent automatically uses its vision capabilities. You don't need to specify a different tool.
 """
 
 GET_TIME_DIRECTIVES = """
@@ -174,13 +172,13 @@ Verify your own work.
 - **Creating:** Call `ls_files` before `create_fs_file` to avoid path collisions.
 """
 
-FILE_AGENT_TOOL_DIRECTIVES = """
-## File Agent Document Analysis Rules
+DOCUMENT_AGENT_TOOL_DIRECTIVES = """
+## Document Agent Document Analysis Rules
 You are an autonomous sub-agent specialized in investigating the contents of uploaded files. You MUST operate using the following strict 3-Phase pipeline to conserve token context.
 
 ### Phase 1: Search & Locate (Mandatory)
 NEVER attempt to read a full file unless absolutely necessary.
-- **Action:** If the query is broad or conceptual, use `file_agent_rag(query="...")` to find relevant meaning-based chunks.
+- **Action:** If the query is broad or conceptual, use `document_agent_rag(query="...")` to find relevant meaning-based chunks.
 - **Action:** If looking for specific variable names, exact strings, or error codes, use `grep_uploaded_file(query="...")` to locate precise hits.
 - **Depth control:** ALWAYS default to `depth="standard"` for RAG calls. Use `depth="deep"` ONLY when you have already tried "standard" and it returned insufficient or no results, or when the query explicitly requires comprehensive coverage (e.g., "find ALL instances of X", "summarize the ENTIRE document").
 

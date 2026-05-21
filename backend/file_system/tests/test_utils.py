@@ -16,8 +16,10 @@ def test_sanitize_path():
     assert sanitize_path("../../foo/bar") == "foo/bar"
     assert sanitize_path("foo/./bar") == "foo/bar"
     assert sanitize_path("foo/*?bar") == "foo/__bar"
-    assert sanitize_path("") == "untitled"
-    assert sanitize_path("///") == "untitled"
+    assert sanitize_path("") == ""
+    assert sanitize_path("///") == ""
+    assert sanitize_path(".") == ""
+    assert sanitize_path("./") == ""
 
 @patch("backend.database.db.get_chat")
 def test_get_workspace_for_chat(mock_get_chat):

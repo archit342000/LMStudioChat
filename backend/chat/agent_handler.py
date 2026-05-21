@@ -13,7 +13,7 @@ AGENT_PROFILES = {
     "search_web": "precision",
     "visit_page": "precision",
     "research_agent": "precision",
-    "file_agent": "precision",
+    "document_agent": "precision",
     "file_system_agent": "precision",
     "browsing_agent": "precision"
 }

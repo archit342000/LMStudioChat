@@ -788,7 +788,7 @@ class FileManager:
     def read_file_range(self, file_id: str, start_line: int = None, end_line: int = None, page: int = None) -> Dict[str, Any]:
         """Read specific lines or a specific page from the raw extracted file content."""
         import json
-        from backend.config import FILE_AGENT_MAX_LINES_PER_REQUEST, FILE_AGENT_MAX_CHARS_PER_READ
+        from backend.config import DOCUMENT_AGENT_MAX_LINES_PER_REQUEST, DOCUMENT_AGENT_MAX_CHARS_PER_READ
         metadata = self.get_file(file_id)
         if not metadata:
             return {"success": False, "error": "File not found"}
@@ -807,18 +807,18 @@ class FileManager:
             
             if page is None:
                 return {"success": False, "error": "This is a page-based document. Please use the 'page' parameter instead of 'start_line' and 'end_line'."}
-
+ 
             if not (1 <= page <= len(pages)):
                 return {"success": False, "error": f"Page {page} not found. Document has {len(pages)} pages."}
-
+ 
             page_content = pages[page - 1]
             
             # Character-based truncation to prevent context overflow
-            truncated = len(page_content) > FILE_AGENT_MAX_CHARS_PER_READ
+            truncated = len(page_content) > DOCUMENT_AGENT_MAX_CHARS_PER_READ
             warning_msg = None
             if truncated:
-                page_content = page_content[:FILE_AGENT_MAX_CHARS_PER_READ]
-                warning_msg = f"\n\n[WARNING: Content truncated at {FILE_AGENT_MAX_CHARS_PER_READ} characters to prevent context overflow.]"
+                page_content = page_content[:DOCUMENT_AGENT_MAX_CHARS_PER_READ]
+                warning_msg = f"\n\n[WARNING: Content truncated at {DOCUMENT_AGENT_MAX_CHARS_PER_READ} characters to prevent context overflow.]"
                 page_content += warning_msg
                 
             result = {
@@ -838,7 +838,7 @@ class FileManager:
         else:
             if page is not None:
                 return {"success": False, "error": "This is a line-based document. Please use 'start_line' and 'end_line' instead of 'page'."}
-
+ 
             text_content = content_data.get("text", "")
             lines = text_content.split('\n')
             total_lines = len(lines)
@@ -847,26 +847,26 @@ class FileManager:
             start_idx = max(0, start_line - 1) if start_line is not None else 0
             
             if end_line is None:
-                end_idx = min(total_lines, start_idx + FILE_AGENT_MAX_LINES_PER_REQUEST)
+                end_idx = min(total_lines, start_idx + DOCUMENT_AGENT_MAX_LINES_PER_REQUEST)
             else:
                 end_idx = min(total_lines, end_line)
             
             # Rejection limit for lines
-            if end_idx - start_idx > FILE_AGENT_MAX_LINES_PER_REQUEST:
+            if end_idx - start_idx > DOCUMENT_AGENT_MAX_LINES_PER_REQUEST:
                 return {
                     "success": False, 
-                    "error": f"Requested too many lines at once ({end_idx - start_idx} lines). Maximum allowed is {FILE_AGENT_MAX_LINES_PER_REQUEST} lines per read. Please narrow your line range."
+                    "error": f"Requested too many lines at once ({end_idx - start_idx} lines). Maximum allowed is {DOCUMENT_AGENT_MAX_LINES_PER_REQUEST} lines per read. Please narrow your line range."
                 }
             
             formatted_lines = [f"{i+1}: {lines[i]}" for i in range(start_idx, end_idx)]
             final_content = '\n'.join(formatted_lines)
             
             # Character-based truncation to prevent massive context dumps
-            truncated = len(final_content) > FILE_AGENT_MAX_CHARS_PER_READ
+            truncated = len(final_content) > DOCUMENT_AGENT_MAX_CHARS_PER_READ
             warning_msg = None
             if truncated:
-                final_content = final_content[:FILE_AGENT_MAX_CHARS_PER_READ]
-                warning_msg = f"\n\n[WARNING: Content truncated at {FILE_AGENT_MAX_CHARS_PER_READ} characters to prevent context overflow.]"
+                final_content = final_content[:DOCUMENT_AGENT_MAX_CHARS_PER_READ]
+                warning_msg = f"\n\n[WARNING: Content truncated at {DOCUMENT_AGENT_MAX_CHARS_PER_READ} characters to prevent context overflow.]"
                 final_content += warning_msg
             
             result = {

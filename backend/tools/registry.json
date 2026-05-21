@@ -89,24 +89,24 @@
     "implementation": "backend.tools.agents.search_web_agent.agent.flow_fn",
     "description": "Executes a web search."
   },
-  "file_agent": {
+  "document_agent": {
     "type": "agent",
-    "implementation": "backend.tools.agents.file_agent.agent.flow_fn",
-    "description": "Analyzes an uploaded file using RAG or vision."
+    "implementation": "backend.tools.agents.document_agent.agent.flow_fn",
+    "description": "Analyzes an uploaded document using RAG or vision."
   },
-  "file_agent_rag": {
+  "document_agent_rag": {
     "type": "pure",
-    "implementation": "backend.tools.agents.file_agent.tools.file_agent_rag_tool",
-    "description": "Performs a semantic search (RAG) across the chunks of the uploaded file."
+    "implementation": "backend.tools.agents.document_agent.tools.document_agent_rag_tool",
+    "description": "Performs a semantic search (RAG) across the chunks of the uploaded document."
   },
   "grep_uploaded_file": {
     "type": "pure",
-    "implementation": "backend.tools.agents.file_agent.tools.grep_uploaded_file_tool",
+    "implementation": "backend.tools.agents.document_agent.tools.grep_uploaded_file_tool",
     "description": "Performs a literal text or regex search across the raw extracted text of the uploaded file."
   },
   "read_uploaded_file": {
     "type": "pure",
-    "implementation": "backend.tools.agents.file_agent.tools.read_uploaded_file_tool",
+    "implementation": "backend.tools.agents.document_agent.tools.read_uploaded_file_tool",
     "description": "Reads a specific range of lines or a specific page from the raw text of the uploaded file."
   },
   "manage_task_list": {

@@ -301,16 +301,6 @@
                 <div class="chat-header-content"
                     style="display: flex; justify-content: center; align-items: center; width: 100%; max-width: 800px; position: relative;">
                     <div class="chat-title-display" id="chat-title-display">New Chat</div>
-                    <div id="research-actions" style="display: none; gap: 8px; position: absolute; right: 0;">
-                        <button id="discard-research-btn" class="utility-btn glass danger"
-                            style="position: static; display: flex;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                                stroke-width="2.5">
-                                <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
-                            </svg>
-                            <span>Discard</span>
-                        </button>
-                    </div>
                 </div>
             </div>
 
@@ -579,7 +569,7 @@
                     <h3 class="text-h2" style="font-size: 1.1rem; margin-bottom: 0.5rem;">Agent Configuration</h3>
                     <p style="font-size: 0.85rem; color: var(--content-muted); margin-bottom: 1rem;">Configure thinking profiles and token budgets for specialized agents.</p>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                        <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="file_agent">File Agent</button>
+                        <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="document_agent">Document Agent</button>
                         <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="file_system_agent">FileSystem Agent</button>
                         <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="browsing_agent">Browsing Agent</button>
                         <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="search_web">Search Agent</button>
@@ -1447,7 +1437,18 @@
     </div>
 
     <script src="/js/utils.js"></script>
+    <script src="/js/constants.js"></script>
     <script src="/js/bg-animation.js"></script>
+    <script src="/js/icons.js"></script>
+    <script src="/js/agent-renderers.js"></script>
+    <script src="/js/modals.js"></script>
+    <script src="/js/toast.js"></script>
+    <script src="/js/clarification-popover.js"></script>
+    <script src="/js/file-system-ui.js"></script>
+    <script src="/js/version-manager.js"></script>
+    <script src="/js/editor-manager.js"></script>
+    <script src="/js/attachment-manager.js"></script>
+    <script src="/js/image-modal.js"></script>
     <script src="/script.js"></script>
 </body>
 

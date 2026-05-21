@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v4.3.3
+* **Document Agent Rebranding**: Rebranded `file_agent` to `document_agent` throughout the application (modules, API endpoints, configurations, and database constraints) to avoid confusing it with the `file_system_agent`.
+* **Database Migration**: Added automated database schema migration to dynamically rename existing `file_agent` entries to `document_agent` in the settings table.
+* **Frontend Refactor**: Modularized some of static/script.js to break down the monolith.
+* **Version Bump**: Incremented version globally to 4.3.3.
+
 ## v4.3.2
 * **Concurrent File Uploading**: Enabled parallel/concurrent processing of file uploads in the frontend, preventing optimistic UI rendering from being blocked sequentially.
 * **Resilient State Deletion**: Fixed the array filtering bug that incorrectly wiped out other uploaded files from `uploadedFiles` during file removal or upload failure.

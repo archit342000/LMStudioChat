@@ -171,3 +171,13 @@ function formatMarkdown(text) {
     escapeDiv.textContent = html;
     return `<pre style="white-space:pre-wrap;word-break:break-word">${escapeDiv.innerHTML}</pre>`;
 }
+
+window.renderMermaidBlocks = function() {
+    if (typeof mermaid !== 'undefined') {
+        try {
+            mermaid.run({ querySelector: '.mermaid' });
+        } catch (e) {
+            console.warn("Mermaid rendering failed or no elements found.", e);
+        }
+    }
+};

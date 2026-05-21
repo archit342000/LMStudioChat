@@ -299,7 +299,7 @@ def chat_completions():
                 if vision_content:
                     note = ""
                     if file_notes:
-                        note = "\n\n[System Note: The user has attached the following files. Use the `file_agent` tool with the provided file_id to read their contents if needed:\n" + "\n".join(file_notes) + "]"
+                        note = "\n\n[System Note: The user has attached the following files. Use the `document_agent` tool with the provided file_id to read their contents if needed:\n" + "\n".join(file_notes) + "]"
                     
                     # Convert to multimodal list, preserving original text if it was a string
                     # If it was already a list, we merge
@@ -316,7 +316,7 @@ def chat_completions():
                         content_list.extend(vision_content)
                         content = content_list
                 elif file_notes:
-                    note = "\n\n[System Note: The user has attached the following files. Use the `file_agent` tool with the provided file_id to read their contents if needed:\n" + "\n".join(file_notes) + "]"
+                    note = "\n\n[System Note: The user has attached the following files. Use the `document_agent` tool with the provided file_id to read their contents if needed:\n" + "\n".join(file_notes) + "]"
                     if isinstance(content, list):
                         text_block = next((b for b in content if b.get('type') == 'text'), None)
                         if text_block:

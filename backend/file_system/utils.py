@@ -21,7 +21,7 @@ def sanitize_path(path: str) -> str:
         safe_part = re.sub(r'[^\w\s\-.]', '_', part).strip()
         if safe_part:
             safe_parts.append(safe_part)
-    return '/'.join(safe_parts) if safe_parts else 'untitled'
+    return '/'.join(safe_parts)
 
 def get_workspace_for_chat(chat_id: str) -> Optional[str]:
     """Helper to get the workspace_id for a given chat_id."""

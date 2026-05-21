@@ -913,6 +913,17 @@ def init_db():
         except Exception as e:
             logger.error(f"Error updating tables with ON DELETE CASCADE: {e}")
 
+        # 12. Data Migration for Rebranding file_agent to document_agent
+        try:
+            c.execute("UPDATE messages SET parent_type = 'document_agent' WHERE parent_type = 'file_agent'")
+            c.execute("UPDATE sub_agent_messages SET agent_name = 'document_agent' WHERE agent_name = 'file_agent'")
+            c.execute("UPDATE sub_agent_messages SET parent_type = 'document_agent' WHERE parent_type = 'file_agent'")
+            c.execute("UPDATE collections SET parent_type = 'document_agent' WHERE parent_type = 'file_agent'")
+            c.execute("UPDATE pending_callbacks SET parent_type = 'document_agent' WHERE parent_type = 'file_agent'")
+            logger.info("MIGRATION: Rebranded file_agent to document_agent successfully.")
+        except Exception as e:
+            logger.error(f"Error migrating file_agent to document_agent: {e}")
+
         conn.commit()
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")

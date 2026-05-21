@@ -19,11 +19,11 @@ def _get_managers():
     file_rag = FileRAG(rag_manager=rag_manager)
     return file_manager, file_rag
 
-async def file_agent_rag_tool(chat_id: str, file_id: str, query: str, depth: str = "standard", **kwargs):
+async def document_agent_rag_tool(chat_id: str, file_id: str, query: str, depth: str = "standard", **kwargs):
     """Tool wrapper for RAG retrieval."""
     _, file_rag = _get_managers()
     
-    n_results = config.FILE_AGENT_RAG_DEPTH_MAP.get(depth, 5)
+    n_results = config.DOCUMENT_AGENT_RAG_DEPTH_MAP.get(depth, 5)
     
     results = await file_rag.retrieve_for_file(file_id, query, n_results=n_results, chat_id=chat_id)
     

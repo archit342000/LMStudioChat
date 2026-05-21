@@ -154,6 +154,7 @@
   height: 100svh;
   position: relative;
   overflow: hidden;
+  transition: margin-left 400ms var(--ease-spring);
 }#messages {
   flex: 1;
   overflow-y: auto;
@@ -2144,6 +2145,7 @@ background: var(--accent-border);
 
 /* Base layout for all screen sizes */:root {
   --file-system-panel-width: 50vw;
+  --sidebar-width: 0px;
 }#app-root {
   display: flex;
   width: 100%;
@@ -2153,23 +2155,32 @@ background: var(--accent-border);
   flex-direction: row;
 }
 
-@media (min-width: 769px) {.sidebar-expanded {
+@media (min-width: 769px) {
+  :root {
+    --sidebar-width: 16rem;
+  }
+  .sidebar-expanded {
     width: 16rem;
     /* Default 256px */
     box-shadow: 20px 0 50px rgba(0, 0, 0, 0.2);
-  }.dark .sidebar-expanded {
+  }
+  .dark .sidebar-expanded {
     box-shadow: 0 0 60px rgba(0, 0, 0, 0.4);
-  }.sidebar-collapsed {
+  }
+  .sidebar-collapsed {
     width: 4.5rem;
     transform: none;
     visibility: visible;
     pointer-events: auto;
-  }.sidebar-collapsed .sidebar-section, .sidebar-collapsed #temp-chat-btn, .sidebar-collapsed .sidebar-brand {
+  }
+  .sidebar-collapsed .sidebar-section, .sidebar-collapsed #temp-chat-btn, .sidebar-collapsed .sidebar-brand {
     display: none !important;
   }
 
-  /* Main Layout Stability on Desktop */main {
+  /* Main Layout Stability on Desktop */
+  main {
     /* Adjusted width for desktop with sidebar */
+    margin-left: var(--sidebar-width, 16rem);
     width: auto;
   }#messages {
     /* Desktop specific padding */
@@ -2919,6 +2930,7 @@ background: var(--accent-border);
   /* Ensure Files button text is visible on mobile */.sidebar-footer-btn .sidebar-text {
     display: inline;
   }main {
+    margin-left: 0 !important;
     padding-inline-start: 0 !important;
     width: 100vw !important;
     height: 100vh;
@@ -3027,7 +3039,7 @@ background: var(--accent-border);
   inset-inline-end: 0; /* Override aside's inset-inline-start */
   inset-inline-start: auto;
   bottom: 0;
-  width: var(--right-sidebar-width, var(--sidebar-width));
+  width: var(--right-sidebar-width, 16rem);
   display: flex;
   flex-direction: column;
   z-index: var(--z-sidebar);

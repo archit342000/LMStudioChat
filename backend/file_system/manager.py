@@ -73,6 +73,11 @@ async def create_fs_file(
         target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, path)
 
         safe_path = sanitize_path(path)
+        if not safe_path:
+            return {
+                "success": False,
+                "error": "Invalid path: cannot create a file with an empty filename."
+            }
         if safe_path.startswith("workspace/") or safe_path == "workspace":
             lookup_path = safe_path[len("workspace/"):].strip("/")
         else:

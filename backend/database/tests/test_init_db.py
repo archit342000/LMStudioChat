@@ -54,9 +54,18 @@ def test_init_db_with_legacy_data(temp_db_path):
     c.execute("INSERT INTO messages (id, chat_id, role, content) VALUES (2, 'c1', 'assistant', '<think>hmm</think>hi')")
     
     # Mock sub_agent_messages
-    c.execute("CREATE TABLE sub_agent_messages (id INTEGER PRIMARY KEY, chat_id TEXT, parent_message_id TEXT, agent_name TEXT, role TEXT, content TEXT, sequence_order INTEGER)")
-    c.execute("INSERT INTO sub_agent_messages (chat_id, parent_message_id, agent_name, role, content, sequence_order) VALUES ('c1', '1', 'canvas_agent', 'assistant', 'test', 1)")
+    c.execute("CREATE TABLE sub_agent_messages (id INTEGER PRIMARY KEY, chat_id TEXT, parent_message_id TEXT, agent_name TEXT, role TEXT, content TEXT, sequence_order INTEGER, parent_type TEXT)")
+    c.execute("INSERT INTO sub_agent_messages (chat_id, parent_message_id, agent_name, role, content, sequence_order, parent_type) VALUES ('c1', '1', 'canvas_agent', 'assistant', 'test', 1, 'canvas_agent')")
+    c.execute("INSERT INTO sub_agent_messages (chat_id, parent_message_id, agent_name, role, content, sequence_order, parent_type) VALUES ('c1', '1', 'file_agent', 'assistant', 'test file', 2, 'file_agent')")
     
+    # Mock collections
+    c.execute("CREATE TABLE collections (id INTEGER PRIMARY KEY, chat_id TEXT, parent_message_id TEXT, parent_type TEXT, collection_type TEXT, items TEXT)")
+    c.execute("INSERT INTO collections (chat_id, parent_message_id, parent_type, collection_type, items) VALUES ('c1', '1', 'file_agent', 'code', '[]')")
+
+    # Mock pending_callbacks
+    c.execute("CREATE TABLE pending_callbacks (callback_id TEXT PRIMARY KEY, chat_id TEXT, parent_type TEXT, tool_name TEXT, status TEXT DEFAULT 'pending')")
+    c.execute("INSERT INTO pending_callbacks (callback_id, chat_id, parent_type, tool_name) VALUES ('cb1', 'c1', 'file_agent', 'grep_uploaded_file')")
+
     conn.commit()
     conn.close()
     
@@ -75,6 +84,20 @@ def test_init_db_with_legacy_data(temp_db_path):
     c.execute("SELECT parent_type FROM sub_agent_messages WHERE agent_name='file_system_agent'")
     sub_agent_rows = c.fetchall()
     assert len(sub_agent_rows) > 0
+
+    # Verify rebranding of file_agent to document_agent
+    c.execute("SELECT agent_name, parent_type FROM sub_agent_messages WHERE agent_name='document_agent'")
+    doc_sub_agent_rows = c.fetchall()
+    assert len(doc_sub_agent_rows) == 1
+    assert doc_sub_agent_rows[0] == ('document_agent', 'document_agent')
+
+    c.execute("SELECT parent_type FROM collections WHERE parent_type='document_agent'")
+    coll_rows = c.fetchall()
+    assert len(coll_rows) == 1
+
+    c.execute("SELECT parent_type FROM pending_callbacks WHERE parent_type='document_agent'")
+    cb_rows = c.fetchall()
+    assert len(cb_rows) == 1
     
     c.execute("SELECT reasoning_content FROM messages WHERE id=2")
     reasoning = c.fetchone()[0]

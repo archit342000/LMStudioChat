@@ -5,7 +5,7 @@
 | Folder | Responsibility |
 | :--- | :--- |
 | `browsing_agent/` | Coordinates multi-step web interaction and data extraction. |
-| `file_agent/` | Specialized in analyzing and summarizing uploaded documents and images. |
+| `document_agent/` | Specialized in analyzing and summarizing uploaded documents and images. |
 | `file_system_agent/` | Manages complex read/write operations across system-like artifacts. |
 | `research_agent/` | Performs deep, multi-phase investigation and report generation. |
 | `search_web_agent/` | Simplified agent for performing and synthesizing web searches. |

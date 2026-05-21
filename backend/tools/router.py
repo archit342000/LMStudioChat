@@ -156,10 +156,10 @@ def get_agents_config():
             "max_tokens": config.SEARCH_WEB_AGENT_MAX_TOKENS,
             "thinking_budget": config.SEARCH_WEB_AGENT_THINKING_BUDGET
         },
-        "file_agent": {
-            "thinking_profile": AGENT_PROFILES.get("file_agent", "precision"),
-            "max_tokens": config.FILE_AGENT_MAX_TOKENS,
-            "thinking_budget": config.FILE_AGENT_THINKING_BUDGET
+        "document_agent": {
+            "thinking_profile": AGENT_PROFILES.get("document_agent", "precision"),
+            "max_tokens": config.DOCUMENT_AGENT_MAX_TOKENS,
+            "thinking_budget": config.DOCUMENT_AGENT_THINKING_BUDGET
         },
         "file_system_agent": {
             "thinking_profile": AGENT_PROFILES.get("file_system_agent", "precision"),
@@ -198,7 +198,7 @@ def update_agent_config(agent_name):
     if 'max_tokens' in data:
         val = int(data['max_tokens'])
         if agent_name == "search_web": config.SEARCH_WEB_AGENT_MAX_TOKENS = val
-        elif agent_name == "file_agent": config.FILE_AGENT_MAX_TOKENS = val
+        elif agent_name == "document_agent": config.DOCUMENT_AGENT_MAX_TOKENS = val
         elif agent_name == "file_system_agent": config.FILE_SYSTEM_AGENT_MAX_TOKENS = val
         elif agent_name == "browsing_agent": config.BROWSING_AGENT_MAX_TOKENS = val
         elif agent_name == "visit_page": config.VISIT_PAGE_AGENT_MAX_TOKENS = val
@@ -208,7 +208,7 @@ def update_agent_config(agent_name):
     if 'thinking_budget' in data:
         val = int(data['thinking_budget'])
         if agent_name == "search_web": config.SEARCH_WEB_AGENT_THINKING_BUDGET = val
-        elif agent_name == "file_agent": config.FILE_AGENT_THINKING_BUDGET = val
+        elif agent_name == "document_agent": config.DOCUMENT_AGENT_THINKING_BUDGET = val
         elif agent_name == "file_system_agent": config.FILE_SYSTEM_AGENT_THINKING_BUDGET = val
         elif agent_name == "browsing_agent": config.BROWSING_AGENT_THINKING_BUDGET = val
         elif agent_name == "visit_page": config.VISIT_PAGE_AGENT_THINKING_BUDGET = val

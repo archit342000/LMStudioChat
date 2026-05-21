@@ -9,8 +9,8 @@ from backend.rag import RAGProvider, FileRAG
 from backend.models import get_embedding_model, load_model_config
 from backend.files.manager import FileManager
 from backend.logging import log_tool_call
-from backend.tools.agents.file_agent.prompts import FILE_AGENT_SYSTEM_PROMPT, FILE_AGENT_VISION_SYSTEM_PROMPT
-from backend.tools.definitions import get_file_agent_tools
+from backend.tools.agents.document_agent.prompts import DOCUMENT_AGENT_SYSTEM_PROMPT, DOCUMENT_AGENT_VISION_SYSTEM_PROMPT
+from backend.tools.definitions import get_document_agent_tools
 
 logger = logging.getLogger(__name__)
 
@@ -34,13 +34,13 @@ async def flow_fn(
     **kwargs
 ) -> AsyncGenerator[str, None]:
     """Agent flow for analyzing a file and optionally synthesizing an answer."""
-    logger.info(f"FileAgent starting: file_id='{file_id}', query='{query}'")
+    logger.info(f"DocumentAgent starting: file_id='{file_id}', query='{query}'")
     start_time = time.time()
     
     log_tool_call(
-        tool_name="file_agent",
+        tool_name="document_agent",
         payload={"file_id": file_id, "query": query},
-        response_data="Starting File Agent flow...",
+        response_data="Starting Document Agent flow...",
         chat_id=agent.chat_id
     )
 
@@ -49,7 +49,7 @@ async def flow_fn(
 
     existing_history = db.get_messages(
         chat_id, parent_message_id=parent_message_id,
-        parent_type="file_agent"
+        parent_type="document_agent"
     )
     is_resume = len(existing_history) > 0
 
@@ -57,12 +57,12 @@ async def flow_fn(
         db.add_message(
             chat_id=chat_id,
             role='event',
-            content='File Agent Started.',
+            content='Document Agent Started.',
             parent_id=parent_message_id,
-            parent_type='file_agent'
+            parent_type='document_agent'
         )
     else:
-        logger.info(f"FileAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
+        logger.info(f"DocumentAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
 
     try:
         file_meta = db.get_file(file_id)
@@ -73,7 +73,7 @@ async def flow_fn(
             return
 
         mime_type = file_meta.get('mime_type', '')
-        file_agent_tools = get_file_agent_tools(mime_type)
+        document_agent_tools = get_document_agent_tools(mime_type)
         original_filename = file_meta.get('original_filename', 'Unknown')
         stored_filename = file_meta.get('stored_filename', '')
         stored_path = os.path.join(config.FILE_STORAGE_PATH, stored_filename)
@@ -118,17 +118,17 @@ async def flow_fn(
             ]
             
             messages = [
-                {"role": "system", "content": FILE_AGENT_VISION_SYSTEM_PROMPT},
+                {"role": "system", "content": DOCUMENT_AGENT_VISION_SYSTEM_PROMPT},
                 {"role": "user", "content": user_content}
             ]
             
             async for chunk in agent.run_inference_step(
-                agent_name="file_agent",
+                agent_name="document_agent",
                 messages=messages,
                 model_name=agent.model,
                 tools=[],
                 tool_choice="none",
-                thinking_budget_tokens=config.FILE_AGENT_THINKING_BUDGET
+                thinking_budget_tokens=config.DOCUMENT_AGENT_THINKING_BUDGET
             ):
                 yield chunk
         else:
@@ -168,10 +168,10 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
             while True:
                 iteration += 1
 
-                db_history = db.get_messages(chat_id, parent_message_id=parent_message_id, parent_type="file_agent")
+                db_history = db.get_messages(chat_id, parent_message_id=parent_message_id, parent_type="document_agent")
                 
                 messages = [
-                    {"role": "system", "content": FILE_AGENT_SYSTEM_PROMPT},
+                    {"role": "system", "content": DOCUMENT_AGENT_SYSTEM_PROMPT},
                     {"role": "user", "content": file_info_header}
                 ]
 
@@ -184,13 +184,13 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
                         if m.get("reasoning_content"): msg["reasoning_content"] = m["reasoning_content"]
                         messages.append(msg)
 
-                task_list = db.get_task_list(chat_id, parent_id=parent_message_id, parent_type="file_agent")
+                task_list = db.get_task_list(chat_id, parent_id=parent_message_id, parent_type="document_agent")
 
-                file_agent_turns = sum(
+                document_agent_turns = sum(
                     1 for m in db_history 
-                    if m.get("role") == "tool" and m.get("name") in [t["function"]["name"] for t in file_agent_tools]
+                    if m.get("role") == "tool" and m.get("name") in [t["function"]["name"] for t in document_agent_tools]
                 )
-                limit_hit = file_agent_turns >= config.FILE_AGENT_MAX_TURNS
+                limit_hit = document_agent_turns >= config.DOCUMENT_AGENT_MAX_TURNS
 
                 if limit_hit:
                     already_warned = any(
@@ -198,13 +198,13 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
                         for m in db_history
                     )
                     if not already_warned:
-                        logger.warning(f"FileAgent reached turn limit ({file_agent_turns}). Injecting wrap-up message.")
+                        logger.warning(f"DocumentAgent reached turn limit ({document_agent_turns}). Injecting wrap-up message.")
                         db.add_message(
                             chat_id=chat_id,
                             role='user',
                             content='[SYSTEM: TURN LIMIT REACHED] You have exhausted your allowed file operations. You must immediately summarize your findings based on the information gathered so far. Do not attempt any further file searches or reads.',
                             parent_id=parent_message_id,
-                            parent_type='file_agent'
+                            parent_type='document_agent'
                         )
                         continue
                     # Remove all tools to force immediate conclusion and text generation
@@ -214,35 +214,35 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
                         from backend.tools.definitions import MANAGE_TASK_LIST_TOOL
                         current_tools = [MANAGE_TASK_LIST_TOOL]
                     else:
-                        current_tools = file_agent_tools
+                        current_tools = document_agent_tools
 
                 async for chunk in agent.run_inference_step(
-                    agent_name="file_agent",
+                    agent_name="document_agent",
                     messages=messages,
                     model_name=agent.model,
                     tools=current_tools,
                     tool_choice="auto",
-                    max_tokens=config.FILE_AGENT_MAX_TOKENS,
-                    thinking_budget_tokens=config.FILE_AGENT_THINKING_BUDGET
+                    max_tokens=config.DOCUMENT_AGENT_MAX_TOKENS,
+                    thinking_budget_tokens=config.DOCUMENT_AGENT_THINKING_BUDGET
                 ):
                     yield chunk
 
-                updated_history = db.get_messages(chat_id, parent_message_id=parent_message_id, parent_type="file_agent")
+                updated_history = db.get_messages(chat_id, parent_message_id=parent_message_id, parent_type="document_agent")
                 if not updated_history:
                     break
                 
                 last_msg = updated_history[-1]
                 
                 if not task_list:
-                    task_list_after = db.get_task_list(chat_id, parent_id=parent_message_id, parent_type="file_agent")
+                    task_list_after = db.get_task_list(chat_id, parent_id=parent_message_id, parent_type="document_agent")
                     if not task_list_after:
-                        logger.warning("FileAgent failed to initialize task list.")
+                        logger.warning("DocumentAgent failed to initialize task list.")
                         db.add_message(
                             chat_id=chat_id,
                             role='user',
                             content='System Constraint: You MUST initialize your task list using manage_task_list before taking ANY other actions or responding.',
                             parent_id=parent_message_id,
-                            parent_type='file_agent'
+                            parent_type='document_agent'
                         )
                         continue
 
@@ -250,14 +250,14 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
                     break
                 
                 # Absolute safety break to prevent infinite loops in case the agent gets stuck after the limit
-                if iteration >= config.FILE_AGENT_MAX_TURNS + config.FILE_AGENT_FAILSAFE_TURNS:
-                    logger.warning(f"FileAgent reached absolute iteration limit ({iteration}). Force ending.")
+                if iteration >= config.DOCUMENT_AGENT_MAX_TURNS + config.DOCUMENT_AGENT_FAILSAFE_TURNS:
+                    logger.warning(f"DocumentAgent reached absolute iteration limit ({iteration}). Force ending.")
                     db.add_message(
                         chat_id=chat_id,
                         role='event',
-                        content='File Agent Force Terminated. (infinite loop prevention)',
+                        content='Document Agent Force Terminated. (infinite loop prevention)',
                         parent_id=parent_message_id,
-                        parent_type='file_agent'
+                        parent_type='document_agent'
                     )
                     break
 
@@ -265,26 +265,26 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
         updated_history = db.get_messages(
             agent.chat_id, 
             parent_message_id=agent.parent_message_id, 
-            parent_type="file_agent"
+            parent_type="document_agent"
         )
         if updated_history:
             last_msg = updated_history[-1]
             agent.result = last_msg.get("content")
             if not agent.result:
-                agent.result = "Error: File agent completed but returned no content."
+                agent.result = "Error: Document agent completed but returned no content."
             elif last_msg.get("role") == "assistant":
                 db.add_message(
                     chat_id=chat_id,
                     role='event',
-                    content='File Agent Completed.',
+                    content='Document Agent Completed.',
                     parent_id=parent_message_id,
-                    parent_type='file_agent'
+                    parent_type='document_agent'
                 )
         elif not agent.result:
-            agent.result = "Error: File agent completed but returned no content."
+            agent.result = "Error: Document agent completed but returned no content."
 
         log_tool_call(
-            tool_name="file_agent",
+            tool_name="document_agent",
             payload={"file_id": file_id, "query": query},
             response_data=agent.result,
             chat_id=agent.chat_id,
@@ -292,11 +292,11 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
         )
 
     except Exception as e:
-        error_msg = f"File agent failed: {str(e)}"
+        error_msg = f"Document agent failed: {str(e)}"
         logger.error(error_msg, exc_info=True)
         agent.result = error_msg
         log_tool_call(
-            tool_name="file_agent",
+            tool_name="document_agent",
             payload={"file_id": file_id, "query": query},
             response_data=agent.result,
             chat_id=agent.chat_id,

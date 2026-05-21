@@ -355,11 +355,11 @@ PREVIEW_FILE_SYSTEMS_TOOL = {
     }
 }
 
-FILE_AGENT_TOOL = {
+DOCUMENT_AGENT_TOOL = {
     "type": "function",
     "function": {
-        "name": "file_agent",
-        "description": "Delegates a file analysis task to an autonomous agent. The agent uses RAG, grep, and line/page reading to investigate uploaded files (documents, code, or images).",
+        "name": "document_agent",
+        "description": "Delegates a document analysis task to an autonomous agent. The agent uses RAG, grep, and line/page reading to investigate uploaded files (documents, code, or images).",
         "parameters": {
             "type": "object",
             "properties": {
@@ -377,11 +377,11 @@ FILE_AGENT_TOOL = {
     }
 }
 
-FILE_AGENT_RAG_TOOL = {
+DOCUMENT_AGENT_RAG_TOOL = {
     "type": "function",
     "function": {
-        "name": "file_agent_rag",
-        "description": "Performs a semantic search (RAG) across the chunks of the uploaded file. Best for broad conceptual queries or finding information when you don't know the exact phrasing.",
+        "name": "document_agent_rag",
+        "description": "Performs a semantic search (RAG) across the chunks of the uploaded document. Best for broad conceptual queries or finding information when you don't know the exact phrasing.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -848,8 +848,8 @@ FILE_SYSTEM_INTERNAL_TOOLS = [
     # FILE_SYSTEM_VISIT_PAGE_TOOL
 ]
 
-FILE_AGENT_INTERNAL_TOOLS_BASE = [
-    FILE_AGENT_RAG_TOOL,
+DOCUMENT_AGENT_INTERNAL_TOOLS_BASE = [
+    DOCUMENT_AGENT_RAG_TOOL,
     GREP_UPLOADED_FILE_TOOL,
     REQUEST_CLARIFICATION_TOOL,
     MANAGE_TASK_LIST_TOOL
@@ -860,20 +860,20 @@ PAGE_BASED_MIME_TYPES = frozenset([
     "application/pdf",
 ])
 
-def get_file_agent_tools(mime_type: str) -> list:
-    """Returns the correct tool set for the file agent based on the file's MIME type."""
+def get_document_agent_tools(mime_type: str) -> list:
+    """Returns the correct tool set for the document agent based on the file's MIME type."""
     if mime_type.startswith('image/'):
         return []
     elif mime_type in PAGE_BASED_MIME_TYPES:
-        return FILE_AGENT_INTERNAL_TOOLS_BASE + [READ_UPLOADED_FILE_PAGE_TOOL]
+        return DOCUMENT_AGENT_INTERNAL_TOOLS_BASE + [READ_UPLOADED_FILE_PAGE_TOOL]
     else:
-        return FILE_AGENT_INTERNAL_TOOLS_BASE + [READ_UPLOADED_FILE_LINES_TOOL]
+        return DOCUMENT_AGENT_INTERNAL_TOOLS_BASE + [READ_UPLOADED_FILE_LINES_TOOL]
 
 # Tools available to the main assistant
 MAIN_ASSISTANT_TOOLS = [
     GET_TIME_TOOL,
     VISIT_PAGE_TOOL,
-    FILE_AGENT_TOOL,
+    DOCUMENT_AGENT_TOOL,
     REQUEST_CLARIFICATION_TOOL,
     RESEARCH_TOOL,
     FILE_SYSTEM_AGENT_TOOL,

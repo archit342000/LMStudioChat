@@ -714,7 +714,7 @@ class ChatHandler:
         - Removes any trailing assistant messages without tool_calls
           (i.e., partial responses that were flushed mid-stream)
         """
-        for agent_name in ['research', 'file_system_agent', 'browsing_agent', 'file_agent', 'search_web', 'visit_page']:
+        for agent_name in ['research', 'file_system_agent', 'browsing_agent', 'document_agent', 'search_web', 'visit_page']:
             sub_msgs = db.get_messages(
                 self.chat_id,
                 parent_message_id=assistant_message_id,
