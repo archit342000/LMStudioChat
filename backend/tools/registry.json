@@ -4,6 +4,11 @@
     "implementation": "backend.tools.time_utils.get_current_time",
     "description": "Returns the current local date and time."
   },
+  "get_skill_details": {
+    "type": "pure",
+    "implementation": "backend.tools.skills_tool.get_skill_details",
+    "description": "Loads the full, detailed instructions of a specific skill."
+  },
   "visit_page_tool": {
     "type": "agent",
     "implementation": "backend.tools.agents.visit_page_agent.agent.flow_fn",

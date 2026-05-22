@@ -264,6 +264,17 @@ def init_db():
         ''')
         c.execute('CREATE INDEX IF NOT EXISTS idx_pending_cb_chat ON pending_callbacks(chat_id, status)')
 
+        # Skills table for the Skill Store
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS skills (
+                id TEXT PRIMARY KEY,
+                name TEXT UNIQUE,
+                description TEXT,
+                instructions TEXT,
+                timestamp REAL
+            )
+        ''')
+
         # FTS5 search table
         try:
             c.execute('''

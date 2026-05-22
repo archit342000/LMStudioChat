@@ -84,6 +84,8 @@ describe('script.js', () => {
                 injectScript(loadFile('js/persona-manager.js'));
                 injectScript(loadFile('js/agent-config.js'));
                 injectScript(loadFile('js/preferences-manager.js'));
+                injectScript(loadFile('js/skills-manager.js'));
+                injectScript(loadFile('js/slash-autocomplete.js'));
                 injectScript(loadFile('js/model-manager.js'));
                 injectScript(loadFile('js/bg-animation.js'));
                 injectScript(loadFile('js/icons.js'));

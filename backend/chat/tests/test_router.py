@@ -3,7 +3,7 @@ import pytest
 from unittest.mock import patch, MagicMock
 from flask import Flask
 
-from backend.chat.router import chat_bp, openai_bp, personas_bp
+from backend.chat.router import chat_bp, openai_bp, personas_bp, skills_bp
 
 @pytest.fixture
 def app():
@@ -11,6 +11,7 @@ def app():
     app.register_blueprint(chat_bp, url_prefix='/api/chats')
     app.register_blueprint(openai_bp, url_prefix='/v1/chat')
     app.register_blueprint(personas_bp, url_prefix='/api')
+    app.register_blueprint(skills_bp, url_prefix='/api')
     return app
 
 @pytest.fixture
@@ -499,3 +500,95 @@ def test_delete_persona(mock_db, client):
     assert response.status_code == 200
     assert response.json == {"success": True}
     mock_db.delete_persona.assert_called_with("p1")
+
+
+# =============================================================================
+# Skill route tests
+# =============================================================================
+
+@patch('backend.chat.router.db')
+def test_get_skills(mock_db, client):
+    mock_db.get_all_skills.return_value = [
+        {"id": "s1", "name": "git-helper", "description": "Git assist", "instructions": "Use git."}
+    ]
+    response = client.get('/api/skills')
+    assert response.status_code == 200
+    data = response.json
+    assert data["success"] is True
+    assert len(data["skills"]) == 1
+    assert data["skills"][0]["name"] == "git-helper"
+
+
+@patch('backend.chat.router.db')
+def test_create_skill(mock_db, client):
+    # Missing fields
+    response = client.post('/api/skills', json={"name": "git-helper"})
+    assert response.status_code == 400
+    assert response.json["success"] is False
+
+    # Unique constraint violation
+    import sqlite3
+    mock_db.add_skill.side_effect = sqlite3.IntegrityError("UNIQUE constraint failed: skills.name")
+    response = client.post('/api/skills', json={"name": "git-helper", "description": "Git", "instructions": "Use git."})
+    assert response.status_code == 400
+    assert response.json["success"] is False
+    assert "already exists" in response.json["error"]
+
+    # Success
+    mock_db.add_skill.side_effect = None
+    mock_db.get_skill.return_value = {
+        "id": "s1", "name": "git-helper", "description": "Git", "instructions": "Use git."
+    }
+    response = client.post('/api/skills', json={"name": "git helper", "description": "Git", "instructions": "Use git."})
+    assert response.status_code == 201
+    data = response.json
+    assert data["success"] is True
+    assert data["skill"]["name"] == "git-helper"  # Spaces are replaced with dashes
+
+
+@patch('backend.chat.router.db')
+def test_update_skill(mock_db, client):
+    # Missing fields
+    response = client.put('/api/skills/s1', json={"name": "Only Name"})
+    assert response.status_code == 400
+
+    # Not found
+    mock_db.get_skill.return_value = None
+    response = client.put('/api/skills/s1', json={"name": "A", "description": "B", "instructions": "C"})
+    assert response.status_code == 404
+    assert response.json["success"] is False
+
+    # Name conflict on update
+    mock_db.get_skill.return_value = {"id": "s1"}
+    import sqlite3
+    mock_db.add_skill.side_effect = sqlite3.IntegrityError("UNIQUE constraint failed: skills.name")
+    response = client.put('/api/skills/s1', json={"name": "conflict", "description": "B", "instructions": "C"})
+    assert response.status_code == 400
+    assert response.json["success"] is False
+
+    # Success
+    mock_db.add_skill.side_effect = None
+    mock_db.get_skill.return_value = {
+        "id": "s1", "name": "updated", "description": "B", "instructions": "C"
+    }
+    response = client.put('/api/skills/s1', json={"name": "updated", "description": "B", "instructions": "C"})
+    assert response.status_code == 200
+    data = response.json
+    assert data["success"] is True
+    assert data["skill"]["name"] == "updated"
+
+
+@patch('backend.chat.router.db')
+def test_delete_skill(mock_db, client):
+    # Not found
+    mock_db.get_skill.return_value = None
+    response = client.delete('/api/skills/s1')
+    assert response.status_code == 404
+    assert response.json["success"] is False
+
+    # Success
+    mock_db.get_skill.return_value = {"id": "s1"}
+    response = client.delete('/api/skills/s1')
+    assert response.status_code == 200
+    assert response.json == {"success": True}
+    mock_db.delete_skill.assert_called_with("s1")

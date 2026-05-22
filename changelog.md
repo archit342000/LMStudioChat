@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v4.4.0
+* **System-Wide Skill Store & Custom Trigger Executions**: Developed a fully-featured, premium Skill Store feature that allows users to create, view, update, and delete custom instructions (skills) executed natively by the LLM inference server:
+    - **Interactive Settings Overlay & Fullscreen Glassmorphic Design**: Built a responsive, full-screen settings overlay modal (`max-width: 100%`) aligned with the premium look-and-feel of the User Preferences overlay. It supports complete AJAX-based CRUD flows, validation formatting (spaces automatically cleaned to hyphens in real-time), expandable instructions cards, and an intuitive layout.
+    - **Slash Commands Dropdown & Autocomplete**: Added a high-fidelity glassmorphic autocomplete dropdown positioned immediately above the chat textarea that triggers when `/` is typed as the first character. Features system commands (`/help` and `/skills`) and custom database skills (e.g., `/git-helper`, `/python-debug`) with fluid keyboard arrow key navigation, Esc close, Tab or Enter selection, system/skill badges, and a sticky helper legend with virtual physical `<kbd>` keycaps.
+    - **Zero-Latency Client-Side Interceptors**: Intercepts `/help` (opens an interactive help dialog) and `/skills` (opens the fullscreen Skills Store overlay) instantly in the client code without routing to the AI backend.
+    - **Dynamic Prompt Compilation & Directives**: Added custom `GET_SKILL_DETAILS_DIRECTIVES` in `backend/tools/prompts.py` and composed them under the main `TOOL_DIRECTIVES` system prompt block.
+    - **High-Contrast Skill Instruction Wrappers**: Dynamically compiles active skills inside user prompt histories, wrapping them inside structured, high-contrast delimiters (`[SKILL: {skill_name}]...[/SKILL]`) to partition custom directives cleanly from user chat text, while compressing older historical references to prevent context window bloat.
+* **Version Bump**: Incremented version globally to 4.4.0.
+
 ## v4.3.5
 * **Premium Chat Loading Animation System**: Designed and implemented a high-fidelity visual loading state for chat switching:
     - **Top Slim Neon Gradient Progress Loader**: Displays a thin, glowing neon-gradient progress indicator that slides and pulses along the top of the chat area until data loads.

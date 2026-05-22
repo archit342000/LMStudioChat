@@ -246,3 +246,14 @@ Because you are an autonomous sub-agent executing a background task, you MUST in
 
 {_TASK_LIFECYCLE}
 """
+
+GET_SKILL_DETAILS_DIRECTIVES = """
+## Skills Store Tool Rules
+The `get_skill_details` tool allows you to retrieve the full, detailed instructions of a specific custom skill. 
+
+### Rules
+1. To avoid context bloat, the system prompt initially only contains a list of available skill names and their brief descriptions.
+2. If the user invokes a custom skill name or asks you to perform a task matching one of the available skill descriptions, you MUST call `get_skill_details` with the exact `skill_name` to retrieve its full execution instructions first.
+3. Once you retrieve the instructions, strictly follow them to fulfill the user's request.
+"""
+

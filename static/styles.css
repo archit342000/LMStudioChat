@@ -5590,4 +5590,152 @@ max-height: 70vh;
   100% { transform: translate3d(200%, 0, 0); }
 }
 
+/* Slash Commands Autocomplete Dropdown */
+#slash-commands-autocomplete {
+  position: absolute;
+  bottom: 100%;
+  left: 12px;
+  right: 12px;
+  max-height: 340px;
+  display: flex;
+  flex-direction: column;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  border-radius: var(--radius-xl);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.4), 0 2px 8px rgba(0, 0, 0, 0.2);
+  z-index: 10000;
+  margin-bottom: 12px;
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  overflow: hidden;
+}
+
+#slash-commands-autocomplete.hidden {
+  display: none !important;
+}
+
+.slash-autocomplete-items-list {
+  overflow-y: auto;
+  max-height: 280px;
+  padding: 6px 0;
+}
+
+.slash-autocomplete-items-list::-webkit-scrollbar {
+  width: 6px;
+}
+
+.slash-autocomplete-items-list::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.slash-autocomplete-items-list::-webkit-scrollbar-thumb {
+  background: var(--glass-border);
+  border-radius: 3px;
+}
+
+.slash-autocomplete-items-list::-webkit-scrollbar-thumb:hover {
+  background: rgba(var(--accent-rgb), 0.3);
+}
+
+.slash-autocomplete-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 8px 16px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, border-left-color 0.15s ease;
+  border-left: 3px solid transparent;
+  text-align: left;
+}
+
+.slash-autocomplete-item:hover,
+.slash-autocomplete-item.active {
+  background: var(--accent-subtle);
+  border-left-color: var(--accent);
+}
+
+.slash-autocomplete-item .command-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+}
+
+.slash-autocomplete-item .command-trigger {
+  font-family: monospace;
+  font-size: 0.85rem;
+  font-weight: 700;
+  color: var(--accent);
+}
+
+.slash-autocomplete-item .command-badge {
+  font-size: 0.6rem;
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: inherit;
+}
+
+.slash-autocomplete-item .command-badge.badge-builtin {
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--content-muted);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.slash-autocomplete-item .command-badge.badge-skill {
+  background: rgba(var(--accent-rgb), 0.15);
+  color: var(--accent);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+}
+
+.slash-autocomplete-item .command-description {
+  font-size: 0.75rem;
+  color: var(--content-muted);
+  line-height: 1.4;
+}
+
+.slash-autocomplete-legend {
+  border-top: 1px solid var(--glass-border);
+  padding: 8px 16px;
+  font-size: 0.65rem;
+  color: var(--content-muted);
+  background: rgba(20, 20, 25, 0.6);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  user-select: none;
+}
+
+.slash-autocomplete-legend .legend-title {
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  color: var(--accent);
+  opacity: 0.9;
+}
+
+.slash-autocomplete-legend kbd {
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 4px;
+  padding: 0 4px;
+  font-family: inherit;
+  font-size: 0.6rem;
+  margin: 0 1px;
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.3);
+  color: var(--content-muted);
+}
+
+.slash-autocomplete-no-results {
+  padding: 16px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--content-muted);
+}
+
+
 

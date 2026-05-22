@@ -126,6 +126,25 @@ GET_TIME_TOOL = {
 }
 
 
+GET_SKILL_DETAILS_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "get_skill_details",
+        "description": "Loads the full, detailed instructions of a specific skill. The main model initially only knows the names and descriptions of available skills to avoid context bloat. Call this tool to retrieve a skill's full instructions when needed.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "skill_name": {
+                    "type": "string",
+                    "description": "The exact name of the skill to fetch details for."
+                }
+            },
+            "required": ["skill_name"]
+        }
+    }
+}
+
+
 VALIDATE_OUTPUT_FORMAT_TOOL = {
     "type": "function",
     "function": {
@@ -872,6 +891,7 @@ def get_document_agent_tools(mime_type: str) -> list:
 # Tools available to the main assistant
 MAIN_ASSISTANT_TOOLS = [
     GET_TIME_TOOL,
+    GET_SKILL_DETAILS_TOOL,
     VISIT_PAGE_TOOL,
     DOCUMENT_AGENT_TOOL,
     REQUEST_CLARIFICATION_TOOL,

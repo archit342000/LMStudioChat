@@ -1,4 +1,4 @@
-# 🌌 My-AI v4.3.5
+# 🌌 My-AI v4.4.0
 
 
 A high-performance, Multi-Agent AI Workspace natively powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) for deep autonomy and statful collaboration. My-AI seamlessly unifies specialized agents for research, autonomous web browsing, file attachments, and long-term semantic memory with a virtualized agentic file system, creating a premium chat interface running entirely on local hardware. The multi-agent orchestration offloads complex tasks to transient agents, thus preserving the context window. This allows for long conversations without the AI losing coherence. 
@@ -11,6 +11,7 @@ A high-performance, Multi-Agent AI Workspace natively powered by [llama.cpp](htt
     *   **Web Search & Visit Page Agents**: Upgraded tools that use an agentic architecture for autonomous summarization and answering queries, significantly reducing AI context window usage.
     *   **File System Agent**: Manages a virtualized true file system capable of handling complex file operations (CRUD, search, move) across virtualized paths, ensuring state is preserved across sessions with built-in versioning and concurrency locking. The files in this system can be accessed and organized through the frontend and edited using a built-in code editor with support for version history management.
     *   **Document & File Agent**: Handles user-uploaded files, intelligent file reading, multi-modal analysis, OCR for scanned PDFs, and integrates with the RAG system (Hybrid Search with BM25 + Vector and syntax-aware code chunking) to enable semantic recall.
+*   **System-Wide Skill Store**: Empower users to define, manage (CRUD), and trigger custom instructions (skills) globally. Includes a premium autocomplete command-line menu triggering on `/` with smooth keyboard/Tab navigation, system tags, zero-latency client-side interceptors (for `/help` and `/skills`), and structured in-memory prompt compilation boundaries (`[SKILL: {name}]...[/SKILL]`) to isolate instruction context cleanly for inference.
 *   **Performance Profiling**: Built-in LLM benchmarking tool to measure TTFT and TPS directly from the UI.
 *   **Multimodal VLM Support**: Native handling of vision payloads for image analysis, OCR, and scene description.
 *   **Thought Streaming**: Interactive rendering of model "chain-of-thought" blocks.
@@ -72,7 +73,7 @@ My-AI utilizes the **Model Context Protocol (MCP)** to isolate external tool exe
 
 ## 📄 License & Versioning
 This project follows [SemVer v2.0.0](https://semver.org/).  
-**Current Version**: `v4.3.5`.
+**Current Version**: `v4.4.0`.
 
 ## 📄 Core Files
 | File | Purpose | Key Symbols/Exports |

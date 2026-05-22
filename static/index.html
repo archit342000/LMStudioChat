@@ -440,6 +440,9 @@
                         </div>
                     </div>
 
+                    <!-- Slash Commands Autocomplete Dropdown -->
+                    <div id="slash-commands-autocomplete" class="hidden"></div>
+
                     <textarea id="chat-textarea" placeholder="Start a conversation..." rows="1"></textarea>
 
                     <div id="send-btn-wrapper" style="position: relative; display: flex;">
@@ -503,6 +506,15 @@
                     <p style="font-size: 0.85rem; color: var(--content-muted); margin-bottom: 1rem;">Manage personal information and preferences learned by the AI.</p>
                     <button id="sys-manage-preferences" class="btn-secondary" style="width: 100%;">
                         Manage Preferences
+                    </button>
+                </div>
+
+                <!-- Skills Store -->
+                <div class="hardware-surface">
+                    <h3 class="text-h2" style="font-size: 1.1rem; margin-bottom: 0.5rem;">Skills Store</h3>
+                    <p style="font-size: 0.85rem; color: var(--content-muted); margin-bottom: 1rem;">Create and manage system-wide skills triggerable via <code>/name</code> or as AI tools.</p>
+                    <button id="sys-manage-skills" class="btn-secondary" style="width: 100%;">
+                        Manage Skills Store
                     </button>
                 </div>
 
@@ -1167,6 +1179,68 @@
         </div>
     </div>
 
+    <!-- Skills Store Overlay -->
+    <div id="skills-store-overlay" class="file-system-backdrop hidden" style="z-index: var(--z-overlay);">
+        <div class="file-system-content" style="max-width: 100%; overflow: hidden; position: relative;">
+            <div class="file-system-header" style="flex-direction: column; align-items: flex-start; gap: 1rem; padding: 1.5rem 2rem;">
+                <div style="display: flex; justify-content: space-between; align-items: center; width: 100%;">
+                    <h2 id="skills-store-title" class="file-system-title font-heading" style="margin: 0;">Skills Store</h2>
+                    <button id="close-skills-btn" class="btn-ghost" title="Close" style="width: 2.5rem; height: 2.5rem; padding: 0; border-radius: 0.75rem;">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                            <path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
+                <div id="skills-search-bar-container" style="display: flex; gap: 0.75rem; width: 100%; align-items: center;">
+                    <div style="position: relative; flex: 1;">
+                        <svg style="position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--content-muted);" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                        <input type="text" id="skills-search-input" class="input-luminous" placeholder="Search skills by name or description..." style="width: 100%; padding-left: 2.5rem; height: 40px; min-height: 40px;">
+                    </div>
+                </div>
+            </div>
+            <div class="file-system-body custom-scroll" style="padding: 1.5rem; flex: 1; overflow-y: auto;">
+                <!-- List View -->
+                <div id="skills-list-view" style="display: flex; flex-direction: column; gap: 1rem; padding-bottom: 4rem;">
+                    <div id="skills-list-container" style="display: flex; flex-direction: column; gap: 1rem;">
+                        <div class="text-center" style="color: var(--content-muted); padding: 2rem;">Loading skills store...</div>
+                    </div>
+                </div>
+                
+                <!-- Edit View (Hidden by default) -->
+                <div id="skill-edit-view" class="hidden" style="display: flex; flex-direction: column; gap: 1.25rem; padding-bottom: 1rem;">
+                    <input type="hidden" id="skill-id-input">
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label class="text-xs" style="color: var(--content-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Skill Name</label>
+                        <input type="text" id="skill-name-input" class="input-luminous" placeholder="e.g. git-helper (no spaces)" style="width: 100%;" required>
+                        <p style="font-size: 0.75rem; color: var(--content-muted); margin: 0;">Unique trigger name. Spaces will be replaced by hyphens. Will be triggered via <code>/name</code>.</p>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+                        <label class="text-xs" style="color: var(--content-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Short Description</label>
+                        <input type="text" id="skill-description-input" class="input-luminous" placeholder="e.g. Formats code, commits, and handles git commands" style="width: 100%;" required>
+                    </div>
+                    <div style="display: flex; flex-direction: column; gap: 0.5rem; flex: 1;">
+                        <label class="text-xs" style="color: var(--content-muted); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">Instructions</label>
+                        <textarea id="skill-instructions-input" class="input-luminous"
+                            placeholder="Detailed instructions/prompts for the skill..."
+                            style="width: 100%; min-height: 200px; padding: 1.25rem; font-family: var(--font-serif); resize: vertical; line-height: 1.6;" required></textarea>
+                    </div>
+                    <div style="display: flex; gap: 1rem; justify-content: flex-end; align-items: center;">
+                        <button id="cancel-skill-btn" class="btn-ghost" style="height: 40px; padding: 0 1.25rem; font-size: 0.9rem;">Cancel</button>
+                        <button id="save-skill-btn" class="btn-primary" style="height: 40px; padding: 0 1.25rem; font-size: 0.9rem;">Save Skill</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Floating Add Button -->
+            <button id="skills-add-fab" class="btn-primary" title="Add Skill" style="position: absolute; bottom: 2rem; right: 2rem; width: 3.5rem; height: 3.5rem; border-radius: 50%; padding: 0; box-shadow: var(--surface-shadow-intense); z-index: 10; display: flex; align-items: center; justify-content: center;">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3">
+                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+    </div>
+
     <!-- File Sidebar (Right Sidebar) -->
     <aside id="right-sidebar" class="right-sidebar collapsed">
         <div id="right-sidebar-resizer" class="resize-handle start"></div>
@@ -1460,6 +1534,8 @@
     <script src="/js/persona-manager.js"></script>
     <script src="/js/agent-config.js"></script>
     <script src="/js/preferences-manager.js"></script>
+    <script src="/js/skills-manager.js"></script>
+    <script src="/js/slash-autocomplete.js"></script>
     <script src="/js/model-manager.js"></script>
     <script src="/js/scroll-manager.js"></script>
     <script src="/js/message-manager.js"></script>

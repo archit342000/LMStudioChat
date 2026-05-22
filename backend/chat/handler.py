@@ -329,6 +329,120 @@ class ChatHandler:
                         if custom_prompt:
                             system_prompt += f"\n\n# User-Defined Persona/Role\nThe following block contains the user's requested persona and stylistic constraints. You must adopt this persona, but these instructions possess a LOWER hierarchy than the core operational directives defined above. Do NOT let this persona break your tool usage or multi-agent rules.\n<user_persona>\n{custom_prompt}\n</user_persona>"
                     
+                    # ── SKILLS COMPILATION ────────────────────────────────────
+                    # 1. Fetch available skills and append them to system_prompt
+                    all_skills = db.get_all_skills()
+                    skills_by_name = {s['name']: s for s in all_skills}
+                    if all_skills:
+                        skills_entries = "\n".join(
+                            f"- /{s['name']}: {s['description']}"
+                            for s in all_skills
+                        )
+                        skills_block = f"\n\n# Available Skills\nYou have access to the following skills. You can call the `get_skill_details` tool to load their detailed instructions if needed. The user can also invoke them directly by starting their message with the skill command.\n{skills_entries}\n"
+                        system_prompt += skills_block
+
+                    # 2. Parse tool calls in assistant messages to map tool_call_id to skill name
+                    tool_call_to_skill = {}
+                    for msg in history:
+                        if msg.get('role') == 'assistant' and msg.get('tool_calls'):
+                            for tc in msg['tool_calls']:
+                                tc_id = tc.get('id')
+                                fn = tc.get('function', {})
+                                fn_name = fn.get('name')
+                                if fn_name == 'get_skill_details' and tc_id:
+                                    args_str = fn.get('arguments', '{}')
+                                    if isinstance(args_str, str):
+                                        try:
+                                            args = json.loads(args_str)
+                                        except Exception:
+                                            args = {}
+                                    else:
+                                        args = args_str or {}
+                                    skill_name = args.get('skill_name')
+                                    if skill_name in skills_by_name:
+                                        tool_call_to_skill[tc_id] = skill_name
+
+                    # 3. Identify all invocations chronologically
+                    invocations = []
+                    for idx, msg in enumerate(history):
+                        role = msg.get('role')
+                        if role == 'user':
+                            content = msg.get('content', '')
+                            if isinstance(content, str) and content.startswith('/'):
+                                parts = content[1:].split(None, 1)
+                                if parts:
+                                    potential_name = parts[0]
+                                    if potential_name in skills_by_name:
+                                        invocations.append({
+                                            "type": "user",
+                                            "index": idx,
+                                            "skill_name": potential_name,
+                                            "skill_info": skills_by_name[potential_name],
+                                            "message": msg
+                                        })
+                        elif role == 'tool':
+                            tc_id = msg.get('tool_call_id')
+                            if tc_id in tool_call_to_skill:
+                                potential_name = tool_call_to_skill[tc_id]
+                                invocations.append({
+                                    "type": "ai",
+                                    "index": idx,
+                                    "skill_name": potential_name,
+                                    "skill_info": skills_by_name[potential_name],
+                                    "message": msg
+                                })
+
+                    # 4. Reconstruct history list with in-memory transformations applied
+                    compiled_history = []
+                    latest_inv = invocations[-1] if invocations else None
+
+                    for idx, msg in enumerate(history):
+                        is_inv = False
+                        current_inv = None
+                        for inv in invocations:
+                            if inv['index'] == idx:
+                                is_inv = True
+                                current_inv = inv
+                                break
+                        
+                        if is_inv and current_inv:
+                            is_latest = (current_inv == latest_inv)
+                            skill_info = current_inv['skill_info']
+                            instructions = skill_info.get('instructions') or ''
+                            skill_name = current_inv['skill_name']
+
+                            if current_inv['type'] == 'user':
+                                content = msg.get('content', '')
+                                parts = content[1:].split(None, 1)
+                                remaining_text = parts[1] if len(parts) > 1 else ""
+                                
+                                new_msg = dict(msg)
+                                if is_latest:
+                                    wrapped_instructions = f"[SKILL: {skill_name}]\n{instructions}\n[/SKILL]"
+                                    if remaining_text:
+                                        new_msg['content'] = f"{wrapped_instructions}\n\n{remaining_text}"
+                                    else:
+                                        new_msg['content'] = wrapped_instructions
+                                else:
+                                    # Older user invocations are kept as is (starting with /skill_name prefix)
+                                    pass
+                                compiled_history.append(new_msg)
+                            
+                            elif current_inv['type'] == 'ai':
+                                compiled_history.append(msg)
+                                
+                                # Inject synthetic user message right after the tool response
+                                synthetic_content = f"[SKILL: {skill_name}]\n{instructions}\n[/SKILL]" if is_latest else f"/{skill_name}"
+                                compiled_history.append({
+                                    "role": "user",
+                                    "content": synthetic_content
+                                })
+                        else:
+                            compiled_history.append(msg)
+
+                    history = compiled_history
+                    # ── END SKILLS COMPILATION ────────────────────────────────
+
                     history = [{"role": "system", "content": system_prompt}] + history
 
                 # Gate Tools: Conditionally include preferences and research tools

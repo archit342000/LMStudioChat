@@ -1938,6 +1938,19 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     closeSystemSettings: closeSystemSettings
   });
 
+  /* ═══════════════════════════════════════════
+       SKILLS STORE INITIALIZATION
+       ═══════════════════════════════════════════ */
+  if (window.SkillsManager) {
+    window.SkillsManager.init({
+      closeSystemSettings: closeSystemSettings
+    });
+  }
+
+  if (window.SlashAutocomplete) {
+    window.SlashAutocomplete.init();
+  }
+
   // --- Thought Process Full View Modal ---
   const thoughtFullViewModal = document.getElementById("thought-full-view-modal");
   const closeThoughtFullViewBtn = document.getElementById("close-thought-full-view");
@@ -2038,6 +2051,68 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     if (!currentChatId) currentChatId = generateId();
 
     const content = textArea.value.trim();
+
+    // Client-side interceptors for built-in slash commands
+    if (content === "/skills" && !isResume && !isReattach) {
+      textArea.value = "";
+      textArea.style.height = "auto";
+      if (window.SkillsManager && typeof window.SkillsManager.openSkillsOverlay === "function") {
+        window.SkillsManager.openSkillsOverlay();
+      }
+      return;
+    }
+
+    if (content === "/help" && !isResume && !isReattach) {
+      textArea.value = "";
+      textArea.style.height = "auto";
+      
+      if (welcomeHero) {
+        welcomeHero.classList.add("hidden");
+      }
+      if (clearChatBtn) {
+        clearChatBtn.classList.add("visible");
+      }
+
+      // Render user turn
+      appendMessage("User", "/help", "user", null, [], [], chatHistory.length);
+      chatHistory.push({ role: "user", content: "/help" });
+
+      // Generate help content
+      const customSkills = (window.SkillsManager && window.SkillsManager.skills) || [];
+      let customSkillsList = "";
+      if (customSkills.length > 0) {
+        customSkillsList = customSkills.map(skill => `*   **\`/${skill.name}\`**: ${skill.description || 'Custom instructions execution'}`).join("\n");
+      } else {
+        customSkillsList = "_No custom skills created yet. Click the **Manage Skills** button or type **`/skills`** to define your first skill!_";
+      }
+
+      const helpText = `### 🚀 Slash Commands & Custom Skills
+
+Here is the list of active commands you can trigger by typing \`/\` as the first character of your prompt:
+
+*   **\`\/help\`**: Show this interactive help screen.
+*   **\`\/skills\`**: Manage custom AI skills and prompt templates.
+
+#### 🛠️ Available Custom Skills:
+${customSkillsList}
+
+💡 **Tip:** Autocomplete is active! Type \`/\` in the empty input to navigate and select commands dynamically.`;
+
+      // Render assistant response
+      setTimeout(() => {
+        appendMessage("Assistant", helpText, "assistant", null, [], [], chatHistory.length);
+        chatHistory.push({ role: "assistant", content: helpText });
+        
+        if (window.ScrollManager && window.ScrollManager.scrollToBottom) {
+          window.ScrollManager.scrollToBottom();
+        } else {
+          messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+      }, 100);
+
+      return;
+    }
+
 
     // --- Phase 0: Edit Persistence ---
     if (pendingEditIndex !== null && !isResume && !approvedPlanPayload) {

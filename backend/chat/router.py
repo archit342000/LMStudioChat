@@ -649,3 +649,79 @@ def delete_persona(persona_id):
         return jsonify({"success": False, "error": "Persona not found"}), 404
     return jsonify({"success": True})
 
+
+# =============================================================================
+# SKILLS STORE MANAGEMENT (Route Prefix: /api)
+# =============================================================================
+
+skills_bp = Blueprint('skills', __name__)
+
+
+@skills_bp.route('/skills', methods=['GET'])
+def get_skills():
+    skills = db.get_all_skills()
+    return jsonify({"success": True, "skills": skills})
+
+
+@skills_bp.route('/skills', methods=['POST'])
+def create_skill():
+    data = request.json
+    name = data.get('name')
+    description = data.get('description')
+    instructions = data.get('instructions')
+
+    if not name or not description or not instructions:
+        return jsonify({"success": False, "error": "Name, description, and instructions are required"}), 400
+
+    # Clean the name to make sure it's alphanumeric/dashes to prevent parsing issues
+    name = name.strip().replace(" ", "-").replace("/", "")
+    if not name:
+        return jsonify({"success": False, "error": "Invalid skill name"}), 400
+
+    import uuid
+    import sqlite3
+    skill_id = str(uuid.uuid4())
+    try:
+        db.add_skill(skill_id, name, description, instructions)
+        skill = db.get_skill(skill_id)
+        return jsonify({"success": True, "skill": skill}), 201
+    except sqlite3.IntegrityError:
+        return jsonify({"success": False, "error": f"A skill with the name '{name}' already exists"}), 400
+
+
+@skills_bp.route('/skills/<skill_id>', methods=['PUT'])
+def update_skill(skill_id):
+    data = request.json
+    name = data.get('name')
+    description = data.get('description')
+    instructions = data.get('instructions')
+
+    if not name or not description or not instructions:
+        return jsonify({"success": False, "error": "Name, description, and instructions are required"}), 400
+
+    name = name.strip().replace(" ", "-").replace("/", "")
+    if not name:
+        return jsonify({"success": False, "error": "Invalid skill name"}), 400
+
+    # Verify skill exists
+    existing = db.get_skill(skill_id)
+    if not existing:
+        return jsonify({"success": False, "error": "Skill not found"}), 404
+
+    import sqlite3
+    try:
+        db.add_skill(skill_id, name, description, instructions)
+        skill = db.get_skill(skill_id)
+        return jsonify({"success": True, "skill": skill})
+    except sqlite3.IntegrityError:
+        return jsonify({"success": False, "error": f"A skill with the name '{name}' already exists"}), 400
+
+
+@skills_bp.route('/skills/<skill_id>', methods=['DELETE'])
+def delete_skill(skill_id):
+    existing = db.get_skill(skill_id)
+    if not existing:
+        return jsonify({"success": False, "error": "Skill not found"}), 404
+    db.delete_skill(skill_id)
+    return jsonify({"success": True})
+
