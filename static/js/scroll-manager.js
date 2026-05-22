@@ -84,7 +84,7 @@ function initScrollManager() {
       // Dynamic non-blocking viewport lock (prevent iOS rubber-banding/hijacking)
       document.addEventListener("touchmove", (e) => {
         const scrollTarget = e.target.closest(
-          "#messages, .modal-body, .cm-scroller, #file-system-preview-container, .file-system-body, .thought-modal-body, .sidebar-body, .thought-container.expanded .thought-body-inner"
+          "#messages, .modal-body, .cm-scroller, #file-system-preview-container, .file-system-body, .thought-modal-body, .sidebar-content, .thought-container.expanded .thought-body-inner"
         );
         if (!scrollTarget) {
           e.preventDefault();

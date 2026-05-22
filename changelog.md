@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v4.3.5
+* **Premium Chat Loading Animation System**: Designed and implemented a high-fidelity visual loading state for chat switching:
+    - **Top Slim Neon Gradient Progress Loader**: Displays a thin, glowing neon-gradient progress indicator that slides and pulses along the top of the chat area until data loads.
+    - **Shimmering Message Skeletons**: Displays elegant, shimmering user and assistant glassmorphic message bubbles during fetch latency.
+    - **Interactive Sidebar Feedback**: Visual loading state animation added to the clicked chat item in the sidebar with click locking of all other sidebar items to prevent concurrent loading race conditions.
+    - **Exception Resilience**: Wrapped the load lifecycle inside a try-catch-finally block to ensure loaders are cleared, clicks are released, and errors cleanly fallback to safe interface states under any error conditions.
+* **Version Bump**: Incremented version globally to 4.3.5.
+
 ## v4.3.4
 * **iPad Scrolling & Animation Fixes**: Resolved persistent scrolling and touch gesture interception issues on iPad/iOS devices for both the main chat messages container (`#messages`) and the system settings modal (`.modal-body`). Restored interactive 3D particle ripples and drift on the atmospheric background star animation canvas (`#bg-stars`).
 * **Monolithic script.js Refactoring**: Refactored the monolithic `static/script.js` to extract modularized js scripts from it.

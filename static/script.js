@@ -229,6 +229,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
   let wasUserPreferences = true;
   let currentResearchPlan = null;
   let isFetchingFileSystems = false;
+  let isChatLoading = false;
 
   // FileSystem/Artifact Registry
   let _allFileSystems = [];
@@ -529,10 +530,63 @@ const chatTitleHeader = document.getElementById("chat-title-header");
   async function loadChat(id, pushState = true, keepInput = false) {
     resetGenerationState(keepInput);
     pendingEditIndex = null;
+    
+    isChatLoading = true;
+    
+    // Add loading indicator to clicked chat list item
+    const allChatItems = document.querySelectorAll(".chat-list-item");
+    allChatItems.forEach(item => {
+      if (item.getAttribute("href") === `/chat/${id}`) {
+        item.classList.add("loading-active");
+      } else {
+        item.classList.remove("loading-active");
+      }
+    });
+
+    // Show top progress bar
+    let topLoader = document.querySelector(".slim-top-loader");
+    if (!topLoader) {
+      topLoader = document.createElement("div");
+      topLoader.className = "slim-top-loader";
+      const mainEl = document.querySelector("main");
+      if (mainEl) mainEl.appendChild(topLoader);
+    }
+    if (topLoader) {
+      // Force a reflow
+      topLoader.getBoundingClientRect();
+      topLoader.classList.add("active");
+    }
+
+    // Inject shimmering skeletons
+    if (welcomeHero) welcomeHero.classList.add("hidden");
+    if (messagesContainer) {
+      messagesContainer.innerHTML = `
+        <div class="skeleton-wrapper">
+          <div class="skeleton-turn user-turn">
+            <div class="skeleton-avatar"></div>
+            <div class="skeleton-bubble user-bubble">
+              <div class="skeleton-line width-80"></div>
+              <div class="skeleton-line width-60"></div>
+            </div>
+          </div>
+          <div class="skeleton-turn assistant-turn">
+            <div class="skeleton-avatar"></div>
+            <div class="skeleton-bubble assistant-bubble">
+              <div class="skeleton-line width-90"></div>
+              <div class="skeleton-line width-75"></div>
+              <div class="skeleton-line width-50"></div>
+            </div>
+          </div>
+        </div>
+      `;
+    }
+
     try {
       const response = await fetch(`${API_MODULES.CHATS}/${id}?chat_id=${id}`);
       if (!response.ok) {
         console.error("Failed to load chat details");
+        if (messagesContainer) messagesContainer.innerHTML = "";
+        if (welcomeHero) welcomeHero.classList.remove("hidden");
         return;
       }
       const chat = await response.json();
@@ -908,6 +962,14 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       scrollToBottom("auto", true);
     } catch (e) {
       console.error("Error loading chat:", e);
+      if (messagesContainer) messagesContainer.innerHTML = "";
+      if (welcomeHero) welcomeHero.classList.remove("hidden");
+    } finally {
+      isChatLoading = false;
+      const allChatItems = document.querySelectorAll(".chat-list-item");
+      allChatItems.forEach(item => item.classList.remove("loading-active"));
+      const topLoader = document.querySelector(".slim-top-loader");
+      if (topLoader) topLoader.classList.remove("active");
     }
   }
 
@@ -1233,6 +1295,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     item.onclick = (e) => {
       if (e.ctrlKey || e.metaKey || e.shiftKey) return;
       e.preventDefault();
+      if (isChatLoading) return;
       loadChat(chat.id);
     };
 

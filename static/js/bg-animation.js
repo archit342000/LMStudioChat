@@ -74,7 +74,7 @@ document.addEventListener("DOMContentLoaded", function () {
           ux,
           uy,
           uz,
-          dist: r,
+          distRatio: r / radius,
           color: colors[Math.floor(Math.random() * colors.length)],
           size: 1.5 + Math.random() * 2.5, // Slightly smaller particles
         });
@@ -129,7 +129,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         const wavePattern =
           Math.sin(time * 0.0015 + p.ux * 2 + p.uy * 2 + p.uz * 2) * 15;
-        const rBase = p.dist + wavePattern;
+        const rBase = (p.distRatio * radius) + wavePattern;
 
         let rx = p.ux * rBase;
         let ry = p.uy * rBase;
@@ -219,10 +219,24 @@ document.addEventListener("DOMContentLoaded", function () {
     // Prevent default touch actions (scrolling/jank) when interacting with background
     canvas.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
 
+    let lastWidth = window.innerWidth;
+    let lastHeight = window.innerHeight;
+
     resize();
     createParticles();
     animate();
     window.addEventListener("resize", () => {
+      const newWidth = window.innerWidth;
+      const newHeight = window.innerHeight;
+
+      // If width hasn't changed (e.g. keyboard showing up vertically), just resize the canvas area without re-randomizing stars
+      if (newWidth === lastWidth && Math.abs(newHeight - lastHeight) < 150) {
+        resize();
+        return;
+      }
+
+      lastWidth = newWidth;
+      lastHeight = newHeight;
       resize();
       createParticles();
     });
