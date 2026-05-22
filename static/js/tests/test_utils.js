@@ -35,17 +35,6 @@ describe('utils.js', () => {
         assert.strictEqual(escapeHtml('<script>alert("x")</script>'), '&lt;script&gt;alert(&quot;x&quot;)&lt;/script&gt;');
     });
 
-    test('hashContent', () => {
-        const hashContent = window.hashContent;
-        assert.notStrictEqual(hashContent('test string'), 'empty');
-        assert.strictEqual(hashContent(''), 'empty');
-    });
-
-    test('cleanReasoningForPersistence', () => {
-        const cleanReasoningForPersistence = window.cleanReasoningForPersistence;
-        assert.strictEqual(cleanReasoningForPersistence('reasoning'), 'reasoning');
-        assert.strictEqual(cleanReasoningForPersistence(null), '');
-    });
 
     test('getAssistantFriendlyContent', () => {
         const getAssistantFriendlyContent = window.getAssistantFriendlyContent;
@@ -65,5 +54,42 @@ describe('utils.js', () => {
         assert.strictEqual(formatFileSize(500), '500 B');
         assert.strictEqual(formatFileSize(1500), '1.5 KB');
         assert.strictEqual(formatFileSize(1500000), '1.4 MB');
+    });
+
+    test('getIconHtmlForMime', () => {
+        const getIconHtmlForMime = window.getIconHtmlForMime;
+        assert.ok(getIconHtmlForMime('application/pdf').includes('viewBox'));
+        assert.ok(getIconHtmlForMime('text/plain').includes('viewBox'));
+        assert.ok(getIconHtmlForMime('image/png').includes('viewBox'));
+    });
+
+    test('parseContent', () => {
+        const parseContent = window.parseContent;
+        const result1 = parseContent('plain text');
+        assert.strictEqual(result1.cleaned, 'plain text');
+        assert.strictEqual(result1.thoughts, '');
+
+        const result2 = parseContent('<think>my reasoning</think>actual message');
+        assert.strictEqual(result2.cleaned, 'actual message');
+        assert.strictEqual(result2.thoughts, 'my reasoning');
+    });
+
+    test('formatMarkdown', () => {
+        const formatMarkdown = window.formatMarkdown;
+        const result = formatMarkdown('hello **world**');
+        assert.strictEqual(result, '<p>hello **world**</p>');
+    });
+
+    test('renderMermaidBlocks', () => {
+        const renderMermaidBlocks = window.renderMermaidBlocks;
+        let runCalled = false;
+        window.mermaid = {
+            run: (options) => {
+                runCalled = true;
+                assert.strictEqual(options.querySelector, '.mermaid');
+            }
+        };
+        renderMermaidBlocks();
+        assert.strictEqual(runCalled, true);
     });
 });

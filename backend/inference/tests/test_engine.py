@@ -77,7 +77,7 @@ def mock_server():
 
 @pytest.fixture
 def engine(mock_server):
-    # Reset singleton
+    # Reset singleton before test
     InferenceEngine._instance = None
     InferenceEngine._mp_sem = None
     
@@ -89,6 +89,13 @@ def engine(mock_server):
          
          eng = InferenceEngine()
          yield eng
+    
+    # Reset singleton after test to prevent cross-session contamination.
+    # Without this, the singleton holds a stale dead URL from the module-scoped
+    # mock_server fixture, causing ConnectError in unrelated tests that run after.
+    InferenceEngine._instance = None
+    InferenceEngine._mp_sem = None
+
 
 @pytest.fixture(autouse=True)
 def mock_logger():

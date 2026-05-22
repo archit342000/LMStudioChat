@@ -186,6 +186,10 @@ def proxy_test_model_speed():
                 }
 
                 current_turn_response = ""
+                start_time = time.time()
+                first_token_time = None
+                completion_tokens_count = 0
+
                 # Need a long timeout for potentially large prefill times on huge contexts
                 with requests.post(f"{base_url}/v1/chat/completions", json=payload, headers=headers, stream=True, timeout=None) as r:
                     for chunk in r.iter_lines():
@@ -194,27 +198,80 @@ def proxy_test_model_speed():
                             yield chunk_str + "\n\n"
                             
                             # Parse chunk locally to accumulate tokens and response
-                            if chunk_str.startswith('data: ') and chunk_str != 'data: [DONE]':
+                            chunk_str_stripped = chunk_str.strip()
+                            if chunk_str_stripped.startswith('data: ') and chunk_str_stripped != 'data: [DONE]':
                                 try:
-                                    data_obj = json.loads(chunk_str[6:])
+                                    data_obj = json.loads(chunk_str_stripped[6:])
+                                    has_content = False
                                     if data_obj.get("choices") and len(data_obj["choices"]) > 0:
                                         delta = data_obj["choices"][0].get("delta", {})
                                         if delta.get("reasoning_content"):
                                             current_turn_response += delta["reasoning_content"]
+                                            has_content = True
                                         if delta.get("content"):
                                             current_turn_response += delta["content"]
+                                            has_content = True
                                         
-                                    if data_obj.get("usage") and data_obj["usage"].get("total_tokens"):
-                                        total_tokens_tracked = data_obj["usage"]["total_tokens"]
+                                    if has_content:
+                                        completion_tokens_count += 1
+                                        if first_token_time is None:
+                                            first_token_time = time.time()
+
+                                    if data_obj.get("usage"):
+                                        usage_total = data_obj["usage"].get("total_tokens")
+                                        if usage_total:
+                                            total_tokens_tracked = usage_total
+                                        usage_completion = data_obj["usage"].get("completion_tokens")
+                                        if usage_completion:
+                                            completion_tokens_count = usage_completion
+
                                     elif data_obj.get("timings"):
                                         prompt_n = data_obj["timings"].get("prompt_n", 0)
                                         predicted_n = data_obj["timings"].get("predicted_n", 0)
                                         if prompt_n + predicted_n > 0:
                                             total_tokens_tracked = prompt_n + predicted_n
+                                        if predicted_n > 0:
+                                            completion_tokens_count = predicted_n
                                 except Exception:
                                     pass
                 
                 messages.append({"role": "assistant", "content": current_turn_response})
+
+                # Estimate prompt and total tokens locally as a robust fallback
+                prompt_tokens = sum(len(m["content"]) for m in messages[:-1]) // 4
+                if completion_tokens_count == 0:
+                    completion_tokens_count = len(current_turn_response) // 4
+                
+                estimated_total = prompt_tokens + completion_tokens_count
+                if total_tokens_tracked < estimated_total:
+                    total_tokens_tracked = estimated_total
+
+                # Compute timings for synthetic chunk
+                ttft_ms = 0.0
+                if first_token_time:
+                    ttft_ms = (first_token_time - start_time) * 1000
+                else:
+                    ttft_ms = (time.time() - start_time) * 1000
+
+                predicted_ms = (time.time() - (first_token_time or start_time)) * 1000
+
+                # Yield synthetic chunk containing usage and timings to ensure frontend telemetry always plots successfully
+                synthetic_chunk = {
+                    "choices": [],
+                    "usage": {
+                        "prompt_tokens": prompt_tokens,
+                        "completion_tokens": completion_tokens_count,
+                        "total_tokens": total_tokens_tracked
+                    },
+                    "timings": {
+                        "prompt_n": prompt_tokens,
+                        "prompt_ms": max(1.0, ttft_ms),
+                        "predicted_n": completion_tokens_count,
+                        "predicted_ms": max(1.0, predicted_ms)
+                    }
+                }
+                yield f"data: {json.dumps(synthetic_chunk)}\n\n"
+
                 turn_count += 1
             
             yield f"data: {json.dumps({'test_status': f'Completed. Reached threshold of {target_context_threshold} tokens.'})}\n\n"

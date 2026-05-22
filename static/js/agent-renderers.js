@@ -7,30 +7,7 @@ function sortActivitiesChronologically(activities) {
     return activities.sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
   }
 
-function renderToolArguments(args) {
-    if (!args || Object.keys(args).length === 0) return "";
 
-    let html = '<div class="tool-args">';
-    for (const [key, value] of Object.entries(args)) {
-      let displayValue = value;
-      if (typeof value === "object") {
-        displayValue = JSON.stringify(value);
-      }
-      const isLong = String(displayValue).length > 60;
-      const truncatedValue = isLong
-        ? String(displayValue).substring(0, 57) + "..."
-        : displayValue;
-
-      html += `
-                <div class="arg-badge" title="${escapeHtml(String(displayValue))}">
-                    <span class="arg-key">${escapeHtml(key)}:</span>
-                    <span class="arg-value">${escapeHtml(String(truncatedValue))}</span>
-                </div>
-            `;
-    }
-    html += "</div>";
-    return html;
-  }
 
 function renderTaskListCard(tasks) {
     let html =
@@ -235,9 +212,6 @@ function _buildActivityFeedContent(activities) {
       if (agentName === "Thinking") agentName = "Assistant";
 
       const normalized = agentName.toLowerCase();
-      const isAssistant =
-        normalized === "assistant" || normalized === "assistant_active";
-
       if (currentAgentName !== null && normalized !== currentAgentName.toLowerCase()) {
         // Agent switched — if previous was sub-agent, close its card
         if (currentAgentName.toLowerCase() !== "assistant" && currentAgentName.toLowerCase() !== "assistant_active") {
@@ -264,10 +238,7 @@ function _buildActivityFeedContent(activities) {
     return finalHtml;
   }
 
-function renderActivityFeed(activities) {
-    if (!activities || activities.length === 0) return "";
-    return `<div class="activity-feed">${_buildActivityFeedContent(activities)}</div>`;
-  }
+
 
 function _renderSubAgentSectionForTurn(subAgent) {
     const agentName = subAgent.agent_name || subAgent.agent || "Sub-Agent";
@@ -350,3 +321,362 @@ function _renderSubAgentActivityFeed(messages) {
 
     return html;
   }
+
+let deps = {
+  getActiveThoughtModalSource: () => null,
+  getActiveClarificationIds: () => [],
+  addActiveClarificationId: () => {},
+  removeActiveClarificationId: () => {},
+  getCurrentChatId: () => null,
+  showConfirm: () => Promise.resolve(false)
+};
+
+function initAgentRenderers(dependencies) {
+  Object.assign(deps, dependencies);
+}
+
+function getSharedAgentCard(activityFeed, rawAgentName, attemptId = null) {
+  if (!activityFeed) return null;
+  const agentName = String(rawAgentName || "Agent").toLowerCase();
+
+  // CHRONOLOGY FIX: For main Assistant activities, we append directly to the activityFeed (no card)
+  if (agentName === "assistant" || agentName === "main" || agentName === "assistant_active") {
+    return activityFeed;
+  }
+
+  // CHRONOLOGY FIX: Check if the LAST card in the feed matches this agent.
+  // If not, we MUST create a new card to preserve the Assistant -> Agent -> Assistant flow.
+  let card = activityFeed.lastElementChild;
+  if (
+    !card ||
+    !card.classList.contains("sub-agent-container") ||
+    card.dataset.agentName !== agentName
+  ) {
+    let label = rawAgentName.replace(/_/g, " ");
+    if (agentName === "research") label = "Research Agent";
+    if (agentName === "file_system_agent") label = "File System Agent";
+    if (agentName === "assistant" || agentName === "main")
+      label = "Assistant";
+
+    const html = `
+              <div class="activity-item sub-agent-container collapsed" data-agent-name="${agentName}">
+                  <div class="activity-header">
+                      <div class="sub-agent-icon-wrapper" style="margin-right: 6px; display: flex; align-items: center; justify-content: center; color: var(--content-muted);">${getAgentIcon(agentName)}</div>
+                      <div class="activity-type" style="margin-right: auto;">${label}</div>
+                      <div class="thought-chevron" style="margin-left: auto;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+                  </div>
+                  <div class="activity-content sub-agent-activity-feed" style="margin-left: 0; border-left: none;"></div>
+              </div>
+          `;
+    activityFeed.insertAdjacentHTML("beforeend", html);
+    card = activityFeed.lastElementChild;
+
+    // SYNC TO MODAL
+    if (deps.getActiveThoughtModalSource() === activityFeed) {
+      const modalBody = document.getElementById("thought-modal-content-area");
+      if (modalBody) {
+        const clone = card.cloneNode(true);
+        clone.classList.add("collapsed");
+        clone.classList.remove("expanded");
+        modalBody.appendChild(clone);
+      }
+    }
+
+    if (attemptId) card.dataset.attemptId = attemptId;      
+    // Wire up click-to-toggle for the new sub-agent container
+    const hdr = card.querySelector(".activity-header");
+    if (hdr) {
+      hdr.addEventListener("click", (e) => {
+        e.stopPropagation();
+        const isCollapsed = card.classList.toggle("collapsed");
+        card.classList.toggle("expanded", !isCollapsed);
+      });
+    }
+  }
+  return card;
+}
+
+function appendSubAgentActivity(
+  activityFeed,
+  rawAgentName,
+  activityType,
+  content,
+  timestamp,
+  accumulate,
+  isLive = false,
+  attemptId = null
+) {
+  const targetContainer = getSharedAgentCard(activityFeed, rawAgentName, attemptId);
+  if (!targetContainer) return null;
+
+  // If targetContainer is the activityFeed itself, it's a naked stream item.
+  // Otherwise, it's a sub-agent card and we need its .sub-agent-activity-feed.
+  const contentArea =
+    targetContainer === activityFeed
+      ? activityFeed
+      : targetContainer.querySelector(".sub-agent-activity-feed");
+  if (!contentArea) return null;
+
+  if (accumulate) {
+    // Seal any streaming items whose type DIFFERS from the incoming type.
+    // This is what enforces chronological order: thinking→output→thinking
+    // instead of merging all thinking chunks into a single monster block.
+    let currentItem = null;
+    contentArea
+      .querySelectorAll(":scope > .activity-item[data-streaming]")
+      .forEach((item) => {
+        if (item.dataset.role === activityType) {
+          currentItem = item; // same type — reuse (still streaming)
+        } else {
+          // Different type started — seal it
+          delete item.dataset.streaming;
+        }
+      });
+
+    if (!currentItem) {
+      // No open accumulator of this type — create one
+      const html = _renderSubAgentActivityItemHtml({
+        type: activityType,
+        content: "",
+        timestamp: timestamp || Date.now(),
+      });
+      contentArea.insertAdjacentHTML("beforeend", html);
+      currentItem = contentArea.lastElementChild;
+
+      // SYNC TO MODAL (Creation)
+      if (deps.getActiveThoughtModalSource() === activityFeed) {
+        const modalBody = document.getElementById("thought-modal-content-area");
+        if (modalBody) {
+          // We need to find where to append this in the modal.
+          // If contentArea is the main feed, append to root.
+          // If contentArea is a sub-agent's feed, we need to find that agent's feed in the modal.
+          if (contentArea === activityFeed) {
+            const clone = currentItem.cloneNode(true);
+            clone.classList.add("collapsed");
+            clone.classList.remove("expanded");
+            modalBody.appendChild(clone);
+          } else {
+            // Nested item - find parent container in modal
+            const parentAgent = contentArea.closest(".sub-agent-container");
+            if (parentAgent) {
+              const agentName = parentAgent.dataset.agentName;
+              const modalParentAgent = modalBody.querySelector(`.sub-agent-container[data-agent-name="${agentName}"]`);
+              if (modalParentAgent) {
+                const modalContentArea = modalParentAgent.querySelector(".sub-agent-activity-feed");
+                if (modalContentArea) {
+                  const clone = currentItem.cloneNode(true);
+                  clone.classList.add("collapsed");
+                  clone.classList.remove("expanded");
+                  modalContentArea.appendChild(clone);
+                }
+              }
+            }
+          }
+        }
+      }
+
+      if (currentItem) {
+        currentItem.dataset.role = activityType;
+        currentItem.dataset.streaming = "true";
+        if (attemptId) currentItem.dataset.attemptId = attemptId;
+        // Wire up click-to-toggle so the header chevron works
+        const hdr = currentItem.querySelector(".activity-header");
+        if (hdr) {
+          hdr.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isCollapsed = currentItem.classList.toggle("collapsed");
+            currentItem.classList.toggle("expanded", !isCollapsed);
+          });
+        }
+      }
+    }
+
+    if (currentItem) {
+      const textWrapper = currentItem.querySelector(".activity-content, .event-text");
+      if (textWrapper) {
+        const raw = (textWrapper.dataset.raw || "") + (content || "");
+        textWrapper.dataset.raw = raw;
+        textWrapper.innerHTML = escapeHtml(raw);
+
+        // SYNC TO MODAL (Text Update)
+        if (deps.getActiveThoughtModalSource() === activityFeed) {
+          const modalBody = document.getElementById("thought-modal-content-area");
+          if (modalBody) {
+            // We need to find this item in the modal.
+            // It should have the same timestamp and role.
+            const timestamp = currentItem.dataset.timestamp;
+            const modalItem = modalBody.querySelector(`.activity-item[data-timestamp="${timestamp}"][data-role="${activityType}"]`);
+            if (modalItem) {
+              const modalTextWrapper = modalItem.querySelector(".activity-content, .event-text");
+              if (modalTextWrapper) {
+                modalTextWrapper.innerHTML = escapeHtml(raw);
+              }
+            }
+          }
+        }
+
+        // Trigger clarification pop-over if this is a request_clarification tool call
+        if (activityType === "tool_call") {
+          try {
+            const parsed = JSON.parse(raw);
+            if (parsed.function?.name === "request_clarification") {
+              const activeClarificationIds = deps.getActiveClarificationIds();
+              // Check if this ID is in the active list (from backend or live stream)
+              if (isLive || activeClarificationIds.includes(parsed.id)) {
+                const args =
+                  typeof parsed.function.arguments === "string"
+                    ? JSON.parse(parsed.function.arguments)
+                    : parsed.function.arguments;
+                window.showClarificationPopOver(
+                  args.question,
+                  args.options,
+                  parsed.id,
+                  {
+                    chatId: deps.getCurrentChatId(),
+                    onSuccess: (id) => {
+                      deps.removeActiveClarificationId(id);
+                    },
+                    showNotification: window.showAlert,
+                    showConfirm: deps.showConfirm
+                  }
+                );
+                // Ensure it's in the list for re-renders during this session
+                if (!activeClarificationIds.includes(parsed.id)) {
+                  deps.addActiveClarificationId(parsed.id);
+                }
+              }
+            }
+          } catch (e) {}
+        }
+      }
+
+      // Update history dataset for persistence
+      const history = JSON.parse(activityFeed.dataset.history || "[]");
+      const lastIdx = history.length - 1;
+      if (
+        lastIdx >= 0 &&
+        history[lastIdx].agentName === rawAgentName &&
+        history[lastIdx].type === activityType &&
+        history[lastIdx].accumulate
+      ) {
+        history[lastIdx].content = (history[lastIdx].content || "") + content;
+      } else {
+        history.push({
+          agentName: rawAgentName,
+          type: activityType,
+          content: content,
+          timestamp: timestamp || Date.now(),
+          accumulate: true,
+        });
+      }
+      activityFeed.dataset.history = JSON.stringify(history);
+    }
+    return currentItem;
+  } else {
+    // Discrete mode: seal any open streaming items, then insert a complete item
+    contentArea
+      .querySelectorAll(".activity-item[data-streaming]")
+      .forEach((item) => {
+        delete item.dataset.streaming;
+      });
+    const html = _renderSubAgentActivityItemHtml({
+      type: activityType,
+      content: content || "",
+      timestamp: timestamp || Date.now(),
+    });
+    contentArea.insertAdjacentHTML("beforeend", html);
+    const newItem = contentArea.lastElementChild;
+
+    // SYNC TO MODAL (Discrete Creation)
+    if (deps.getActiveThoughtModalSource() === activityFeed) {
+      const modalBody = document.getElementById("thought-modal-content-area");
+      if (modalBody) {
+        if (contentArea === activityFeed) {
+          const clone = newItem.cloneNode(true);
+          clone.classList.add("collapsed");
+          clone.classList.remove("expanded");
+          modalBody.appendChild(clone);
+        } else {
+          // Nested item - find parent container in modal
+          const parentAgent = contentArea.closest(".sub-agent-container");
+          if (parentAgent) {
+            const agentName = parentAgent.dataset.agentName;
+            const modalParentAgent = modalBody.querySelector(`.sub-agent-container[data-agent-name="${agentName}"]`);
+            if (modalParentAgent) {
+              const modalContentArea = modalParentAgent.querySelector(".sub-agent-activity-feed");
+              if (modalContentArea) {
+                const clone = newItem.cloneNode(true);
+                clone.classList.add("collapsed");
+                clone.classList.remove("expanded");
+                modalContentArea.appendChild(clone);
+              }
+            }
+          }
+        }
+      }
+    }
+
+    if (newItem) {
+      newItem.dataset.role = activityType;
+      if (attemptId) newItem.dataset.attemptId = attemptId;
+      // Wire up click-to-toggle
+      const hdr = newItem.querySelector(".activity-header");
+      if (hdr) {
+        hdr.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const isCollapsed = newItem.classList.toggle("collapsed");
+          newItem.classList.toggle("expanded", !isCollapsed);
+        });
+      }
+
+      // Trigger clarification pop-over for discrete tool calls
+      if (activityType === "tool_call") {
+        try {
+          const parsed = JSON.parse(content);
+          if (parsed.function?.name === "request_clarification") {
+            const activeClarificationIds = deps.getActiveClarificationIds();
+            if (isLive || activeClarificationIds.includes(parsed.id)) {
+              const args =
+                typeof parsed.function.arguments === "string"
+                  ? JSON.parse(parsed.function.arguments)
+                  : parsed.function.arguments;
+              window.showClarificationPopOver(
+                args.question,
+                args.options,
+                parsed.id,
+                {
+                  chatId: deps.getCurrentChatId(),
+                  onSuccess: (id) => {
+                    deps.removeActiveClarificationId(id);
+                  },
+                  showNotification: window.showAlert,
+                  showConfirm: deps.showConfirm
+                }
+              );
+              if (!activeClarificationIds.includes(parsed.id)) {
+                deps.addActiveClarificationId(parsed.id);
+              }
+            }
+          }
+        } catch (e) {}
+      }
+    }
+
+    // Update history dataset for persistence (discrete item)
+    const history = JSON.parse(activityFeed.dataset.history || "[]");
+    history.push({
+      agentName: rawAgentName,
+      type: activityType,
+      content: content,
+      timestamp: timestamp || Date.now(),
+      accumulate: false,
+    });
+    activityFeed.dataset.history = JSON.stringify(history);
+
+    return newItem;
+  }
+}
+
+window.initAgentRenderers = initAgentRenderers;
+window.getSharedAgentCard = getSharedAgentCard;
+window.appendSubAgentActivity = appendSubAgentActivity;

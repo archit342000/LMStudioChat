@@ -37,17 +37,26 @@ describe('editor-manager.js', () => {
             window.EditorManager._cmView = class MockEditor {
                 constructor({parent}) {
                     this.parent = parent;
+                    this.state = { doc: { length: 12, toString: () => "test content" } };
+                    this.dispatchedEffects = [];
+                }
+                dispatch(transaction) {
+                    this.dispatched = transaction;
+                    if (transaction.effects) {
+                        this.dispatchedEffects.push(transaction.effects);
+                    }
                 }
                 static updateListener = { of: () => ({}) };
             };
             window.EditorManager._cmState = {
                 create: () => ({}),
-                readOnly: { of: () => ({}) }
+                readOnly: { of: (val) => `readOnly:${val}` }
             };
-            window.EditorManager._cmThemeCompartment = { of: () => ({}), reconfigure: () => ({}) };
-            window.EditorManager._cmLanguageCompartment = { of: () => ({}), reconfigure: () => ({}) };
-            window.EditorManager._cmReadOnlyCompartment = { of: () => ({}), reconfigure: () => ({}) };
-            window.EditorManager._cmStyleCompartment = { of: () => ({}), reconfigure: () => ({}) };
+            window.EditorManager._cmThemeCompartment = { of: () => ({}), reconfigure: (val) => `theme:${val}` };
+            window.EditorManager._cmLanguageCompartment = { of: () => ({}), reconfigure: (val) => `lang:${val}` };
+            window.EditorManager._cmReadOnlyCompartment = { of: () => ({}), reconfigure: (val) => `readOnlyComp:${val}` };
+            window.EditorManager._cmStyleCompartment = { of: () => ({}), reconfigure: (val) => `style:${val}` };
+            window.EditorManager._cmOneDarkTheme = "oneDarkThemeMock";
         };
 
         let content = "test content";
@@ -60,6 +69,31 @@ describe('editor-manager.js', () => {
 
         assert.ok(window.fileSystemEditor);
         assert.strictEqual(window.fileSystemEditor.parent.id, "file-system-codemirror-container");
+    });
+
+    test('setEditorContent dispatches changes to editor', () => {
+        window.EditorManager.setEditorContent("new content");
+        assert.ok(window.fileSystemEditor.dispatched);
+        assert.strictEqual(window.fileSystemEditor.dispatched.changes.insert, "new content");
+    });
+
+    test('updateTheme dispatches theme reconfiguration', () => {
+        window.fileSystemEditor.dispatchedEffects = [];
+        window.EditorManager.updateTheme(true);
+        assert.deepStrictEqual(window.fileSystemEditor.dispatchedEffects, ["theme:oneDarkThemeMock"]);
+    });
+
+    test('setReadOnly dispatches readOnly reconfiguration', () => {
+        window.fileSystemEditor.dispatchedEffects = [];
+        window.EditorManager.setReadOnly(true);
+        assert.deepStrictEqual(window.fileSystemEditor.dispatchedEffects, ["readOnlyComp:readOnly:true"]);
+    });
+
+    test('setLanguage dispatches language reconfiguration', async () => {
+        window.fileSystemEditor.dispatchedEffects = [];
+        window.EditorManager._cmMarkdown = (opts) => `markdownMode`;
+        await window.EditorManager.setLanguage(".md");
+        assert.deepStrictEqual(window.fileSystemEditor.dispatchedEffects, ["style:", "lang:markdownMode"]);
     });
 
     test('renderPreview outputs markdown', () => {

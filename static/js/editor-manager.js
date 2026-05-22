@@ -52,9 +52,9 @@ window.EditorManager = {
             const deps = await import("/js/cm6.bundle.js");
 
             const { EditorState, Compartment } = deps;
-            const { EditorView, keymap, lineNumbers } = deps;
+            const { EditorView, keymap } = deps;
             const { basicSetup } = deps;
-            const { markdown, markdownLanguage } = deps;
+            const { markdown } = deps;
             const { languages } = deps;
             const { oneDark } = deps;
             const { indentWithTab, python, javascript, html, css, json, cpp } = deps;

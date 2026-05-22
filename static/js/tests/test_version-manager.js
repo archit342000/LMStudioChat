@@ -92,4 +92,118 @@ describe('version-manager.js', () => {
         assert.strictEqual(window.VersionManager.state.navigationIndex, 1);
         assert.strictEqual(window.VersionManager.state.currentVersionNumber, 2);
     });
+
+    test('restoreVersion sends POST request and updates state', async () => {
+        let fetchUrl = null;
+        let fetchOptions = null;
+        let onRestoreContentCalled = false;
+        let refreshSidebarCalled = false;
+        let toastMsg = null;
+
+        window.fetch = async (url, options) => {
+            fetchUrl = url;
+            fetchOptions = options;
+            if (url.includes('/restore')) {
+                return { ok: true, json: async () => ({ success: true }) };
+            } else if (url.includes('/versions')) {
+                return { ok: true, json: async () => ({ success: true, versions: [{ version_number: 2, content: 'restored code' }] }) };
+            } else {
+                return { ok: true, json: async () => ({ success: true, content: 'restored code', navigation_history: "[1,2]", navigation_index: "1" }) };
+            }
+        };
+
+        window.showToast = (msg, type) => {
+            toastMsg = msg;
+        };
+
+        window.VersionManager.init({
+            getChatId: () => 'chat123',
+            getFileSystemId: () => 'fs123',
+            onRestoreContent: (content) => {
+                onRestoreContentCalled = true;
+                assert.strictEqual(content, 'restored code');
+            },
+            refreshSidebar: () => {
+                refreshSidebarCalled = true;
+            }
+        });
+
+        window.VersionManager.state.fileSystemId = 'fs123';
+        await window.VersionManager.restoreVersion(2);
+
+        assert.ok(fetchUrl.includes('/fs123?chat_id=chat123'));
+        assert.strictEqual(onRestoreContentCalled, true);
+        assert.strictEqual(refreshSidebarCalled, true);
+        assert.strictEqual(toastMsg, 'Restored to v2');
+    });
+
+    test('handleUndo decrements index and patches version', async () => {
+        let patchUrl = null;
+        let patchBody = null;
+        let onRestoreContentCalled = false;
+
+        window.VersionManager.init({
+            getChatId: () => 'chat123',
+            getFileSystemId: () => 'fs123',
+            onRestoreContent: (content) => {
+                onRestoreContentCalled = true;
+                assert.strictEqual(content, 'v1 content');
+            }
+        });
+
+        window.VersionManager.state.navigationPath = [1, 2];
+        window.VersionManager.state.navigationIndex = 1;
+        window.VersionManager.state.historyCache = [
+            { version_number: 1, content: 'v1 content' },
+            { version_number: 2, content: 'v2 content' }
+        ];
+
+        window.fetch = async (url, options) => {
+            patchUrl = url;
+            patchBody = JSON.parse(options.body);
+            return { ok: true, json: async () => ({ success: true }) };
+        };
+
+        await window.VersionManager.handleUndo();
+
+        assert.strictEqual(window.VersionManager.state.navigationIndex, 0);
+        assert.strictEqual(patchBody.navigation_index, 0);
+        assert.strictEqual(patchBody.current_version, 1);
+        assert.strictEqual(onRestoreContentCalled, true);
+    });
+
+    test('handleRedo increments index and patches version', async () => {
+        let patchUrl = null;
+        let patchBody = null;
+        let onRestoreContentCalled = false;
+
+        window.VersionManager.init({
+            getChatId: () => 'chat123',
+            getFileSystemId: () => 'fs123',
+            onRestoreContent: (content) => {
+                onRestoreContentCalled = true;
+                assert.strictEqual(content, 'v2 content');
+            }
+        });
+
+        window.VersionManager.state.navigationPath = [1, 2];
+        window.VersionManager.state.navigationIndex = 0;
+        window.VersionManager.state.historyCache = [
+            { version_number: 1, content: 'v1 content' },
+            { version_number: 2, content: 'v2 content' }
+        ];
+
+        window.fetch = async (url, options) => {
+            patchUrl = url;
+            patchBody = JSON.parse(options.body);
+            return { ok: true, json: async () => ({ success: true }) };
+        };
+
+        await window.VersionManager.handleRedo();
+
+        assert.strictEqual(window.VersionManager.state.navigationIndex, 1);
+        assert.strictEqual(patchBody.navigation_index, 1);
+        assert.strictEqual(patchBody.current_version, 2);
+        assert.strictEqual(onRestoreContentCalled, true);
+    });
 });

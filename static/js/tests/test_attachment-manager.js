@@ -86,4 +86,75 @@ describe('attachment-manager.js', () => {
         staged.push({ file_id: '2' });
         assert.strictEqual(am.state.uploadedFiles.length, 1);
     });
+
+    test('handleFileUpload adds elements and handles success', async () => {
+        const am = window.AttachmentManager;
+        am.clearStagedFiles();
+        
+        // Mock uploadFileWithProgress
+        const originalUpload = am.uploadFileWithProgress;
+        am.uploadFileWithProgress = async (file, formData, onProgress) => {
+            onProgress(50, 100);
+            return {
+                file_id: 'file-456',
+                original_filename: 'uploaded.png',
+                file_size: 100,
+                mime_type: 'image/png'
+            };
+        };
+
+        // Mock global fetch for status polling
+        let statusPollResolver;
+        const statusPollPromise = new Promise(resolve => { statusPollResolver = resolve; });
+        window.fetch = async (url) => {
+            if (url.includes('/file-456/status')) {
+                statusPollResolver();
+                return {
+                    ok: true,
+                    json: async () => ({ processing_status: 'completed' })
+                };
+            }
+            return { ok: false };
+        };
+
+        const file = { name: 'uploaded.png', size: 100, type: 'image/png' };
+        await am.handleFileUpload(file);
+
+        // Check that the file was added to state
+        const uploaded = am.state.uploadedFiles;
+        assert.strictEqual(uploaded[0].file_id, 'file-456');
+
+        // Check preview UI has updated
+        const preview = am.elements.previewContainer;
+        assert.ok(preview.innerHTML.includes('uploaded.png'));
+
+        // Wait for polling loop
+        await statusPollPromise;
+
+        // Restore original
+        am.uploadFileWithProgress = originalUpload;
+    });
+
+    test('uploadFileWithProgress resolves on success', async () => {
+        const am = window.AttachmentManager;
+        am.clearStagedFiles();
+
+        const mockXHR = {
+            upload: {},
+            open: () => {},
+            setRequestHeader: () => {},
+            send: function() {
+                this.status = 200;
+                this.responseText = JSON.stringify({ success: true, file_id: '123' });
+                this.onload();
+            },
+            getResponseHeader: () => 'application/json'
+        };
+        window.XMLHttpRequest = function() {
+            return mockXHR;
+        };
+
+        const result = await am.uploadFileWithProgress({ name: 'test' }, new window.FormData(), () => {});
+        assert.strictEqual(result.file_id, '123');
+    });
 });

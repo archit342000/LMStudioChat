@@ -168,5 +168,49 @@ def test_proxy_test_model_speed_missing_model(client):
     assert response.status_code == 400
     assert response.json == {"error": "Model is required"}
 
+@patch("backend.models.router.requests.get")
+@patch("backend.models.router.requests.post")
+@patch("backend.models.router.config")
+def test_proxy_test_model_speed_synthetic_fallback(mock_config, mock_requests_post, mock_requests_get, client):
+    mock_config.AI_URL = "http://localhost/"
+    mock_config.AI_API_KEY = "test_key"
+    
+    # Mock for GET /v1/models (Unloading check & Loading check)
+    mock_get_response = MagicMock()
+    mock_get_response.status_code = 200
+    mock_get_response.json.side_effect = [
+        {"data": []}, # no loaded models to unload
+        {"data": []}, # all unloaded
+        {"data": [{"id": "test_model", "status": {"value": "loaded"}}]} # loaded
+    ]
+    mock_requests_get.return_value = mock_get_response
+    
+    # Mock for POST /models/unload and /models/load and /v1/chat/completions
+    mock_post_response = MagicMock()
+    mock_post_response.status_code = 200
+    
+    # Context manager for requests.post stream (no usage or timings block!)
+    # Each turn generates about 500 characters -> ~125 tokens. 
+    # With a target_context_threshold of 200 tokens, it will require 2 turns.
+    mock_post_stream = MagicMock()
+    mock_post_stream.iter_lines.return_value = [
+        b'data: {"choices": [{"delta": {"content": "This is a moderately long essay chunk that simulates content generation."}}]}',
+        b'data: [DONE]'
+    ]
+    mock_post_response.__enter__.return_value = mock_post_stream
+    mock_requests_post.return_value = mock_post_response
+    
+    # Run the test with a threshold of 200 tokens.
+    # The local estimator will compute ~125 tokens per turn.
+    # Turn 1: 125 tokens. Turn 2: 250 tokens (terminates!).
+    response = client.post("/models/test-speed", json={"model": "test_model", "target_context_threshold": 200})
+    
+    assert response.status_code == 200
+    response_data = b"".join(response.iter_encoded()).decode('utf-8')
+    assert "Starting Turn 1" in response_data
+    assert "Starting Turn 2" in response_data
+    assert "timings" in response_data  # verify synthetic timing chunk was injected
+    assert "Completed. Reached threshold" in response_data
+
 # Dummy tests to satisfy AST parser
 def test_generate(): pass

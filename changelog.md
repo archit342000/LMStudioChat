@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.3.4
+* **iPad Scrolling & Animation Fixes**: Resolved persistent scrolling and touch gesture interception issues on iPad/iOS devices for both the main chat messages container (`#messages`) and the system settings modal (`.modal-body`). Restored interactive 3D particle ripples and drift on the atmospheric background star animation canvas (`#bg-stars`).
+* **Monolithic script.js Refactoring**: Refactored the monolithic `static/script.js` to extract modularized js scripts from it.
+* **Version Bump**: Incremented version globally to 4.3.4.
+
 ## v4.3.3
 * **Document Agent Rebranding**: Rebranded `file_agent` to `document_agent` throughout the application (modules, API endpoints, configurations, and database constraints) to avoid confusing it with the `file_system_agent`.
 * **Database Migration**: Added automated database schema migration to dynamically rename existing `file_agent` entries to `document_agent` in the settings table.

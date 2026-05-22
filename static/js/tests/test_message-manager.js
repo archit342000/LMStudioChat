@@ -1,0 +1,434 @@
+import { test, describe } from 'node:test';
+import assert from 'node:assert';
+import fs from 'node:fs';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
+import { JSDOM } from 'jsdom';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+const messageManagerCode = fs.readFileSync(path.resolve(__dirname, '../message-manager.js'), 'utf8');
+
+describe('message-manager.js', () => {
+    let window;
+    let mockDeps;
+    let mockAlerts = [];
+    let mockConfirms = [];
+    let fetchCalls = [];
+
+    test('setup JSDOM environment and mock window', () => {
+        const dom = new JSDOM(`<!DOCTYPE html><html><body>
+            <div id="messages"></div>
+            <textarea id="chat-textarea"></textarea>
+        </body></html>`, { runScripts: "dangerously" });
+        window = dom.window;
+
+        // Mock external helper APIs on window
+        window.escapeHtml = (str) => str;
+        window.formatMarkdown = (str) => `[MD] ${str}`;
+        window.openImageModal = () => {};
+        window.scrollToBottom = () => {};
+        window.API_MODULES = {
+            CHATS: '/api/chats'
+        };
+
+        window.ModelManager = {
+            getSelectedModelName: () => 'Luminous-13B',
+            resolveModelDisplayName: (name) => name || 'Luminous-13B'
+        };
+
+        window.showAlert = async (title, message) => {
+            mockAlerts.push({ title, message });
+        };
+
+        window.showConfirm = async (title, message) => {
+            mockConfirms.push({ title, message });
+            return true; // confirm by default
+        };
+
+        window.appendSubAgentActivity = (feed, name, type, content, timestamp) => {
+            if (!feed) return;
+            const act = window.document.createElement('div');
+            act.className = 'mock-activity';
+            act.dataset.name = name;
+            act.dataset.type = type;
+            act.dataset.content = typeof content === 'string' ? content : JSON.stringify(content);
+            feed.appendChild(act);
+        };
+
+        // Mock Fetch API
+        window.fetch = async (url, options = {}) => {
+            fetchCalls.push({ url, options });
+            return {
+                ok: true,
+                text: async () => 'OK'
+            };
+        };
+
+        // Inject script
+        const scriptEl = window.document.createElement("script");
+        scriptEl.textContent = messageManagerCode;
+        window.document.body.appendChild(scriptEl);
+
+        assert.ok(window.MessageManager, 'MessageManager should be defined on window');
+    });
+
+    test('verifies structure and dependency injection', () => {
+        const messagesContainer = window.document.getElementById('messages');
+        const textArea = window.document.getElementById('chat-textarea');
+
+        let isGenerating = false;
+        let isResearchMode = false;
+        let currentChatId = 'chat-123';
+        let isTemporaryChat = false;
+        let chatHistory = [];
+        let pendingEditIndex = null;
+        let editingMessageId = null;
+        let loadChatCalled = false;
+        let sendMessageCalled = false;
+
+        mockDeps = {
+            getIsGenerating: () => isGenerating,
+            getIsResearchMode: () => isResearchMode,
+            getCurrentChatId: () => currentChatId,
+            getIsTemporaryChat: () => isTemporaryChat,
+            getChatHistory: () => chatHistory,
+            getPendingEditIndex: () => pendingEditIndex,
+            setPendingEditIndex: (val) => { pendingEditIndex = val; },
+            getEditingMessageId: () => editingMessageId,
+            setEditingMessageId: (val) => { editingMessageId = val; },
+            getTextArea: () => textArea,
+            getMessagesContainer: () => messagesContainer,
+            loadChat: () => { loadChatCalled = true; },
+            sendMessage: () => { sendMessageCalled = true; },
+            renderHistoryFromLocal: () => {},
+            updateTempChatBtnState: () => {}
+        };
+
+        window.MessageManager.init(mockDeps);
+        assert.ok(window.MessageManager.createMessageBubble);
+    });
+
+    describe('createMessageBubble', () => {
+        test('creates correct elements for user message', () => {
+            const bubble = window.MessageManager.createMessageBubble({
+                role: 'user',
+                text: 'Hello World',
+                messageId: 'msg-1',
+                historyIndex: 0
+            });
+
+            assert.strictEqual(bubble.tagName, 'DIV');
+            assert.ok(bubble.classList.contains('user-message'));
+            assert.strictEqual(bubble.dataset.messageId, 'msg-1');
+            assert.strictEqual(bubble.dataset.historyIndex, '0');
+
+            const content = bubble.querySelector('.message-content');
+            assert.ok(content);
+            assert.ok(content.textContent.includes('Hello World'));
+
+            const editBtn = bubble.querySelector('.edit-msg-btn');
+            assert.ok(editBtn, 'User message should have edit button');
+        });
+
+        test('creates correct elements for bot message (assistant)', () => {
+            const bubble = window.MessageManager.createMessageBubble({
+                role: 'assistant',
+                text: 'Response from bot',
+                modelName: 'Luminous-13B',
+                messageId: 'msg-2',
+                historyIndex: 1
+            });
+
+            assert.ok(bubble.classList.contains('bot-message'));
+            const content = bubble.querySelector('.message-content');
+            assert.ok(content.textContent.includes('Response from bot'));
+
+            const modelLabel = bubble.querySelector('.bot-model-label');
+            assert.ok(modelLabel);
+            assert.strictEqual(modelLabel.textContent, 'Luminous-13B');
+
+            const retryBtn = bubble.querySelector('.retry-msg-btn');
+            assert.ok(retryBtn, 'Bot message should have retry button');
+        });
+
+        test('handles user file attachment stripping in user messages', () => {
+            const fileSystemNote = '\n\n[System Note: The user has attached the following files. Use the `document_agent` tool with the provided file_id to read their contents if needed:\nfile-123]';
+            const bubble = window.MessageManager.createMessageBubble({
+                role: 'user',
+                text: `My input text${fileSystemNote}`,
+                historyIndex: 0
+            });
+
+            const content = bubble.querySelector('.message-content');
+            assert.ok(content.textContent.includes('My input text'));
+            assert.strictEqual(content.textContent.includes('System Note'), false, 'Should strip file system notes');
+        });
+
+        test('handles image rendering correctly', () => {
+            const bubble = window.MessageManager.createMessageBubble({
+                role: 'user',
+                text: 'Look at this image',
+                images: ['/img/photo.png']
+            });
+
+            const img = bubble.querySelector('.message-images img');
+            assert.ok(img);
+            assert.strictEqual(img.getAttribute('src'), '/img/photo.png');
+        });
+
+        test('handles files and collections file attachments correctly', () => {
+            const bubble = window.MessageManager.createMessageBubble({
+                role: 'user',
+                text: 'Attachments test',
+                files: [{ name: 'doc1.pdf' }],
+                collections: [
+                    { collection_type: 'files', items: JSON.stringify([{ filename: 'doc2.pdf' }]) }
+                ]
+            });
+
+            const pills = bubble.querySelectorAll('.file-attachment-pill');
+            assert.strictEqual(pills.length, 2);
+            assert.strictEqual(pills[0].textContent.trim(), 'doc1.pdf');
+            assert.strictEqual(pills[1].textContent.trim(), 'doc2.pdf');
+        });
+
+        test('handles interleaved sub-agent activities in assistant message', () => {
+            const bubble = window.MessageManager.createMessageBubble({
+                role: 'assistant',
+                text: 'Interleaved thoughts',
+                interleaved: [
+                    { agentName: 'research', type: 'thinking', content: 'thinking content' }
+                ]
+            });
+
+            const activityFeed = bubble.querySelector('.activity-feed');
+            assert.ok(activityFeed);
+            const mockAct = activityFeed.querySelector('.mock-activity');
+            assert.ok(mockAct);
+            assert.strictEqual(mockAct.dataset.name, 'research');
+            assert.strictEqual(mockAct.dataset.type, 'thinking');
+        });
+
+        test('renders User message larger than 1000 characters with "Read More"', () => {
+            const longText = 'A'.repeat(1200);
+            const bubble = window.MessageManager.createMessageBubble({
+                role: 'user',
+                text: longText
+            });
+
+            const readMoreBtn = bubble.querySelector('.read-more-btn');
+            assert.ok(readMoreBtn);
+            assert.ok(bubble.querySelector('.truncated-content'));
+        });
+    });
+
+    describe('appendMessage', () => {
+        test('correctly appends user and bot messages', () => {
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+
+            const row = window.MessageManager.appendMessage('user', 'Appended user text', 'user', 'msg-101', [], [], 0);
+            assert.strictEqual(container.children.length, 1);
+            assert.strictEqual(container.firstChild, row);
+            assert.ok(row.classList.contains('user-message'));
+        });
+    });
+
+    describe('deleteMessageAction', () => {
+        test('blocks message deletion if currently generating', async () => {
+            mockAlerts = [];
+            const prevGenerating = mockDeps.getIsGenerating;
+            mockDeps.getIsGenerating = () => true;
+
+            const btn = window.document.createElement('button');
+            await window.MessageManager.deleteMessageAction(btn);
+
+            assert.strictEqual(mockAlerts.length, 1);
+            assert.strictEqual(mockAlerts[0].title, 'Generation in Progress');
+
+            mockDeps.getIsGenerating = prevGenerating;
+        });
+
+        test('performs delete fetch request and triggers loadChat', async () => {
+            fetchCalls = [];
+            mockConfirms = [];
+
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+            const row = window.MessageManager.appendMessage('user', 'Testing delete', 'user', 'msg-to-delete', [], [], 0);
+
+            const deleteBtn = row.querySelector('.delete-msg-btn');
+            let loadChatTriggered = false;
+            mockDeps.loadChat = (id) => {
+                if (id === 'chat-123') loadChatTriggered = true;
+            };
+
+            await window.MessageManager.deleteMessageAction(deleteBtn);
+
+            assert.strictEqual(mockConfirms.length, 1);
+            assert.strictEqual(fetchCalls.length, 1);
+            assert.strictEqual(fetchCalls[0].url, '/api/chats/chat-123/messages/msg-to-delete');
+            assert.strictEqual(fetchCalls[0].options.method, 'DELETE');
+            assert.ok(loadChatTriggered, 'loadChat should have been called upon successful delete');
+        });
+
+        test('deletes locally for temporary chats', async () => {
+            const prevIsTemp = mockDeps.getIsTemporaryChat;
+            mockDeps.getIsTemporaryChat = () => true;
+
+            const chatHistory = [{ content: 'temp turn 1' }, { content: 'temp turn 2' }];
+            const prevChatHistory = mockDeps.getChatHistory;
+            mockDeps.getChatHistory = () => chatHistory;
+
+            let renderHistoryCalled = false;
+            mockDeps.renderHistoryFromLocal = () => {
+                renderHistoryCalled = true;
+            };
+
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+            const row = window.MessageManager.appendMessage('user', 'Testing temp delete', 'user', 'temp-msg', [], [], 1);
+
+            const deleteBtn = row.querySelector('.delete-msg-btn');
+            await window.MessageManager.deleteMessageAction(deleteBtn);
+
+            assert.strictEqual(chatHistory.length, 1, 'Should splice history at index 1');
+            assert.ok(renderHistoryCalled);
+
+            mockDeps.getIsTemporaryChat = prevIsTemp;
+            mockDeps.getChatHistory = prevChatHistory;
+        });
+    });
+
+    describe('editMessageAction', () => {
+        test('blocks edit if currently generating', async () => {
+            mockAlerts = [];
+            const prevGenerating = mockDeps.getIsGenerating;
+            mockDeps.getIsGenerating = () => true;
+
+            const btn = window.document.createElement('button');
+            await window.MessageManager.editMessageAction(btn);
+
+            assert.strictEqual(mockAlerts.length, 1);
+            assert.strictEqual(mockAlerts[0].title, 'Generation in Progress');
+
+            mockDeps.getIsGenerating = prevGenerating;
+        });
+
+        test('pre-fills textarea and visually truncates rows', async () => {
+            const chatHistory = [
+                { content: 'Original text to edit' },
+                { content: 'Subsequent bot answer' }
+            ];
+            const prevChatHistory = mockDeps.getChatHistory;
+            mockDeps.getChatHistory = () => chatHistory;
+
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+            const row1 = window.MessageManager.appendMessage('user', 'Original text to edit', 'user', 'msg-e1', [], [], 0);
+            const row2 = window.MessageManager.appendMessage('Assistant', 'Subsequent bot answer', 'assistant', 'msg-e2', [], [], 1);
+
+            const editBtn = row1.querySelector('.edit-msg-btn');
+            const textArea = window.document.getElementById('chat-textarea');
+            textArea.value = '';
+
+            await window.MessageManager.editMessageAction(editBtn);
+
+            assert.strictEqual(textArea.value, 'Original text to edit');
+            assert.strictEqual(mockDeps.getPendingEditIndex(), 0);
+            assert.strictEqual(mockDeps.getEditingMessageId(), 'msg-e1');
+            assert.strictEqual(container.children.length, 0, 'optimistic UI should have cleared the row and its siblings');
+
+            mockDeps.getChatHistory = prevChatHistory;
+        });
+    });
+
+    describe('retryMessageAction', () => {
+        test('blocks retry if currently generating', async () => {
+            mockAlerts = [];
+            const prevGenerating = mockDeps.getIsGenerating;
+            mockDeps.getIsGenerating = () => true;
+
+            const btn = window.document.createElement('button');
+            await window.MessageManager.editMessageAction(btn);
+
+            assert.strictEqual(mockAlerts.length, 1);
+            assert.strictEqual(mockAlerts[0].title, 'Generation in Progress');
+
+            mockDeps.getIsGenerating = prevGenerating;
+        });
+
+        test('issues delete and triggers sendMessage', async () => {
+            fetchCalls = [];
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+            const row = window.MessageManager.appendMessage('Assistant', 'Bot message to retry', 'assistant', 'msg-to-retry', [], [], 1);
+
+            let loadChatCalled = false;
+            mockDeps.loadChat = () => { loadChatCalled = true; };
+
+            let sendMessageCalled = false;
+            mockDeps.sendMessage = (a, b, retry) => {
+                if (retry) sendMessageCalled = true;
+            };
+
+            const retryBtn = row.querySelector('.retry-msg-btn');
+            await window.MessageManager.retryMessageAction(retryBtn);
+
+            assert.strictEqual(fetchCalls.length, 1);
+            assert.strictEqual(fetchCalls[0].url, '/api/chats/chat-123/messages/msg-to-retry');
+            assert.strictEqual(fetchCalls[0].options.method, 'DELETE');
+            assert.ok(loadChatCalled);
+            assert.ok(sendMessageCalled);
+        });
+    });
+
+    describe('updateActionVisibility', () => {
+        test('shows only last user message edit button and last bot message retry button', () => {
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+
+            const row1 = window.MessageManager.appendMessage('user', 'First user turn', 'user', 'm1', [], [], 0);
+            const row2 = window.MessageManager.appendMessage('Assistant', 'First bot turn', 'assistant', 'm2', [], [], 1);
+            const row3 = window.MessageManager.appendMessage('user', 'Second user turn', 'user', 'm3', [], [], 2);
+            const row4 = window.MessageManager.appendMessage('Assistant', 'Second bot turn', 'assistant', 'm4', [], [], 3);
+
+            window.MessageManager.updateActionVisibility();
+
+            // First user turn edit button should be hidden, delete button visible
+            assert.strictEqual(row1.querySelector('.edit-msg-btn').style.display, 'none');
+            assert.strictEqual(row1.querySelector('.delete-msg-btn').style.display, 'flex');
+
+            // Second user turn edit button should be visible, delete button visible
+            assert.strictEqual(row3.querySelector('.edit-msg-btn').style.display, 'flex');
+            assert.strictEqual(row3.querySelector('.delete-msg-btn').style.display, 'flex');
+
+            // First bot turn retry button should be hidden
+            assert.strictEqual(row2.querySelector('.retry-msg-btn').style.display, 'none');
+
+            // Second bot turn retry button should be visible
+            assert.strictEqual(row4.querySelector('.retry-msg-btn').style.display, 'flex');
+        });
+
+        test('hides all edit and retry buttons during active generation', () => {
+            const prevGenerating = mockDeps.getIsGenerating;
+            mockDeps.getIsGenerating = () => true;
+
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+
+            const row1 = window.MessageManager.appendMessage('user', 'User msg', 'user', 'm1', [], [], 0);
+            const row2 = window.MessageManager.appendMessage('Assistant', 'Bot msg', 'assistant', 'm2', [], [], 1);
+
+            window.MessageManager.updateActionVisibility();
+
+            assert.strictEqual(row1.querySelector('.edit-msg-btn').style.display, 'none');
+            assert.strictEqual(row1.querySelector('.delete-msg-btn').style.display, 'none');
+            assert.strictEqual(row2.querySelector('.retry-msg-btn').style.display, 'none');
+
+            mockDeps.getIsGenerating = prevGenerating;
+        });
+    });
+});

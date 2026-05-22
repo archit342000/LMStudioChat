@@ -80,6 +80,11 @@ describe('script.js', () => {
                 // Load dependencies
                 injectScript(loadFile('js/utils.js'));
                 injectScript(loadFile('js/constants.js'));
+                injectScript(loadFile('js/context-menu.js'));
+                injectScript(loadFile('js/persona-manager.js'));
+                injectScript(loadFile('js/agent-config.js'));
+                injectScript(loadFile('js/preferences-manager.js'));
+                injectScript(loadFile('js/model-manager.js'));
                 injectScript(loadFile('js/bg-animation.js'));
                 injectScript(loadFile('js/icons.js'));
                 injectScript(loadFile('js/agent-renderers.js'));
@@ -88,9 +93,18 @@ describe('script.js', () => {
                 injectScript(loadFile('js/clarification-popover.js'));
                 injectScript(loadFile('js/file-system-ui.js'));
                 injectScript(loadFile('js/version-manager.js'));
+                injectScript(loadFile('js/settings-manager.js'));
+                injectScript(loadFile('js/workspace-manager.js'));
                 injectScript(loadFile('js/editor-manager.js'));
                 injectScript(loadFile('js/attachment-manager.js'));
                 injectScript(loadFile('js/image-modal.js'));
+                injectScript(loadFile('js/markdown-renderer.js'));
+                injectScript(loadFile('js/file-explorer-modal.js'));
+                injectScript(loadFile('js/browser-portal.js'));
+                injectScript(loadFile('js/browser-stealth.js'));
+                injectScript(loadFile('js/telemetry-chart.js'));
+                injectScript(loadFile('js/scroll-manager.js'));
+                injectScript(loadFile('js/message-manager.js'));
                 
                 // Mock EditorManager loadCodeMirror for testing since we lack esbuild bundle
                 window.EditorManager.loadCodeMirror = async () => {

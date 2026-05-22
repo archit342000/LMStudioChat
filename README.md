@@ -1,4 +1,4 @@
-# 🌌 My-AI v4.3.3
+# 🌌 My-AI v4.3.4
 
 
 A high-performance, Multi-Agent AI Workspace natively powered by [llama.cpp](https://github.com/ggerganov/llama.cpp) for deep autonomy and statful collaboration. My-AI seamlessly unifies specialized agents for research, autonomous web browsing, file attachments, and long-term semantic memory with a virtualized agentic file system, creating a premium chat interface running entirely on local hardware. The multi-agent orchestration offloads complex tasks to transient agents, thus preserving the context window. This allows for long conversations without the AI losing coherence. 
@@ -72,7 +72,7 @@ My-AI utilizes the **Model Context Protocol (MCP)** to isolate external tool exe
 
 ## 📄 License & Versioning
 This project follows [SemVer v2.0.0](https://semver.org/).  
-**Current Version**: `v4.3.3`.
+**Current Version**: `v4.3.4`.
 
 ## 📄 Core Files
 | File | Purpose | Key Symbols/Exports |

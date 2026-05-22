@@ -9,321 +9,17 @@
 
 document.addEventListener("DOMContentLoaded", () => {
   /**
-   * 0. Environment Detection
-   * Identifies if the user is on a touch device to adapt UI interactions
-   * (e.g., hover states, drag-and-drop behavior).
-   */
-  document.addEventListener(
-    "touchstart",
-    function onFirstTouch() {
-      document.body.classList.add("is-touch-device");
-      document.removeEventListener("touchstart", onFirstTouch, false);
-
-      document.addEventListener(
-        "mousemove",
-        function onFirstMouse() {
-          document.body.classList.remove("is-touch-device");
-          document.removeEventListener("mousemove", onFirstMouse, false);
-          document.addEventListener("touchstart", onFirstTouch, false);
-        },
-        false,
-      );
-    },
-    false,
-  );
-
-  /**
    * 0. Security & Utilities
    * Provides basic obfuscation for sensitive client-side strings and
    * configures the Markdown renderer (marked.js) with syntax highlighting.
    */
 
-  // Configure marked with highlight.js integration for code block rendering
-  if (typeof marked !== "undefined" && typeof hljs !== "undefined") {
-    const renderer = new marked.Renderer();
-    renderer.code = function (code, language) {
-      let textVal = code;
-      let langVal = language;
-
-      // Handle different marked versions signatures
-      if (
-        typeof code === "object" &&
-        code !== null &&
-        typeof code.text === "string"
-      ) {
-        textVal = code.text;
-        langVal = code.lang;
-      }
-
-      const validLanguage = hljs.getLanguage(langVal) ? langVal : "plaintext";
-      
-      if (langVal === 'mermaid') {
-        // Escape HTML to prevent DOMPurify from breaking diagram code (like `<` or `>`)
-        const escaped = typeof escapeHtml === 'function' ? escapeHtml(textVal) : textVal.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-        return `<pre class="mermaid">${escaped}</pre>`;
-      }
-
-      const highlighted = hljs.highlight(textVal, {
-        language: validLanguage,
-      }).value;
-      const encodedCode = typeof escapeHtml === 'function' ? escapeHtml(textVal) : textVal.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-      return `<div class="code-block-wrapper">
-                <div class="code-block-header">
-                  <span class="code-block-lang">${validLanguage}</span>
-                  <button class="action-btn copy-code-btn" data-code="${encodeURIComponent(textVal)}" title="Copy code">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                    <span>Copy</span>
-                  </button>
-                </div>
-                <pre><code class="hljs language-${validLanguage}">${highlighted}</code></pre>
-              </div>`;
-    };
-
-    renderer.image = function(href, title, text) {
-      if (typeof href === "object" && href !== null && typeof href.href === "string") {
-        text = href.text;
-        title = href.title;
-        href = href.href;
-      }
-      
-      let out = `<img src="${href}" alt="${text || ''}" class="markdown-image lightbox-img" loading="lazy" ${title ? `title="${title}"` : ''} />`;
-      if (title || text) {
-        out = `<figure class="markdown-figure">${out}<figcaption class="markdown-caption">${title || text}</figcaption></figure>`;
-      }
-      return out;
-    };
-
-    renderer.blockquote = function(quote) {
-      let textVal = quote;
-      if (typeof quote === "object" && quote !== null && typeof quote.text === "string") {
-        textVal = quote.text;
-      }
-      
-      const match = textVal.match(/^<p>\[!(NOTE|WARNING|IMPORTANT|CAUTION|TIP)\](?:<br>|\n)?([\s\S]*)$/i);
-      if (match) {
-        const type = match[1].toLowerCase();
-        let content = match[2];
-        if (content.endsWith('</p>\n')) {
-           content = content.slice(0, -5) + '</p>';
-        }
-        
-        const icons = {
-          note: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M0 8a8 8 0 1 1 16 0A8 8 0 0 1 0 8Zm8-6.5a6.5 6.5 0 1 0 0 13 6.5 6.5 0 0 0 0-13ZM6.5 7.75A.75.75 0 0 1 7.25 7h1a.75.75 0 0 1 .75.75v2.75h.25a.75.75 0 0 1 0 1.5h-2a.75.75 0 0 1 0-1.5h.25v-2h-.25a.75.75 0 0 1-.75-.75ZM8 6a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>',
-          warning: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M6.457 1.047c.659-1.234 2.427-1.234 3.086 0l6.082 11.396A1.75 1.75 0 0 1 14.082 15H1.918a1.75 1.75 0 0 1-1.543-2.557Zm1.763 1.27a.25.25 0 0 0-.44 0L1.698 13.713a.25.25 0 0 0 .22.387h12.164a.25.25 0 0 0 .22-.387Zm0 2.433a.75.75 0 0 1 1.5 0v3.5a.75.75 0 0 1 0 1.5h-1.5a.75.75 0 0 1 0-1.5v-3.5a.75.75 0 0 1 .75-.75Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>',
-          important: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M0 1.75C0 .784.784 0 1.75 0h12.5C15.216 0 16 .784 16 1.75v9.5A1.75 1.75 0 0 1 14.25 13H8.06l-2.573 2.573A1.458 1.458 0 0 1 3 14.543V13H1.75A1.75 1.75 0 0 1 0 11.25Zm1.75-.25a.25.25 0 0 0-.25.25v9.5c0 .138.112.25.25.25h2a.75.75 0 0 1 .75.75v2.19l2.72-2.72a.75.75 0 0 1 .53-.22h6.5a.25.25 0 0 0 .25-.25v-9.5a.25.25 0 0 0-.25-.25Zm7 2.25v2.5a.75.75 0 0 1-1.5 0v-2.5a.75.75 0 0 1 1.5 0ZM9 9a1 1 0 1 1-2 0 1 1 0 0 1 2 0Z"></path></svg>',
-          caution: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M4.47.22A.749.749 0 0 1 5 0h6c.199 0 .389.079.53.22l4.25 4.25c.141.14.22.331.22.53v6a.749.749 0 0 1-.22.53l-4.25 4.25A.749.749 0 0 1 11 16H5a.749.749 0 0 1-.53-.22L.22 11.53A.749.749 0 0 1 0 11V5c0-.199.079-.389.22-.53Zm.84 1.28L1.5 5.31v5.38l3.81 3.81h5.38l3.81-3.81V5.31L10.69 1.5ZM8 4a.75.75 0 0 1 .75.75v3.5a.75.75 0 0 1-1.5 0v-3.5A.75.75 0 0 1 8 4Zm0 8a1 1 0 1 1 0-2 1 1 0 0 1 0 2Z"></path></svg>',
-          tip: '<svg viewBox="0 0 16 16" width="16" height="16" fill="currentColor"><path d="M8 1.5c-2.363 0-4 1.69-4 3.75 0 .984.424 1.625.984 2.304l.214.253c.223.264.47.556.673.848.284.411.537.896.621 1.49a.75.75 0 0 1-1.484.211c-.04-.282-.163-.547-.37-.843a5.314 5.314 0 0 1-.675-.848 5.463 5.463 0 0 1-.215-.254C3.176 7.674 2.5 6.641 2.5 5.25 2.5 2.31 4.863 0 8 0s5.5 2.31 5.5 5.25c0 1.391-.676 2.424-1.248 3.161l-.215.254a5.314 5.314 0 0 1-.675.848c-.207.296-.33.561-.37.843a.75.75 0 0 1-1.484-.21c.084-.594.337-1.079.621-1.49.203-.292.45-.584.673-.848.075-.088.147-.173.214-.253.56-.679.984-1.32.984-2.304 0-2.06-1.637-3.75-4-3.75ZM5.75 12h4.5a.75.75 0 0 1 0 1.5h-4.5a.75.75 0 0 1 0-1.5ZM6 15.25a.75.75 0 0 1 .75-.75h2.5a.75.75 0 0 1 0 1.5h-2.5a.75.75 0 0 1-.75-.75Z"></path></svg>'
-        };
-
-        const icon = icons[type] || icons.note;
-        return `<blockquote class="markdown-alert markdown-alert-${type}">
-                  <div class="markdown-alert-title">
-                      ${icon}
-                      <span>${match[1].charAt(0).toUpperCase() + match[1].slice(1).toLowerCase()}</span>
-                  </div>
-                  <div class="markdown-alert-content">${content}</div>
-                </blockquote>\n`;
-      }
-      return `<blockquote>\n${textVal}</blockquote>\n`;
-    };
-    
-    renderer.listitem = function(item) {
-      // marked v18: item.text is raw markdown. Must render from item.tokens.
-      let textVal;
-      if (item.tokens && this.parser) {
-        textVal = this.parser.parse(item.tokens, !!item.loose);
-      } else {
-        textVal = item.text;
-      }
-
-      if (item.task) {
-        // For task items, render inline to avoid paragraph wrapping
-        let taskContent;
-        if (item.tokens && this.parser) {
-          taskContent = this.parser.parseInline(item.tokens);
-        } else {
-          taskContent = item.text;
-        }
-        return `<li class="task-list-item" style="list-style-type: none; margin-left: -1.5rem; display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.25rem;">
-                  <input type="checkbox" class="task-list-item-checkbox" ${item.checked ? 'checked' : ''} disabled style="margin-top: 0.25rem;">
-                  <span>${taskContent}</span>
-                </li>\n`;
-      }
-      return `<li>${textVal}</li>\n`;
-    };
-
-    renderer.link = function(link) {
-      let href = link.href;
-      let text = link.text;
-      if (typeof link === "object" && link !== null && typeof link.href === "string") {
-        href = link.href;
-        text = link.text;
-      }
-      
-      if (href && !/^https?:\/\//i.test(href) && !href.startsWith('/') && !href.startsWith('#') && !href.startsWith('mailto:') && !href.startsWith('tel:')) {
-        return `<a href="${href}" class="file-link" data-path="${href}" title="Open file in workspace">${text}</a>`;
-      }
-      
-      return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
-    };
-
-    if (marked.use) {
-      marked.use({ renderer });
-      
-      // Advanced Markdown Extensions
-      const subscript = {
-        name: 'subscript',
-        level: 'inline',
-        start(src) { return src.match(/~(?=\S)/)?.index; },
-        tokenizer(src, tokens) {
-          const rule = /^~((?:\\.|[^~])+)~/;
-          const match = rule.exec(src);
-          if (match) {
-            return {
-              type: 'subscript',
-              raw: match[0],
-              text: match[1],
-              tokens: this.lexer.inlineTokens(match[1])
-            };
-          }
-        },
-        renderer(token) {
-          return `<sub>${this.parser.parseInline(token.tokens)}</sub>`;
-        }
-      };
-
-      const superscript = {
-        name: 'superscript',
-        level: 'inline',
-        start(src) { return src.match(/\^(?=\S)/)?.index; },
-        tokenizer(src, tokens) {
-          const rule = /^\^((?:\\.|[^\^])+)\^/;
-          const match = rule.exec(src);
-          if (match) {
-            return {
-              type: 'superscript',
-              raw: match[0],
-              text: match[1],
-              tokens: this.lexer.inlineTokens(match[1])
-            };
-          }
-        },
-        renderer(token) {
-          return `<sup>${this.parser.parseInline(token.tokens)}</sup>`;
-        }
-      };
-
-      const strikethrough = {
-        name: 'strikethrough',
-        level: 'inline',
-        start(src) { return src.match(/~~(?=\S)/)?.index; },
-        tokenizer(src, tokens) {
-          const rule = /^~~((?:\\.|[^~])+)~~/;
-          const match = rule.exec(src);
-          if (match) {
-            return {
-              type: 'strikethrough',
-              raw: match[0],
-              text: match[1],
-              tokens: this.lexer.inlineTokens(match[1])
-            };
-          }
-        },
-        renderer(token) {
-          return `<del>${this.parser.parseInline(token.tokens)}</del>`;
-        }
-      };
-
-      marked.use({ extensions: [subscript, superscript, strikethrough] });
-
-      if (typeof markedFootnote !== 'undefined') {
-        marked.use(markedFootnote());
-      }
-
-      // Add KaTeX extension
-      if (typeof markedKatex !== 'undefined') {
-        marked.use(markedKatex({
-            throwOnError: false,
-            nonStandard: true
-        }));
-      }
-    } else {
-      marked.setOptions({ renderer });
-    }
-  }
-
+  // Marked.js Markdown renderer configuration is managed dynamically in static/js/markdown-renderer.js
   // Basic XOR-based XOR encryption for client-side storage obfuscation
-  const salt = "luminous-v30-secure-core";
-  const e = (t) =>
-    btoa(
-      t
-        .split("")
-        .map((c, i) =>
-          String.fromCharCode(
-            c.charCodeAt(0) ^ salt.charCodeAt(i % salt.length),
-          ),
-        )
-        .join(""),
-    );
-  const d = (t) => {
-    try {
-      return atob(t)
-        .split("")
-        .map((c, i) =>
-          String.fromCharCode(
-            c.charCodeAt(0) ^ salt.charCodeAt(i % salt.length),
-          ),
-        )
-        .join("");
-    } catch (e) {
-      return "";
-    }
-  };
 
-  /**
-   * Scroll Lock Utility (Safari/iOS Fix)
-   * Prevents the background body from scrolling when a modal or
-   * expanded thought process is active.
-   */
-  let _scrollLockY = 0;
+  // Scroll Lock and Autoscrolling are managed in static/js/scroll-manager.js
 
-  function setScrollLock(isLocked) {
-    if (isLocked) {
-      _scrollLockY = window.scrollY || window.pageYOffset;
-      document.body.classList.add("no-scroll");
-      document.body.style.top = `-${_scrollLockY}px`;
-    } else {
-      // Check if any other locking elements are still open
-      const anyModalsOpen = document.querySelector(".modal-backdrop.open");
-      const anyThoughtsExpanded = document.querySelector(
-        ".thought-container.expanded, .thought-box.expanded",
-      );
-      if (!anyModalsOpen && !anyThoughtsExpanded) {
-        document.body.classList.remove("no-scroll");
-        document.body.style.top = "";
-        window.scrollTo(0, _scrollLockY);
-      }
-    }
-  }
 
-  /**
-   * Sanitizes a file/folder path for frontend use.
-   */
-  function sanitizePath(path) {
-    if (!path) return "";
-    // Remove leading/trailing slashes
-    path = path.replace(/^\/+|\/+$/g, "");
-    // Split into segments
-    const parts = path.split("/");
-    const safeParts = [];
-    for (const part of parts) {
-      if (part === ".." || part === ".") continue;
-      // Allow letters, numbers, underscores, dashes, dots, and spaces
-      const safePart = part.replace(/[^\w\s\-.]/g, "_").trim();
-      if (safePart) safeParts.push(safePart);
-    }
-    return safeParts.join("/");
-  }
 
   /**
    * 0.1 Modular API Registry
@@ -373,76 +69,13 @@ document.addEventListener("DOMContentLoaded", () => {
   const sysClearAllChatsBtn = document.getElementById("sys-clear-all-chats");
   const sysResetAppBtn = document.getElementById("sys-reset-app");
   const themeRadios = document.querySelectorAll('input[name="theme"]');
-  const stealthRadios = document.querySelectorAll(
-    'input[name="stealth-level"]',
-  );
-  // Test Model Speed Diagnostic Tool
-  const sysTestModelSpeedBtn = document.getElementById("sys-test-model-speed");
-  const testModelSpeedModal = document.getElementById("test-model-speed-modal");
-  const closeTestModelSpeedBtn = document.getElementById(
-    "close-test-model-speed",
-  );
 
-  // Agent Configuration Modal
-  const agentConfigModal = document.getElementById("agent-config-modal");
-  const closeAgentConfigBtn = document.getElementById("close-agent-config");
-  const agentConfigBtns = document.querySelectorAll(".agent-config-btn");
-  const agentConfigTitle = document.getElementById("agent-config-title");
-  const agentThinkingProfileSelector = document.getElementById("agent-thinking-profile-selector");
-  const agentMaxTokensSlider = document.getElementById("agent-max-tokens-slider");
-  const agentMaxTokensVal = document.getElementById("agent-max-tokens-val");
-  const agentThinkingBudgetSlider = document.getElementById("agent-thinking-budget-slider");
-  const agentThinkingBudgetVal = document.getElementById("agent-thinking-budget-val");
-  const saveAgentConfigBtn = document.getElementById("save-agent-config");
 
-  let currentEditingAgent = null;
-  let agentsConfig = {};
-  const runTestModelSpeedBtn = document.getElementById("run-model-speed-test");
-  const testSpeedModelSelect = document.getElementById(
-    "test-speed-model-select",
-  );
-  const testSpeedContextSlider = document.getElementById(
-    "test-speed-context-slider",
-  );
-  const testSpeedContextVal = document.getElementById("test-speed-context-val");
 
-  // Telemetry Dashboard
-  const telemetryDashboardModal = document.getElementById(
-    "telemetry-dashboard-modal",
-  );
-  const closeTelemetryDashboardBtn = document.getElementById(
-    "close-telemetry-dashboard",
-  );
-  const telemetryModelName = document.getElementById("telemetry-model-name");
-  const telemetryChartFileSystem = document.getElementById("telemetry-chart");
-  const testSpeedStatus = document.getElementById("test-speed-status");
-  const testSpeedTokensGen = document.getElementById("test-speed-tokens-gen");
-  const testSpeedTtft = document.getElementById("test-speed-ttft");
-  const testSpeedPrefillTps = document.getElementById("test-speed-prefill-tps");
-  const testSpeedCurrentTps = document.getElementById("test-speed-current-tps");
 
-  // User Preferences (Preferences FileSystem Interface)
-  const sysManagePreferencesBtn = document.getElementById(
-    "sys-manage-preferences",
-  );
 
-  const preferencesFileSystemOverlay = document.getElementById(
-    "preferences-file-system-overlay",
-  );
-  const closePreferencesBtn = document.getElementById("close-preferences-btn");
-  const preferencesAddBtn = document.getElementById("preferences-add-fab");
-  const preferencesListContainer = document.getElementById(
-    "preferences-list-container",
-  );
-  const preferencesSearchInput = document.getElementById(
-    "preferences-search-input",
-  );
-  const preferencesFilterSelect = document.getElementById(
-    "preferences-filter-select",
-  );
-  const preferencesSortSelect = document.getElementById(
-    "preferences-sort-select",
-  );
+
+  // User Preferences (Preferences FileSystem Interface) DOM selectors have been modularized
 
   // Unified Model & Sampling Settings
   const settingsTrigger = document.getElementById("settings-trigger");
@@ -452,188 +85,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const tabItems = document.querySelectorAll(".tab-item");
   const tabContents = document.querySelectorAll(".tab-content");
 
-  // Persona Management UI
-  const personaListView = document.getElementById("persona-list-view");
-  const personaListContainer = document.getElementById("persona-list-container");
-  const personaEditView = document.getElementById("persona-edit-view");
-  const personaIdInput = document.getElementById("persona-id-input");
-  const personaNameInput = document.getElementById("persona-name-input");
-  const personaContentInput = document.getElementById("persona-content-input");
-  const personaDefaultCheckbox = document.getElementById("persona-default-checkbox");
-  const newPersonaBtn = document.getElementById("new-persona-btn");
-  const cancelPersonaBtn = document.getElementById("cancel-persona-btn");
-  const savePersonaBtn = document.getElementById("save-persona-btn");
-
-  // --- Persona Management Logic ---
-
-  async function fetchPersonas() {
-    try {
-      const response = await fetch('/api/personas');
-      const data = await response.json();
-      if (data.success) {
-        personas = data.personas;
-        
-        // Ensure default is selected if no chat is active
-        if (!currentChatId && !selectedPersonaId) {
-          const defaultPersona = personas.find(p => p.is_default);
-          if (defaultPersona) {
-            selectedPersonaId = defaultPersona.id;
-          }
-        }
-        
-        renderPersonas();
-      }
-    } catch (error) {
-      console.error("Error fetching personas:", error);
-    }
-  }
-
-  function renderPersonas() {
-    if (!personaListContainer) return;
-    
-    if (personas.length === 0) {
-      personaListContainer.innerHTML = '<div style="color: var(--content-muted); font-size: 0.85rem; text-align: center; padding: 2rem;">No personas created yet. Click + to create one.</div>';
-      return;
-    }
-
-    personaListContainer.innerHTML = '';
-    
-    personas.forEach(persona => {
-      const isSelected = selectedPersonaId === persona.id;
-      const chatStarted = chatHistory.length > 0;
-      
-      const item = document.createElement('div');
-      item.className = `persona-item ${isSelected ? 'selected' : ''}`;
-      
-      if (chatStarted && !isSelected) {
-        item.style.opacity = '0.4';
-        item.style.pointerEvents = 'none';
-        item.style.filter = 'grayscale(1)';
-      }
-
-      const header = document.createElement('div');
-      header.className = 'persona-name';
-      
-      const title = document.createElement('span');
-      title.style.flex = '1';
-      title.textContent = persona.name;
-      header.appendChild(title);
-      
-      if (persona.is_default) {
-        const badge = document.createElement('span');
-        badge.className = 'persona-badge';
-        badge.textContent = 'Default';
-        header.appendChild(badge);
-      }
-      
-      const actions = document.createElement('div');
-      actions.className = 'persona-actions';
-      
-      const editBtn = document.createElement('button');
-      editBtn.className = 'persona-action-btn';
-      editBtn.title = 'Edit Persona';
-      editBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>';
-      editBtn.onclick = (e) => {
-        e.stopPropagation();
-        openEditPersona(persona);
-      };
-      
-      const deleteBtn = document.createElement('button');
-      deleteBtn.className = 'persona-action-btn delete';
-      deleteBtn.title = 'Delete Persona';
-      deleteBtn.innerHTML = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>';
-      deleteBtn.onclick = async (e) => {
-        e.stopPropagation();
-        const confirmed = await showConfirm("Delete Persona", `Are you sure you want to delete "${persona.name}"?`, true);
-        if (confirmed) {
-          try {
-            await fetch(`/api/personas/${persona.id}`, { method: 'DELETE' });
-            if (selectedPersonaId === persona.id) selectedPersonaId = null;
-            await fetchPersonas();
-          } catch(err) { console.error(err); }
-        }
-      };
-
-      actions.appendChild(editBtn);
-      actions.appendChild(deleteBtn);
-
-      item.appendChild(header);
-      item.appendChild(actions);
-      
-      item.onclick = () => {
-        if (chatHistory.length === 0) {
-          selectedPersonaId = selectedPersonaId === persona.id ? null : persona.id;
-          renderPersonas();
-        }
-      };
-
-      personaListContainer.appendChild(item);
-    });
-  }
-
-  function openEditPersona(persona = null) {
-    personaListView.classList.add('hidden');
-    personaEditView.classList.remove('hidden');
-    newPersonaBtn.style.display = 'none';
-
-    if (persona) {
-      personaIdInput.value = persona.id;
-      personaNameInput.value = persona.name;
-      personaContentInput.value = persona.content;
-      personaDefaultCheckbox.checked = persona.is_default === 1;
-    } else {
-      personaIdInput.value = '';
-      personaNameInput.value = '';
-      personaContentInput.value = '';
-      personaDefaultCheckbox.checked = false;
-    }
-  }
-
-  function closeEditPersona() {
-    personaListView.classList.remove('hidden');
-    personaEditView.classList.add('hidden');
-    newPersonaBtn.style.display = 'flex';
-  }
-
-  if (newPersonaBtn) newPersonaBtn.addEventListener('click', () => openEditPersona());
-  if (cancelPersonaBtn) cancelPersonaBtn.addEventListener('click', closeEditPersona);
-  if (savePersonaBtn) {
-    savePersonaBtn.addEventListener('click', async () => {
-      const id = personaIdInput.value;
-      const name = personaNameInput.value.trim();
-      const content = personaContentInput.value.trim();
-      const is_default = personaDefaultCheckbox.checked ? 1 : 0;
-
-      if (!name || !content) {
-        alert("Name and Content are required.");
-        return;
-      }
-
-      const payload = { name, content, is_default };
-      const url = id ? `/api/personas/${id}` : '/api/personas';
-      const method = id ? 'PUT' : 'POST';
-
-      try {
-        const response = await fetch(url, {
-          method,
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload)
-        });
-        const data = await response.json();
-        if (data.success) {
-          closeEditPersona();
-          if (is_default) selectedPersonaId = data.persona.id;
-          await fetchPersonas();
-        } else {
-          alert("Failed to save persona: " + data.error);
-        }
-      } catch (err) {
-        console.error(err);
-      }
-    });
-  }
-
-  // --- End Persona Management ---
+  // Persona Management has been modularized into static/js/persona-manager.js
 
   // Sampling Parameter Sliders & Values
   const maxTokensSlider = document.getElementById("max-tokens-slider");
@@ -758,9 +210,6 @@ const chatTitleHeader = document.getElementById("chat-title-header");
 
   let chatHistory = []; // Current turn-by-turn history
 
-  let personas = [];
-  let selectedPersonaId = null;
-
   let savedChats = []; // Metadata of all persistent chats
   let currentChatId = null; // UUID or local ID of active chat
   let currentFileSystemId = null; // ID of the file_system being edited
@@ -777,18 +226,14 @@ const chatTitleHeader = document.getElementById("chat-title-header");
   let fileSystemMode = false; // If file_system panel is active
   let browsingMode = false; // If browsing agent is enabled
   let fileSystemPanelVisible = false;
-  let isFileSystemRendered = false; // Toggle between preview and raw edit
   let wasUserPreferences = true;
   let currentResearchPlan = null;
-  let isSavingFileSystem = false;
   let isFetchingFileSystems = false;
 
   // FileSystem/Artifact Registry
   let _allFileSystems = [];
-    let _file_systemTypeFilter = "all";
   
   // Workspace & Organization State
-  let chatWorkspaces = JSON.parse(localStorage.getItem("chatWorkspaces") || "[]");
   let activeClarificationIds = []; // IDs of tool calls waiting for input
   const _cwcKey = "my_ai_chats_with_file_systems";
   const chatsWithFileSystems = new Set(
@@ -807,123 +252,88 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     }
   }
 
-    let chatArtifactFolders = JSON.parse(
-    localStorage.getItem("chatArtifactFolders") || "{}",
-  );
-  
-  /**
-   * Storage Helpers for Workspaces and Artifacts
-   */
-  function saveWorkspaces() {
-    localStorage.setItem("chatWorkspaces", JSON.stringify(chatWorkspaces));
-  }
 
-function saveChatArtifactFolders() {
-    localStorage.setItem(
-      "chatArtifactFolders",
-      JSON.stringify(chatArtifactFolders),
-    );
-  }
 
-  // Model & Vision State
-  let selectedModel = localStorage.getItem("my_ai_selected_model") || "";
-  let selectedModelName =
-    localStorage.getItem("my_ai_selected_model_name") || "Select a Model";
-  let isVisionEnabled =
-    localStorage.getItem("my_ai_vision_enabled") !== "false";
-  let availableModels = [];
-  
-  function resolveModelDisplayName(modelKey) {
-    if (!modelKey) return "";
-    const models = window.availableModels || availableModels || [];
-    const modelDef = models.find((m) => m.key === modelKey || m.display_name === modelKey);
-    return modelDef ? modelDef.display_name : modelKey;
-  }
-  
+
+
   let currentChatData = null;
 
-  let storedChatDefaults =
-    JSON.parse(localStorage.getItem("my_ai_chat_defaults")) || {};
-  let chatDefaults = {
-    thinkingProfile: "general",
-    userPreferences: true,
-    maxTokens: 32768,
-    thinkingBudgetTokens: 2000,
-    ...storedChatDefaults,
-  };
-
-  // LLM Sampling Parameters
-  ;
-
-  let storedSamplingParams =
-    JSON.parse(localStorage.getItem("my_ai_sampling_params")) || {};
-  let samplingParams = {
-    max_tokens: 16384,
-    thinking_budget_tokens: 2000,
-    enable_thinking: true,
-    thinking_profile: "general",
-    ...storedSamplingParams,
-  };
-  if (samplingParams.thinking_profile === undefined)
-    samplingParams.thinking_profile = "general";
-
-  /**
-   * Saves sampling parameters to local storage and syncs with backend if chat is persistent.
-   */
-  function saveSamplingParams() {
-    localStorage.setItem(
-      "my_ai_sampling_params",
-      JSON.stringify(samplingParams),
-    );
-
-    // Only sync to backend if the chat has actually been persisted (contains messages)
-    if (currentChatId && !isTemporaryChat && chatHistory.length > 0) {
-      fetch(`${API_MODULES.CHATS}/${currentChatId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(samplingParams),
-      }).catch((e) => console.error("Error updating sampling parameters:", e));
-    }
-  }
-
-  /**
-   * Updates the active state of thinking profile buttons.
-   */
-  function updateThinkingProfileUI() {
-    if (!thinkingProfileSelector) return;
-    const buttons = thinkingProfileSelector.querySelectorAll(".profile-btn");
-    buttons.forEach((btn) => {
-      if (btn.dataset.profile === samplingParams.thinking_profile) {
-        btn.classList.add("active");
-      } else {
-        btn.classList.remove("active");
-      }
-    });
-  }
-
-  /**
-   * Applies a thinking profile's parameters to samplingParams and updates UI.
-   */
-  function applyThinkingProfile(profileKey) {
-    const profile = THINKING_PROFILES[profileKey];
-    if (!profile) return;
-
-    samplingParams.thinking_profile = profileKey;
-    samplingParams.enable_thinking = profile.enable_thinking;
-
-    updateThinkingProfileUI();
-    saveSamplingParams();
-  }
+  const chatDefaults = window.SettingsManager.getChatDefaults();
+  const samplingParams = window.SettingsManager.getSamplingParams();
   let isGenerating = false; // True when an SSE stream is active
   let activeThoughtModalSource = null; // Track which .activity-feed is currently in the modal
   let pendingEditIndex = null; // Tracks message being edited for replacement
 
+  // Initialize Message Manager
+  window.MessageManager.init({
+    getIsGenerating: () => isGenerating,
+    getIsResearchMode: () => isResearchMode,
+    getCurrentChatId: () => currentChatId,
+    getIsTemporaryChat: () => isTemporaryChat,
+    getChatHistory: () => chatHistory,
+    getPendingEditIndex: () => pendingEditIndex,
+    setPendingEditIndex: (val) => { pendingEditIndex = val; },
+    getEditingMessageId: () => editingMessageId,
+    setEditingMessageId: (val) => { editingMessageId = val; },
+    getTextArea: () => textArea,
+    getMessagesContainer: () => messagesContainer,
+    loadChat: loadChat,
+    sendMessage: sendMessage,
+    renderHistoryFromLocal: renderHistoryFromLocal,
+    updateTempChatBtnState: updateTempChatBtnState
+  });
+
+  // Initialize Scroll Manager
+  window.initScrollManager();
+
+  // Initialize Workspace Manager
+  window.WorkspaceManager.init({
+    loadChats: loadChats,
+    getSavedChats: () => savedChats,
+    getCurrentChatId: () => currentChatId,
+    showConfirm: showConfirm,
+    showPromptModal: showPromptModal,
+    showModal: showModal
+  });
+
+  // Initialize Subagent Renderers
+  window.initAgentRenderers({
+    getActiveThoughtModalSource: () => activeThoughtModalSource,
+    getActiveClarificationIds: () => activeClarificationIds,
+    addActiveClarificationId: (id) => {
+      if (!activeClarificationIds.includes(id)) {
+        activeClarificationIds.push(id);
+      }
+    },
+    removeActiveClarificationId: (id) => {
+      activeClarificationIds = activeClarificationIds.filter(cid => cid !== id);
+    },
+    getCurrentChatId: () => currentChatId,
+    showConfirm: showConfirm
+  });
+
   // Load session
   updateResearchUI();
-  fetchModels();
+  window.ModelManager.init({
+    getIsResearchMode: () => isResearchMode,
+    getCurrentChatId: () => currentChatId,
+    getCurrentChatData: () => currentChatData,
+    onModelChanged: (id, name) => {
+      if (currentChatData && !isResearchMode) {
+        currentChatData.last_model = name;
+        if (currentChatId) {
+          fetch(`${API_MODULES.CHATS}/${currentChatId}`, {
+            method: "PATCH",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ last_model: name }),
+          }).catch((e) => console.error("Error updating last model:", e));
+        }
+      }
+    }
+  });
+  window.ModelManager.fetchModels();
 
   loadChats();
-  updateThinkingProfileUI();
 
   function syncSidebarWidth() {
     if (window.innerWidth <= 768) {
@@ -936,51 +346,26 @@ function saveChatArtifactFolders() {
   syncSidebarWidth();
   window.addEventListener("resize", syncSidebarWidth);
 
-  // Initialize Theme
-  let themeMode = localStorage.getItem("my_ai_theme_mode") || "system";
-
-  function applyTheme() {
-    let isDark = false;
-    if (themeMode === "system") {
-      isDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    } else {
-      isDark = themeMode === "dark";
+  // Initialize Settings Manager
+  window.SettingsManager.init({
+    getCurrentChatId: () => currentChatId,
+    getIsTemporaryChat: () => isTemporaryChat,
+    getChatHistoryLength: () => chatHistory.length,
+    startNewChat: startNewChat,
+    renderChatList: renderChatList,
+    loadChats: loadChats,
+    showConfirm: showConfirm,
+    showAlert: showAlert,
+    setScrollLock: setScrollLock,
+    onChatsCleared: async () => {
+      savedChats = [];
+      startNewChat();
+      renderChatList();
     }
-
-    if (isDark) {
-      document.documentElement.classList.add("dark");
-    } else {
-      document.documentElement.classList.remove("dark");
-    }
-
-    // Update Highlight.js theme
-    const highlightThemeLink = document.getElementById("highlight-theme");
-    if (highlightThemeLink) {
-      highlightThemeLink.href = isDark
-        ? "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github-dark.min.css"
-        : "https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/github.min.css";
-    }
-    window.EditorManager.updateTheme(isDark);
-
-    // Update radio buttons
-    themeRadios.forEach((radio) => {
-      if (radio.value === themeMode) radio.checked = true;
-    });
-  }
-
-  applyTheme();
-
-  // Listen for system changes
-  window
-    .matchMedia("(prefers-color-scheme: dark)")
-    .addEventListener("change", () => {
-      if (themeMode === "system") applyTheme();
-    });
+  });
 
   // Initialize Model UI
-  currentModelDisplay.textContent = selectedModelName;
-
-  fetchPersonas();
+  currentModelDisplay.textContent = window.ModelManager.getSelectedModelName();
 
   async function loadChats() {
     try {
@@ -993,40 +378,12 @@ function saveChatArtifactFolders() {
       }
 
       // Also fetch workspaces
-      const wsResponse = await fetch(`${API_MODULES.CHATS}/workspaces`);
-      if (wsResponse.ok) {
-        const fetchedWorkspaces = await wsResponse.json();
-        // Merge with existing state (to preserve expanded property)
-        const newWorkspaces = [];
-        fetchedWorkspaces.forEach(ws => {
-            const existing = chatWorkspaces.find(cw => cw.name === ws.id);
-            newWorkspaces.push({
-                name: ws.id, // Store ID as name for internal logic backward compatibility
-                displayName: ws.name,
-                expanded: existing ? existing.expanded : true
-            });
-        });
-        chatWorkspaces = newWorkspaces;
-        saveWorkspaces();
-      }
+      await window.WorkspaceManager.fetchWorkspaces();
     } catch (e) {
       console.error("Error loading chats/workspaces:", e);
       savedChats = [];
     }
     renderChatList();
-  }
-
-  // saveChats is no longer needed as backend handles persistence
-  function saveChats() {
-    // No-op for compatibility if called elsewhere, or trigger reload
-    renderChatList();
-  }
-
-  // Force synchronization of a modified chat state back to the SQLite layer (e.g. after message edits/deletions)
-  function persistChat() {
-    // NOP: We now use Action-Based APIs for all state changes.
-    // This prevents stale tabs from overwriting newer DB entries.
-    console.debug("persistChat() - No-op (Redirected to Action-Based APIs)");
   }
 
   async function patchChat(updates) {
@@ -1079,7 +436,7 @@ function saveChatArtifactFolders() {
     messagesContainer.innerHTML = "";
     currentChatId = generateId(); // Always assign an ID for backend task routing (temporary chats are still prevented from persisting by the isTemporaryChat flag)
     currentChatData = { folder: folder }; // Set initial folder if provided
-    checkSendButtonCompatibility();
+    window.ModelManager.checkSendButtonCompatibility();
 
     // User Preferences default to true, but must be off for temporary chats
     isUserPreferences = temporary
@@ -1118,30 +475,13 @@ function saveChatArtifactFolders() {
 
     // Reset Sampling Parameters for new chats
     const targetProfile = chatDefaults.thinkingProfile || "general";
-    if (typeof applyThinkingProfile === "function") {
-      applyThinkingProfile(targetProfile);
-    } else {
-      samplingParams.thinking_profile = targetProfile;
-      samplingParams.enable_thinking =
-        THINKING_PROFILES[targetProfile].enable_thinking;
-    }
-
-    samplingParams.max_tokens = chatDefaults.maxTokens || 32768;
-    if (maxTokensSlider) maxTokensSlider.value = samplingParams.max_tokens;
-    if (maxTokensVal)
-      maxTokensVal.textContent = samplingParams.max_tokens.toString();
-
-    samplingParams.thinking_budget_tokens =
-      chatDefaults.thinkingBudgetTokens || 2000;
-    if (thinkingBudgetSlider)
-      thinkingBudgetSlider.value = samplingParams.thinking_budget_tokens;
-    if (thinkingBudgetVal)
-      thinkingBudgetVal.textContent =
-        samplingParams.thinking_budget_tokens.toString();
-
-    if (typeof saveSamplingParams === "function") {
-      saveSamplingParams();
-    }
+    window.SettingsManager.setSamplingParams({
+      thinking_profile: targetProfile,
+      enable_thinking: THINKING_PROFILES[targetProfile].enable_thinking,
+      max_tokens: chatDefaults.maxTokens || 32768,
+      thinking_budget_tokens: chatDefaults.thinkingBudgetTokens || 2000,
+    });
+    window.SettingsManager.saveSamplingParams();
 
     if (welcomeHero) {
       messagesContainer.appendChild(welcomeHero);
@@ -1153,9 +493,9 @@ function saveChatArtifactFolders() {
     if (chatTitleHeader) chatTitleHeader.classList.add("hidden");
 
     // Reset persona to default for new chat
-    const defaultPersona = personas.find(p => p.is_default);
-    selectedPersonaId = defaultPersona ? defaultPersona.id : null;
-    renderPersonas();
+    if (window.PersonaManager) {
+      window.PersonaManager.resetToDefault();
+    }
 
     fetchFileSystems(null);
 
@@ -1262,11 +602,11 @@ function saveChatArtifactFolders() {
 
       // Restore last used model
       if (chat.last_model) {
-        const modelDef = (window.availableModels || availableModels).find(
+        const modelDef = window.ModelManager.getAvailableModels().find(
           (m) => m.key === chat.last_model,
         );
         if (modelDef) {
-          selectModel(modelDef.key, modelDef.display_name, false);
+          window.ModelManager.selectModel(modelDef.key, modelDef.display_name, false);
         }
       }
 
@@ -1299,62 +639,43 @@ function saveChatArtifactFolders() {
       currentFileSystemLanguage = "markdown";
       window.EditorManager.setLanguage(currentFileSystemLanguage);
 
-      if (chat.persona_id) {
-        selectedPersonaId = chat.persona_id;
-      } else {
-        selectedPersonaId = null;
+      if (window.PersonaManager) {
+        window.PersonaManager.setSelectedPersonaId(chat.persona_id || null);
       }
-      renderPersonas();
 
       // Restore sampling parameters
+      const loadedParams = {};
       if (chat.max_tokens !== undefined && chat.max_tokens !== null)
-        samplingParams.max_tokens = chat.max_tokens;
+        loadedParams.max_tokens = chat.max_tokens;
       if (
         chat.thinking_budget_tokens !== undefined &&
         chat.thinking_budget_tokens !== null
       )
-        samplingParams.thinking_budget_tokens = chat.thinking_budget_tokens;
+        loadedParams.thinking_budget_tokens = chat.thinking_budget_tokens;
       if (chat.temperature !== undefined && chat.temperature !== null)
-        samplingParams.temperature = chat.temperature;
+        loadedParams.temperature = chat.temperature;
       if (chat.top_p !== undefined && chat.top_p !== null)
-        samplingParams.top_p = chat.top_p;
+        loadedParams.top_p = chat.top_p;
       if (chat.top_k !== undefined && chat.top_k !== null)
-        samplingParams.top_k = chat.top_k;
+        loadedParams.top_k = chat.top_k;
       if (chat.min_p !== undefined && chat.min_p !== null)
-        samplingParams.min_p = chat.min_p;
+        loadedParams.min_p = chat.min_p;
       if (chat.presence_penalty !== undefined && chat.presence_penalty !== null)
-        samplingParams.presence_penalty = chat.presence_penalty;
+        loadedParams.presence_penalty = chat.presence_penalty;
       if (
         chat.frequency_penalty !== undefined &&
         chat.frequency_penalty !== null
       )
-        samplingParams.frequency_penalty = chat.frequency_penalty;
+        loadedParams.frequency_penalty = chat.frequency_penalty;
       if (chat.enable_thinking !== undefined && chat.enable_thinking !== null)
-        samplingParams.enable_thinking = !!chat.enable_thinking;
+        loadedParams.enable_thinking = !!chat.enable_thinking;
       if (chat.thinking_profile)
-        samplingParams.thinking_profile = chat.thinking_profile;
+        loadedParams.thinking_profile = chat.thinking_profile;
 
-      // Sync UI
-      const updateSlider = (slider, val, value) => {
-        if (slider) {
-          slider.value = value;
-          if (val)
-            val.textContent =
-              typeof value === "number" && !Number.isInteger(value)
-                ? value.toFixed(2)
-                : value;
-        }
-      };
-      updateSlider(maxTokensSlider, maxTokensVal, samplingParams.max_tokens);
-      updateSlider(
-        thinkingBudgetSlider,
-        thinkingBudgetVal,
-        samplingParams.thinking_budget_tokens,
-      );
-      updateThinkingProfileUI();
+      window.SettingsManager.setSamplingParams(loadedParams);
 
       updateResearchUI();
-      checkSendButtonCompatibility();
+      window.ModelManager.checkSendButtonCompatibility();
 
       messagesContainer.innerHTML = "";
       if (welcomeHero) welcomeHero.classList.add("hidden");
@@ -1536,7 +857,7 @@ function saveChatArtifactFolders() {
         const row = createMessageBubble({
           role: turn.role,
           text: text,
-          modelName: turn.role.includes("assistant") ? resolveModelDisplayName(turn.model) : "",
+          modelName: turn.role.includes("assistant") ? window.ModelManager.resolveModelDisplayName(turn.model) : "",
           messageId: turn.id,
           historyIndex: idx,
           images: images,
@@ -1591,6 +912,45 @@ function saveChatArtifactFolders() {
   }
 
   /**
+   * Re-renders the chat history in the UI from the local chatHistory array.
+   */
+  function renderHistoryFromLocal() {
+    messagesContainer.innerHTML = "";
+    if (welcomeHero) welcomeHero.classList.add("hidden");
+    
+    chatHistory.forEach((turn, idx) => {
+      let text = turn.content || "";
+      let images = [];
+      if (Array.isArray(turn.content)) {
+        text = turn.content.find((c) => c.type === "text")?.text || "";
+        images = turn.content
+          .filter((c) => c.type === "image_url")
+          .map((c) => c.image_url?.url)
+          .filter(Boolean);
+      }
+
+      const row = window.MessageManager.createMessageBubble({
+        role: turn.role,
+        text: text,
+        modelName: turn.role.includes("assistant") ? window.ModelManager.resolveModelDisplayName(turn.model) : "",
+        messageId: turn.id,
+        historyIndex: idx,
+        images: images,
+        files: turn.uploadedFiles,
+        interleaved: turn.interleaved,
+        collections: turn.collections,
+        sub_agent_history: turn.sub_agent_history,
+        reasoningContent: "",
+      });
+
+      messagesContainer.appendChild(row);
+    });
+
+    window.MessageManager.updateActionVisibility();
+    setTimeout(window.renderMermaidBlocks, 100);
+  }
+
+  /**
    * Deletes a chat entry from the backend and updates the UI.
    * @param {string} id - The UUID of the chat to delete.
    * @param {Event} event - The DOM event that triggered the deletion.
@@ -1618,73 +978,7 @@ function saveChatArtifactFolders() {
     }
   }
 
-  /**
-   * Deletes a workspace and moves its containing chats to 'uncategorized'.
-   * @param {string} workspaceId - The ID of the workspace to delete.
-   * @param {Event} event - The DOM event that triggered the action.
-   */
-  async function deleteWorkspace(workspaceId, event) {
-    if (event) event.stopPropagation();
-    
-    const workspace = chatWorkspaces.find(w => w.name === workspaceId);
-    const displayName = workspace ? workspace.displayName : "this workspace";
 
-    if (
-      await showConfirm(
-        "Delete Workspace",
-        `Are you sure you want to delete the workspace "${escapeHtml(displayName)}"? The chats inside will be moved to uncategorized.`,
-        true,
-      )
-    ) {
-      try {
-        const res = await fetch(`${API_MODULES.CHATS}/workspaces/${workspaceId}`, {
-          method: "DELETE"
-        });
-        if (res.ok) {
-           await loadChats();
-        }
-      } catch (e) {
-        console.error("Error deleting workspace:", e);
-      }
-    }
-  }
-
-  /**
-   * Renames an existing workspace and syncs the change with the backend.
-   * @param {string} workspaceId - The workspace ID.
-   * @param {Event} event - The DOM event.
-   */
-  async function renameWorkspace(workspaceId, event) {
-    if (event) event.stopPropagation();
-
-    const workspace = chatWorkspaces.find(w => w.name === workspaceId);
-    const displayName = workspace ? workspace.displayName : "";
-
-    const newWorkspaceName = await showPromptModal(
-      "Rename Workspace",
-      "Enter new name for workspace:",
-      displayName,
-    );
-    if (
-      newWorkspaceName !== null &&
-      newWorkspaceName.trim() !== "" &&
-      newWorkspaceName.trim() !== displayName
-    ) {
-      const finalWorkspaceName = newWorkspaceName.trim();
-      try {
-        const res = await fetch(`${API_MODULES.CHATS}/workspaces/${workspaceId}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: finalWorkspaceName }),
-        });
-        if (res.ok) {
-            await loadChats();
-        }
-      } catch (e) {
-        console.error("Error renaming workspace:", e);
-      }
-    }
-  }
 
   /**
    * Updates the title of a specific chat in the sidebar and header.
@@ -1755,14 +1049,15 @@ function saveChatArtifactFolders() {
 
     const sorted = [...savedChats].sort((a, b) => b.timestamp - a.timestamp);
 
-    if (sorted.length === 0 && chatWorkspaces.length === 0) {
+    const workspaces = window.WorkspaceManager.getChatWorkspaces();
+    if (sorted.length === 0 && workspaces.length === 0) {
       chatHistoryList.innerHTML = `<div style="padding: 1rem; color: var(--content-muted); font-size: 0.8rem; text-align: center;">No saved chats</div>`;
       return;
     }
 
     // --- Grouping Logic ---
     const grouped = { uncategorized: [] };
-    chatWorkspaces.forEach((f) => {
+    workspaces.forEach((f) => {
       grouped[f.name] = [];
     });
 
@@ -1770,15 +1065,15 @@ function saveChatArtifactFolders() {
       const workspaceName = chat.workspace_id || "uncategorized";
       if (!grouped[workspaceName]) {
         // Handle legacy folders not in registry
-        chatWorkspaces.push({ name: workspaceName, expanded: false });
+        workspaces.push({ name: workspaceName, expanded: false });
+        window.WorkspaceManager.setChatWorkspaces(workspaces);
         grouped[workspaceName] = [];
-        saveWorkspaces();
       }
       grouped[workspaceName].push(chat);
     });
 
     // --- Render Workspace Tree ---
-    chatWorkspaces.forEach((workspace) => {
+    workspaces.forEach((workspace) => {
       const folderDiv = document.createElement("div");
       folderDiv.className = `folder-item ${workspace.expanded ? "expanded" : ""}`;
 
@@ -1863,7 +1158,7 @@ function saveChatArtifactFolders() {
           return;
         }
         workspace.expanded = !workspace.expanded;
-        saveWorkspaces();
+        window.WorkspaceManager.setChatWorkspaces(workspaces);
         renderChatList();
       };
 
@@ -1883,7 +1178,7 @@ function saveChatArtifactFolders() {
         folderHeader.classList.remove("drag-over");
         const dragChatId = e.dataTransfer.getData("text/plain");
         if (dragChatId) {
-          await moveChatToWorkspace(dragChatId, workspace.name);
+          await window.WorkspaceManager.moveChatToWorkspace(dragChatId, workspace.name);
         }
       });
 
@@ -1909,61 +1204,20 @@ function saveChatArtifactFolders() {
 
     // Visibility Toggles
     if (foldersSection)
-      foldersSection.classList.toggle("hidden", chatWorkspaces.length === 0);
+      foldersSection.classList.toggle("hidden", workspaces.length === 0);
     if (recentChatsSection)
       recentChatsSection.classList.toggle("hidden", sorted.length === 0);
   }
 
-  async function moveChatToWorkspace(chatId, workspaceIdOrName) {
-    const chat = savedChats.find((c) => c.id === chatId);
-    if (!chat) return;
 
-    let targetWorkspaceId = workspaceIdOrName;
-
-    // If it's a new name not in our workspaces list, create it first
-    if (workspaceIdOrName && !chatWorkspaces.find((f) => f.name === workspaceIdOrName)) {
-      try {
-        const res = await fetch(`${API_MODULES.CHATS}/workspaces`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: workspaceIdOrName })
-        });
-        if (res.ok) {
-            const data = await res.json();
-            targetWorkspaceId = data.id;
-            await loadChats(); // Refresh full state
-        } else {
-            console.error("Failed to create workspace during move.");
-            return;
-        }
-      } catch (e) {
-          console.error("Error creating workspace:", e);
-          return;
-      }
-    }
-
-    chat.workspace_id = targetWorkspaceId;
-
-    try {
-      await fetch(`${API_MODULES.CHATS}/${chatId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ workspace_id: targetWorkspaceId }),
-      });
-      // Always reload state after moving to ensure consistency
-      await loadChats();
-    } catch (err) {
-      console.error("Error updating workspace", err);
-    }
-  }
 
   function createChatItemElement(chat) {
     const item = document.createElement("a");
     item.href = `/chat/${chat.id}`;
     item.className = `chat-list-item ${chat.id === currentChatId ? "active" : ""}`;
 
-    // Switch to window width detection for mobile mode
-    const isMobileMode = window.innerWidth <= 768;
+    // Switch to unified detection for mobile/touch mode
+    const isMobileMode = typeof isMobileOrTouchDevice === "function" ? isMobileOrTouchDevice() : window.innerWidth <= 1024;
 
     if (!isMobileMode) {
       item.draggable = true;
@@ -2062,207 +1316,9 @@ function saveChatArtifactFolders() {
     return item;
   }
 
-  /**
-   * Closes the context menu and removes it from the screen.
-   */
-  async function showContextMenu(type, id, extraData, e, workspaceId = null) {
-    const modalId = "universal-context-modal";
-    let modal = document.getElementById(modalId);
-    if (!modal) {
-      modal = document.createElement("div");
-      modal.id = modalId;
-      modal.className = "modal-backdrop";
-      modal.style.display = "flex";
-      modal.style.alignItems = "center";
-      modal.style.justifyContent = "center";
-      document.body.appendChild(modal);
-      setScrollLock(true);
-      modal.addEventListener('touchmove', (e) => {
-        if (!e.target.closest('.modal-content')) e.preventDefault();
-      }, { passive: false });
-    }
+  // Legacy showContextMenu is now modularized and handled globally by window.ContextMenu in static/js/context-menu.js
 
-    // --- Build Context Menu HTML based on type ---
-    if (type === "chat") {
-      modal.innerHTML = `
-                <div class="modal-content hardware-surface" style="max-width: 320px; text-align: center;">
-                    <h3 class="text-h2" style="margin-bottom: 24px; font-size: 1.25rem;">Chat Actions</h3>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <button id="ctx-rename-btn" class="btn-secondary" style="width: 100%; justify-content: center; padding: 12px;">Rename Chat</button>
-                        <button id="ctx-move-btn" class="btn-secondary" style="width: 100%; justify-content: center; padding: 12px;">Move to Workspace</button>
-                        <button id="ctx-delete-btn" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px; background: var(--color-rose-500); border-color: var(--color-rose-500);">Delete Chat</button>
-                    </div>
-                    <button id="ctx-cancel-btn" class="btn-ghost" style="margin-top: 16px; width: 100%; justify-content: center;">Cancel</button>
-                </div>
-            `;
-    } else if (type === "workspace") {
-      modal.innerHTML = `
-                <div class="modal-content hardware-surface" style="max-width: 320px; text-align: center;">
-                    <h3 class="text-h2" style="margin-bottom: 24px; font-size: 1.25rem;">Workspace Actions</h3>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <button id="ctx-new-chat-btn" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px;">New Chat in Workspace</button>
-                        <button id="ctx-rename-workspace-btn" class="btn-secondary" style="width: 100%; justify-content: center; padding: 12px;">Rename Workspace</button>
-                        <button id="ctx-delete-btn" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px; background: var(--color-rose-500); border-color: var(--color-rose-500);">Delete Workspace</button>
-                    </div>
-                    <button id="ctx-cancel-btn" class="btn-ghost" style="margin-top: 16px; width: 100%; justify-content: center;">Cancel</button>
-                </div>
-            `;
-    } else if (type === "file_system") {
-      modal.innerHTML = `
-                <div class="modal-content hardware-surface" style="max-width: 320px; text-align: center;">
-                    <h3 class="text-h2" style="margin-bottom: 24px; font-size: 1.25rem;">File Actions</h3>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <button id="ctx-move-btn" class="btn-secondary" style="width: 100%; justify-content: center; padding: 12px;">Move/Rename File</button>
-                        <button id="ctx-delete-btn" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px; background: var(--color-rose-500); border-color: var(--color-rose-500);">Delete File</button>
-                    </div>
-                    <button id="ctx-cancel-btn" class="btn-ghost" style="margin-top: 16px; width: 100%; justify-content: center;">Cancel</button>
-                </div>
-            `;
-    } else if (type === "file-system-folder") {
-      modal.innerHTML = `
-                <div class="modal-content hardware-surface" style="max-width: 320px; text-align: center;">
-                    <h3 class="text-h2" style="margin-bottom: 24px; font-size: 1.25rem;">Folder Actions</h3>
-                    <div style="display: flex; flex-direction: column; gap: 12px;">
-                        <button id="ctx-delete-btn" class="btn-primary" style="width: 100%; justify-content: center; padding: 12px; background: var(--color-rose-500); border-color: var(--color-rose-500);">Delete Folder</button>
-                    </div>
-                    <button id="ctx-cancel-btn" class="btn-ghost" style="margin-top: 16px; width: 100%; justify-content: center;">Cancel</button>
-                </div>
-            `;
-    }
 
-    const closeModal = () => {
-      modal.classList.remove("open");
-      setTimeout(() => {
-        modal.style.display = "none";
-        setScrollLock(false);
-      }, 300);
-    };
-
-    const deleteBtn = document.getElementById("ctx-delete-btn");
-    const cancelBtn = document.getElementById("ctx-cancel-btn");
-    if (cancelBtn) cancelBtn.onclick = closeModal;
-
-    // Action Handlers
-    if (type === "chat") {
-      const renameBtn = document.getElementById("ctx-rename-btn");
-      const moveBtn = document.getElementById("ctx-move-btn");
-      if (renameBtn)
-        renameBtn.onclick = () => {
-          closeModal();
-          renameChat(id, e);
-        };
-      if (moveBtn) {
-        moveBtn.onclick = async () => {
-          closeModal();
-          const workspaceName = await showPromptModal(
-            "Move to Workspace",
-            "Select a workspace or create a new one:",
-            extraData || "",
-            chatWorkspaces,
-          );
-          if (workspaceName !== null) {
-            const finalWorkspace =
-              workspaceName.trim() === "" ? null : workspaceName.trim();
-            await moveChatToWorkspace(id, finalWorkspace);
-          }
-        };
-      }
-      if (deleteBtn)
-        deleteBtn.onclick = () => {
-          closeModal();
-          deleteChat(id, e);
-        };
-    } else if (type === "file_system") {
-      const moveBtn = document.getElementById("ctx-move-btn");
-      if (moveBtn) {
-        moveBtn.onclick = async () => {
-          closeModal();
-          const newPath = await showFileExplorerModal("move", extraData);
-          if (newPath !== null) {
-            const finalPath = newPath.trim();
-            if (finalPath !== "" && finalPath !== extraData) {
-               await renameOrMoveFileSystemPath(id, finalPath, workspaceId);
-            }
-          }
-        };
-      }
-      if (deleteBtn)
-        deleteBtn.onclick = () => {
-          closeModal();
-          deleteFileSystem(id, workspaceId);
-        };
-    } else if (type === "file-system-folder") {
-      if (deleteBtn) {
-        deleteBtn.onclick = () => {
-          closeModal();
-          deleteFileSystemFolder(id);
-        };
-      }
-    } else if (type === "workspace") {
-      const newChatBtn = document.getElementById("ctx-new-chat-btn");
-      const renameWorkspaceBtn = document.getElementById("ctx-rename-workspace-btn");
-      if (newChatBtn) {
-        newChatBtn.onclick = async () => {
-          closeModal();
-          startNewChat(false, true, id);
-          
-          try {
-            const res = await fetch(`${API_MODULES.CHATS}/save`, {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                chat_id: currentChatId,
-                title: "New Chat",
-                workspace_id: id,
-                user_preferences: isUserPreferences,
-                research_mode: isResearchMode,
-                ...samplingParams,
-              }),
-            });
-            
-            if (res.ok) {
-              await loadChats();
-              renderChatList();
-            } else {
-              const errorText = await res.text();
-              console.error("Failed to immediately persist new chat in workspace:", errorText);
-            }
-          } catch (e) {
-            console.error("Error during immediate chat persistence:", e);
-          }
-        };
-      }
-      if (renameWorkspaceBtn) {
-        renameWorkspaceBtn.onclick = () => {
-          closeModal();
-          renameWorkspace(id, e);
-        };
-      }
-      if (deleteBtn) {
-        deleteBtn.onclick = () => {
-          closeModal();
-          deleteWorkspace(id, e);
-        };
-      }
-    }
-
-    modal.onclick = (eEvent) => {
-      if (eEvent.target === modal) closeModal();
-    };
-
-    modal.style.display = "flex";
-    requestAnimationFrame(() => {
-      modal.classList.add("open");
-    });
-  }
-
-  /**
-   * User Preferences Toggle Switch Listener
-   * Handles the inclusion of user profile and preferences in the LLM context.
-   */
-  const preferencesSwitchContainer = document.getElementById(
-    "preferences-toggle-switch",
-  )?.parentElement?.parentElement;
   if (preferencesToggleSwitch) {
     preferencesToggleSwitch.classList.toggle("active", isUserPreferences);
     preferencesToggleSwitch.addEventListener("click", () => {
@@ -2281,172 +1337,7 @@ function saveChatArtifactFolders() {
   /**
    * Shows a custom Luminous-styled prompt dialog
    */
-  /**
-   * Shows an interactive file explorer modal for selecting a path.
-   * @param {string} mode - 'file' (selecting file path), 'folder' (selecting directory), 'move' (renaming/moving)
-   * @param {string} initialPath - Starting path
-   * @returns {Promise<string|null>} Resolves with final full relative path or null if cancelled.
-   */
-  async function showFileExplorerModal(mode = "file", initialPath = "") {
-    return new Promise((resolve) => {
-      const modal = document.getElementById("file-explorer-modal");
-      const titleEl = document.getElementById("file-explorer-title");
-      const breadcrumbsEl = document.getElementById("file-explorer-breadcrumbs");
-      const listEl = document.getElementById("file-explorer-list");
-      const inputContainer = document.getElementById("file-explorer-input-container");
-      const inputEl = document.getElementById("file-explorer-input");
-      const extEl = document.getElementById("file-explorer-ext");
-      const newFolderBtn = document.getElementById("file-explorer-new-folder-btn");
-      const cancelBtn = document.getElementById("file-explorer-cancel-btn");
-      const confirmBtn = document.getElementById("file-explorer-action-btn");
 
-      if (!modal || !listEl) return resolve(null);
-
-      let currentPath = initialPath.includes(".") ? initialPath.split("/").slice(0, -1).join("/") : initialPath;
-      currentPath = sanitizePath(currentPath);
-
-      if (mode === "file") {
-        titleEl.textContent = "Create New File";
-        inputContainer.style.display = "flex";
-        extEl.style.display = "block";
-        newFolderBtn.style.display = "flex";
-        inputEl.value = "";
-      } else if (mode === "folder") {
-        titleEl.textContent = "Create Folder";
-        inputContainer.style.display = "flex";
-        extEl.style.display = "none";
-        newFolderBtn.style.display = "none";
-        inputEl.value = "";
-      } else {
-        titleEl.textContent = "Move / Rename";
-        inputContainer.style.display = "flex";
-        extEl.style.display = "none"; // Paths for move are full
-        newFolderBtn.style.display = "flex";
-        // Pre-populate with current basename
-        inputEl.value = initialPath.split("/").pop();
-      }
-
-      const renderExplorer = () => {
-        // Render Breadcrumbs
-        breadcrumbsEl.innerHTML = "";
-        const rootCrumb = document.createElement("span");
-        rootCrumb.className = "breadcrumb-item";
-        rootCrumb.textContent = "Root";
-        rootCrumb.onclick = () => { currentPath = ""; renderExplorer(); };
-        breadcrumbsEl.appendChild(rootCrumb);
-
-        if (currentPath) {
-          const parts = currentPath.split("/");
-          let built = "";
-          parts.forEach((p, i) => {
-            const sep = document.createElement("span");
-            sep.className = "breadcrumb-separator";
-            sep.textContent = "/";
-            breadcrumbsEl.appendChild(sep);
-
-            built += (built ? "/" : "") + p;
-            const crumb = document.createElement("span");
-            crumb.className = "breadcrumb-item";
-            crumb.textContent = p;
-            const target = built;
-            crumb.onclick = () => { currentPath = target; renderExplorer(); };
-            breadcrumbsEl.appendChild(crumb);
-          });
-        }
-
-        // Render Folder List
-        listEl.innerHTML = "";
-        const prefix = currentPath ? currentPath + "/" : "";
-        
-        // Find folders in current path from _allFileSystems
-        const subfolders = new Set();
-        _allFileSystems.forEach(c => {
-          const path = c.filename || c.title;
-          if (path.startsWith(prefix)) {
-            const remainder = path.substring(prefix.length);
-            const parts = remainder.split("/");
-            if (parts.length > 1) {
-              subfolders.add(parts[0]);
-            } else if (c.type === "directory") {
-              subfolders.add(parts[0]);
-            }
-          }
-        });
-
-        const sorted = Array.from(subfolders).sort();
-        if (sorted.length === 0) {
-          listEl.innerHTML = `<div style="padding: 2rem; text-align: center; color: var(--content-ghost); font-size: 0.85rem;">No subfolders found</div>`;
-        } else {
-          sorted.forEach(folder => {
-            const item = document.createElement("div");
-            item.className = "explorer-item";
-            item.innerHTML = `
-              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--accent)" stroke-width="2.5"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
-              <span>${escapeHtml(folder)}</span>
-            `;
-            item.onclick = () => {
-              currentPath = prefix + folder;
-              renderExplorer();
-            };
-            listEl.appendChild(item);
-          });
-        }
-      };
-
-      const cleanup = () => {
-        modal.classList.remove("open");
-        setTimeout(() => { modal.style.display = "none"; setScrollLock(false); }, 300);
-        confirmBtn.onclick = null;
-        cancelBtn.onclick = null;
-        newFolderBtn.onclick = null;
-      };
-
-      newFolderBtn.onclick = async () => {
-        const name = await showPromptModal("New Folder", `Create in ${currentPath || 'Root'}:`);
-        if (name && name.trim()) {
-          const fullPath = (currentPath ? currentPath + "/" : "") + name.trim();
-          const res = await fetch(`${API_MODULES.FILE_SYSTEMS}/directory`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ chat_id: currentChatId, path: fullPath }),
-          });
-          const data = await res.json();
-          if (data.success) {
-            await fetchFileSystems(currentChatId);
-            renderExplorer();
-          } else {
-            await showAlert("Error", data.error || "Failed to create folder");
-          }
-        }
-      };
-
-      confirmBtn.onclick = () => {
-        const inputVal = inputEl.value.trim();
-        if ((mode === "file" || mode === "folder" || mode === "move") && !inputVal) {
-          showAlert("Missing Name", "Please enter a name.");
-          return;
-        }
-
-        let finalPath = (currentPath ? currentPath + "/" : "") + inputVal;
-        if (mode === "file") {
-          finalPath += extEl.value;
-        }
-        
-        cleanup();
-        resolve(finalPath);
-      };
-
-      cancelBtn.onclick = () => {
-        cleanup();
-        resolve(null);
-      };
-
-      modal.style.display = "flex";
-      setScrollLock(true);
-      renderExplorer();
-      requestAnimationFrame(() => modal.classList.add("open"));
-    });
-  }
 
   /**
    * Shows a custom Luminous-styled prompt dialog with folder selection support.
@@ -2492,7 +1383,6 @@ function saveChatArtifactFolders() {
    * and updates greeting text.
    */
   function updateResearchUI() {
-    const isChatStarted = chatHistory.length > 0;
     document.body.classList.toggle("research-agent-active", isResearchMode);
 
     // 1. Research Agent Toggle logic
@@ -2564,6 +1454,7 @@ function saveChatArtifactFolders() {
     const visionToggle = document.getElementById("vision-toggle");
     const visionStatus = document.getElementById("research-vision-status");
     if (visionToggle && visionStatus) {
+      const isVisionEnabled = window.ModelManager.getIsVisionEnabled();
       visionToggle.classList.toggle("active", isVisionEnabled);
       visionStatus.textContent = isVisionEnabled ? "Enabled" : "Disabled";
       visionStatus.style.color = isVisionEnabled
@@ -2684,9 +1575,9 @@ function saveChatArtifactFolders() {
         localStorage.setItem("my_ai_is_research_mode", isResearchMode);
 
         updateResearchUI();
-        checkSendButtonCompatibility();
+        window.ModelManager.checkSendButtonCompatibility();
         // If research is turning ON, force load the specialized models
-        fetchModels(isResearchMode);
+        window.ModelManager.fetchModels(isResearchMode);
 
         // Sync to backend mid-chat
         if (chatHistory.length > 0) {
@@ -2702,14 +1593,11 @@ function saveChatArtifactFolders() {
     if (visionToggleRef) {
       visionToggleRef.addEventListener("click", (e) => {
         e.stopPropagation();
-        isVisionEnabled = !isVisionEnabled;
-        localStorage.setItem(
-          "my_ai_vision_enabled",
-          isVisionEnabled ? "true" : "false",
-        );
+        const newVal = !window.ModelManager.getIsVisionEnabled();
+        window.ModelManager.setIsVisionEnabled(newVal);
         updateResearchUI();
         if (chatHistory.length > 0) {
-          patchChat({ is_vision: isVisionEnabled });
+          patchChat({ is_vision: newVal });
         }
       });
     }
@@ -2764,31 +1652,7 @@ function saveChatArtifactFolders() {
 
   if (newChatBtn)
     newChatBtn.addEventListener("click", () => startNewChat(false));
-  if (newFolderBtn) {
-    newFolderBtn.addEventListener("click", async () => {
-      const workspaceName = await showPromptModal(
-        "Create Workspace",
-        "Enter a name for the new workspace:",
-      );
-      if (workspaceName && workspaceName.trim() !== "") {
-        const name = workspaceName.trim();
-        try {
-          const res = await fetch(`${API_MODULES.CHATS}/workspaces`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ name: name })
-          });
-          if (res.ok) {
-            await loadChats();
-          } else {
-            showModal("Notice", "Failed to create workspace.", { type: "alert" });
-          }
-        } catch (e) {
-          console.error("Error creating workspace:", e);
-        }
-      }
-    });
-  }
+
   if (tempChatBtn)
     tempChatBtn.addEventListener("click", () => {
       if (isTemporaryChat) {
@@ -2818,7 +1682,7 @@ function saveChatArtifactFolders() {
               messages: chatHistory,
               user_preferences: isUserPreferences,
               research_mode: isResearchMode,
-              persona_id: selectedPersonaId,
+              persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
               ...samplingParams,
             }),
           }).then(() => {
@@ -2829,181 +1693,6 @@ function saveChatArtifactFolders() {
         updateResearchUI();
       }
     });
-
-  async function fetchModels(forceLoad = false) {
-    if (modelSelectDropdown) {
-      modelSelectDropdown.innerHTML =
-        '<option value="" disabled selected>Loading config...</option>';
-    }
-
-    try {
-      const response = await fetch(`${API_MODULES.MODELS}/config`);
-      if (!response.ok) throw new Error("Failed to fetch model config");
-      const config = await response.json();
-
-      const getModelDisplayName = (key, value) => {
-        let base = key.charAt(0).toUpperCase() + key.slice(1);
-        if (key === "main") base = "Research Main";
-        if (key === "text") base = "General Text";
-        if (key === "vision") base = "General Vision";
-        if (key === "vision2") base = "General Vision (High)";
-        if (key === "coder") base = "General Coder";
-
-        const modelName = value.split("/").pop() || value;
-        return `${base} (${modelName})`;
-      };
-
-      const allModelsMap = new Map();
-
-      // Populate internal model registry from categorized config
-      Object.entries(config.research).forEach(([key, value]) => {
-        if (typeof value === "string") {
-          allModelsMap.set(value, {
-            key: value,
-            display_name: getModelDisplayName(key, value),
-            capabilities: { vision: key.toLowerCase().includes("vision") },
-            category: "research",
-          });
-        }
-      });
-      Object.entries(config.general).forEach(([key, value]) => {
-        if (typeof value === "string") {
-          allModelsMap.set(value, {
-            key: value,
-            display_name: getModelDisplayName(key, value),
-            capabilities: { vision: key.toLowerCase().includes("vision") },
-            category: "general",
-          });
-        }
-      });
-      availableModels = Array.from(allModelsMap.values());
-
-      window.modelConfig = config; // Global exposure for other components
-
-      renderModelOptions();
-
-      // --- Auto-selection Logic ---
-      if (
-        !selectedModel ||
-        !availableModels.some((m) => m.key === selectedModel)
-      ) {
-        // Default pick based on current app mode
-        const defaultModel = isResearchMode
-          ? config.research.main
-          : config.general.text;
-        const modelDef = availableModels.find((m) => m.key === defaultModel);
-        if (modelDef) {
-          selectModel(modelDef.key, modelDef.display_name, forceLoad);
-        }
-      } else if (selectedModel) {
-        // No-op
-      }
-    } catch (err) {
-      console.error("Model config fetch error:", err);
-      if (modelSelectDropdown)
-        modelSelectDropdown.innerHTML =
-          '<option value="" disabled selected>Error fetching config</option>';
-    }
-  }
-
-  /**
-   * Updates the model selection dropdowns in the settings UI.
-   * Groups models by capability (Vision vs Text).
-   */
-  function renderModelOptions() {
-    if (!modelSelectDropdown) return;
-
-    const currentSelected = selectedModel;
-
-    if (modelSelectDropdown) {
-      modelSelectDropdown.disabled = false;
-      modelSelectDropdown.title = "Select main model";
-    }
-
-    modelSelectDropdown.innerHTML = "";
-    if (!Array.isArray(availableModels) || availableModels.length === 0) {
-      const opt = document.createElement("option");
-      opt.value = "";
-      opt.disabled = true;
-      opt.selected = true;
-      opt.textContent = "No models available";
-      modelSelectDropdown.appendChild(opt);
-    } else {
-      // Flatten model list, removing vision/text grouping as per legacy logic removal
-      availableModels.forEach((model) => {
-        const opt = document.createElement("option");
-        opt.value = model.key;
-        opt.textContent = model.display_name || model.key.split("/").pop();
-        if (model.key === currentSelected) opt.selected = true;
-        modelSelectDropdown.appendChild(opt);
-      });
-
-      if (
-        currentSelected &&
-        availableModels.some((m) => m.key === currentSelected)
-      )
-        modelSelectDropdown.value = currentSelected;
-    }
-  }
-
-  /**
-   * Polls the backend for active model status and updates the UI dropdown
-   * labels with (Active/Inactive/Loading) indicators.
-   */
-  async function updateModelStatusUI() {
-    try {
-      const res = await fetch(`${API_MODULES.MODELS}/?t=${Date.now()}`, {
-        headers: { "Cache-Control": "no-cache" },
-      });
-      if (!res.ok) return;
-      const data = await res.json();
-
-      const modelStatuses = {};
-      if (Array.isArray(data.data)) {
-        data.data.forEach((m) => {
-          modelStatuses[m.id] = m.status?.value || "unloaded";
-        });
-      }
-
-      const getStatusText = (status) => {
-        if (status === "loaded") return "Active";
-        if (status === "loading") return "Loading...";
-        return "Inactive";
-      };
-
-      if (modelSelectDropdown) {
-        Array.from(modelSelectDropdown.options).forEach((opt) => {
-          if (opt.value && !opt.disabled) {
-            const status = modelStatuses[opt.value] || "unloaded";
-            const statusLabel = getStatusText(status);
-            let baseText = opt.textContent.replace(
-              /\s\((Active|Inactive|Loading\.\.\.)\)$/,
-              "",
-            );
-            opt.textContent = `${baseText} (${statusLabel})`;
-          }
-        });
-      }
-    } catch (e) {
-      console.error("Failed to update model statuses:", e);
-    }
-  }
-
-  function checkSendButtonCompatibility() {
-    if (!sendBtn || !sendBtnWrapper) return;
-
-    // NEW: This logic ONLY applies to regular chats, not Research
-    if (isResearchMode) {
-      sendBtn.disabled = false;
-      sendBtn.title = "";
-      sendBtnWrapper.title = "";
-      return;
-    }
-
-    sendBtn.classList.remove("incompatible-model");
-    sendBtn.title = "";
-    sendBtnWrapper.title = "";
-  }
 
   function checkSendButtonState() {
     if (!sendBtn || !filePreviewContainer) return;
@@ -3036,204 +1725,6 @@ function saveChatArtifactFolders() {
       sendBtn.title = "";
       sendBtnWrapper.title = "";
     }
-  }
-
-  // Add dropdown event listeners
-  if (modelSelectDropdown) {
-    modelSelectDropdown.addEventListener("change", (e) => {
-      const modelId = e.target.value;
-      const model = availableModels.find((m) => m.key === modelId);
-      if (model) {
-        const shortName = model.display_name || modelId.split("/").pop();
-        selectModel(modelId, shortName);
-      }
-    });
-  }
-
-  /**
-   * Sends unload requests to the backend for all currently loaded models,
-   * except for specified exclusions (usually to keep embeddings or the new target loaded).
-   */
-  async function unloadAllModels(excludeIds = []) {
-    try {
-      const exclusions = Array.isArray(excludeIds) ? excludeIds : [excludeIds];
-      if (
-        window.modelConfig?.embedding &&
-        !exclusions.includes(window.modelConfig.embedding)
-      ) {
-        exclusions.push(window.modelConfig.embedding);
-      }
-
-      const response = await fetch(`${API_MODULES.MODELS}/`);
-      if (!response.ok) return;
-      const data = await response.json();
-      const modelsArray = data.data || [];
-
-      const activeModels = modelsArray.filter((m) => {
-        const isBusy =
-          m.status &&
-          (m.status.value === "loaded" || m.status.value === "loading");
-        return isBusy && !exclusions.includes(m.id);
-      });
-
-      for (const model of activeModels) {
-        console.log(`Unloading LLM Instance: ${model.id}`);
-        await fetch(`${API_MODULES.MODELS}/unload`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ model: model.id }),
-        }).catch((err) =>
-          console.error(`Failed to unload instance ${model.id}:`, err),
-        );
-      }
-    } catch (err) {
-      console.error("Error during model unloading:", err);
-    }
-  }
-
-  /**
-   * Requests the backend to load a specific model file into VRAM.
-   * Blocks (via polling) until the backend reports a 'loaded' status.
-   * @returns {Promise<boolean>} Resolves when the model is ready or failed.
-   */
-  async function loadModel(modelKey) {
-    try {
-      console.log(`Loading model: ${modelKey}`);
-      const overlayText = document.getElementById("model-switch-text");
-      if (overlayText) overlayText.textContent = "Loading Model to VRAM...";
-
-      const response = await fetch(`${API_MODULES.MODELS}/load`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ model: modelKey }),
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        await showAlert(
-          "Model Load Failed",
-          `Failed to load model. Output: ${errorText}`,
-        );
-        return false;
-      }
-
-      // Polling loop to wait for VRAM residency
-      while (true) {
-        await new Promise((r) => setTimeout(r, 1500));
-        let pollResp = await fetch(`${API_MODULES.MODELS}/`);
-        if (pollResp.ok) {
-          let pollData = await pollResp.json();
-          let targetModel = (pollData.data || []).find(
-            (m) => m.id === modelKey,
-          );
-          if (targetModel?.status?.value === "loaded") {
-            console.log(`Model ${modelKey} is now fully loaded in VRAM.`);
-            return true;
-          }
-        }
-      }
-    } catch (err) {
-      console.error("Error loading model:", err);
-      await showAlert("Error", `Error loading model: ${err.message}`);
-      return false;
-    }
-  }
-
-  /**
-   * Handles the complete flow of switching the active LLM.
-   * Includes confirmation, unloading, loading overlay, and VRAM residency check.
-   */
-  async function selectModel(id, name, isManual = true) {
-    if (isManual) {
-      const confirmed = await showConfirm(
-        "Switch Model",
-        `Switch to ${name}? This will unload the current model and load the new one into memory, which may take a few moments.`,
-      );
-      if (!confirmed) {
-        if (modelSelectDropdown)
-          modelSelectDropdown.value = selectedModel || "";
-        renderModelOptions();
-        return;
-      }
-
-      // Check if already residency in VRAM to skip reload
-      let isLoadedInLlama = false;
-      try {
-        const response = await fetch(`${API_MODULES.MODELS}/`);
-        if (response.ok) {
-          const data = await response.json();
-          const found = (data.data || []).find((m) => m.id === id);
-          if (found?.status?.value === "loaded") isLoadedInLlama = true;
-        }
-      } catch (err) {
-        console.warn("VRAM status check failed", err);
-      }
-
-      if (isLoadedInLlama) {
-        selectedModel = id;
-        selectedModelName = name;
-        localStorage.setItem("my_ai_selected_model", id);
-        localStorage.setItem("my_ai_selected_model_name", name);
-        if (modelSelectDropdown) modelSelectDropdown.value = id;
-        if (settingsModal) {
-          settingsModal.classList.remove("open");
-          setTimeout(() => (settingsModal.style.display = "none"), 300);
-        }
-        renderModelOptions();
-        return;
-      }
-
-      // --- Reload Triggered ---
-      const overlay = document.getElementById("model-switch-overlay");
-      const overlayText = document.getElementById("model-switch-text");
-      if (overlay) {
-        overlay.style.display = "flex";
-        requestAnimationFrame(() => overlay.classList.add("open"));
-        if (overlayText)
-          overlayText.textContent = "Unloading previous models...";
-      }
-
-      await unloadAllModels([id]);
-      const success = await loadModel(id);
-
-      if (overlay) {
-        overlay.classList.remove("open");
-        setTimeout(() => (overlay.style.display = "none"), 300);
-      }
-      if (!success) {
-        if (modelSelectDropdown)
-          modelSelectDropdown.value = selectedModel || "";
-        renderModelOptions();
-        return;
-      }
-    }
-
-    // Finalize selection state
-    selectedModel = id;
-    selectedModelName = name;
-    localStorage.setItem("my_ai_selected_model", id);
-    localStorage.setItem("my_ai_selected_model_name", name);
-
-    if (modelSelectDropdown) modelSelectDropdown.value = id;
-    checkSendButtonCompatibility();
-
-    // Update chat metadata with the new model used
-    if (currentChatData && !isResearchMode) {
-      currentChatData.last_model = name;
-      if (currentChatId) {
-        fetch(`${API_MODULES.CHATS}/${currentChatId}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ last_model: name }),
-        }).catch((e) => console.error("Error updating last model:", e));
-      }
-    }
-
-    if (settingsModal) {
-      settingsModal.classList.remove("open");
-      setTimeout(() => (settingsModal.style.display = "none"), 300);
-    }
-    renderModelOptions();
   }
 
   // Final Safety Check for Empty State
@@ -3364,673 +1855,25 @@ function saveChatArtifactFolders() {
     );
   });
 
-  // 4. Configuration Event Listeners
-  [maxTokensSlider, thinkingBudgetSlider].forEach((slider) => {
-    slider?.addEventListener("change", saveSamplingParams);
+  // System Settings Logic delegated to SettingsManager
+  const closeSystemSettings = () => window.SettingsManager.closeSystemSettings();
+
+
+
+  /* ═══════════════════════════════════════════
+       SUB-AGENT CONFIGURATION INITIALIZATION
+       ═══════════════════════════════════════════ */
+  window.AgentConfig.init({
+    showAlert: showAlert
   });
 
-  maxTokensSlider.addEventListener("input", (e) => {
-    samplingParams.max_tokens = parseInt(e.target.value);
-    maxTokensVal.textContent = samplingParams.max_tokens;
+  /* ═══════════════════════════════════════════
+       USER PREFERENCES INITIALIZATION
+       ═══════════════════════════════════════════ */
+  window.PreferencesManager.init({
+    getCurrentChatId: () => currentChatId,
+    closeSystemSettings: closeSystemSettings
   });
-
-  if (thinkingBudgetSlider) {
-    thinkingBudgetSlider.addEventListener("input", (e) => {
-      samplingParams.thinking_budget_tokens = parseInt(e.target.value);
-      if (thinkingBudgetVal)
-        thinkingBudgetVal.textContent = samplingParams.thinking_budget_tokens;
-    });
-  }
-
-  if (thinkingProfileSelector) {
-    thinkingProfileSelector.addEventListener("click", (e) => {
-      const btn = e.target.closest(".profile-btn");
-      if (btn) {
-        applyThinkingProfile(btn.dataset.profile);
-      }
-    });
-  }
-
-  // System Settings Logic
-  const openSystemSettings = () => {
-    if (systemSettingsModal) {
-      // Sync New Chat Defaults UI
-      if (defaultThinkingProfileSelector) {
-        const btns =
-          defaultThinkingProfileSelector.querySelectorAll(".profile-btn");
-        btns.forEach((btn) => {
-          btn.classList.toggle(
-            "active",
-            btn.dataset.profile === chatDefaults.thinkingProfile,
-          );
-        });
-      }
-      if (defaultPreferencesToggle) {
-        defaultPreferencesToggle.classList.toggle(
-          "active",
-          chatDefaults.userPreferences,
-        );
-      }
-      if (defaultMaxTokensSlider) {
-        defaultMaxTokensSlider.value = chatDefaults.maxTokens;
-      }
-      if (defaultMaxTokensVal) {
-        defaultMaxTokensVal.textContent = chatDefaults.maxTokens.toString();
-      }
-
-      if (defaultThinkingBudgetSlider) {
-        defaultThinkingBudgetSlider.value =
-          chatDefaults.thinkingBudgetTokens || 2000;
-      }
-      if (defaultThinkingBudgetVal) {
-        defaultThinkingBudgetVal.textContent = (
-          chatDefaults.thinkingBudgetTokens || 2000
-        ).toString();
-      }
-
-      systemSettingsModal.style.display = "flex";
-      setTimeout(() => systemSettingsModal.classList.add("open"), 10);
-      setScrollLock(true);
-    }
-  };
-
-  const closeSystemSettings = () => {
-    if (systemSettingsModal) {
-      systemSettingsModal.classList.remove("open");
-      setTimeout(() => {
-        systemSettingsModal.style.display = "none";
-        setScrollLock(false);
-      }, 300);
-    }
-  };
-
-  if (systemSettingsTrigger)
-    systemSettingsTrigger.addEventListener("click", (e) => {
-      e.preventDefault();
-      openSystemSettings();
-    });
-
-  if (closeSystemSettingsBtn)
-    closeSystemSettingsBtn.addEventListener("click", closeSystemSettings);
-
-  // Test Model Speed Logic
-  if (sysTestModelSpeedBtn) {
-    sysTestModelSpeedBtn.addEventListener("click", async () => {
-      // Close system settings
-      closeSystemSettings();
-
-      // Open test model speed modal
-      if (testModelSpeedModal) {
-        testModelSpeedModal.style.display = "flex";
-        setTimeout(() => testModelSpeedModal.classList.add("open"), 10);
-      }
-
-      // Fetch models for dropdown
-      if (testSpeedModelSelect) {
-        try {
-          const response = await fetch("/api/models/config");
-          if (response.ok) {
-            const data = await response.json();
-            testSpeedModelSelect.innerHTML = "";
-
-            const llmModels = new Set();
-            if (data.research) {
-              Object.values(data.research).forEach((m) => llmModels.add(m));
-            }
-            if (data.general) {
-              Object.values(data.general).forEach((m) => llmModels.add(m));
-            }
-
-            if (llmModels.size > 0) {
-              Array.from(llmModels).forEach((model) => {
-                const option = document.createElement("option");
-                option.value = model;
-                option.textContent = model;
-                testSpeedModelSelect.appendChild(option);
-              });
-            } else {
-              testSpeedModelSelect.innerHTML =
-                '<option value="" disabled selected>No models found.</option>';
-            }
-          }
-        } catch (e) {
-          console.error("Failed to fetch models for speed test:", e);
-          testSpeedModelSelect.innerHTML =
-            '<option value="" disabled selected>Failed to load models.</option>';
-        }
-      }
-    });
-  }
-
-  if (closeTestModelSpeedBtn) {
-    closeTestModelSpeedBtn.addEventListener("click", () => {
-      if (testModelSpeedModal) {
-        testModelSpeedModal.classList.remove("open");
-        setTimeout(() => (testModelSpeedModal.style.display = "none"), 300);
-      }
-    });
-  }
-
-  if (testSpeedContextSlider && testSpeedContextVal) {
-    testSpeedContextSlider.addEventListener("input", (e) => {
-      testSpeedContextVal.textContent = e.target.value;
-    });
-  }
-
-  if (closeTelemetryDashboardBtn) {
-    closeTelemetryDashboardBtn.addEventListener("click", () => {
-      if (telemetryDashboardModal) {
-        telemetryDashboardModal.classList.remove("open");
-        setTimeout(() => (telemetryDashboardModal.style.display = "none"), 300);
-      }
-    });
-  }
-
-  if (runTestModelSpeedBtn) {
-    runTestModelSpeedBtn.addEventListener("click", async () => {
-      const selectedModel = testSpeedModelSelect.value;
-      if (!selectedModel) {
-        showToast("Please select a model first.", "error");
-        return;
-      }
-
-      const targetContextThreshold = parseInt(testSpeedContextSlider.value);
-
-      // Transition UI
-      if (testModelSpeedModal) {
-        testModelSpeedModal.classList.remove("open");
-        setTimeout(() => (testModelSpeedModal.style.display = "none"), 300);
-      }
-      if (telemetryDashboardModal) {
-        telemetryDashboardModal.style.display = "flex";
-        setTimeout(() => telemetryDashboardModal.classList.add("open"), 10);
-      }
-
-      // Dashboard Reset
-      telemetryModelName.textContent = selectedModel;
-      testSpeedStatus.textContent =
-        "Unloading & Loading (may take a moment)...";
-      testSpeedStatus.style.color = "var(--color-blue-400)";
-      testSpeedTokensGen.textContent = "0";
-      testSpeedTtft.textContent = "-";
-      testSpeedPrefillTps.textContent = "-";
-      testSpeedCurrentTps.textContent = "-";
-
-      // Chart Setup
-      const ctx = telemetryChartFileSystem.getContext("2d");
-      const telemetryDataPoints = []; // Array of {tokens, tps}
-
-      function drawTelemetryChart() {
-        if (!ctx) return;
-
-        // Handle high-DPI displays
-        const rect = telemetryChartFileSystem.getBoundingClientRect();
-        telemetryChartFileSystem.width = rect.width * window.devicePixelRatio;
-        telemetryChartFileSystem.height = rect.height * window.devicePixelRatio;
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-
-        const width = rect.width;
-        const height = rect.height;
-        const paddingLeft = 45;
-        const paddingBottom = 35;
-        const paddingTop = 20;
-        const paddingRight = 20;
-        const plotWidth = width - paddingLeft - paddingRight;
-        const plotHeight = height - paddingTop - paddingBottom;
-
-        ctx.clearRect(0, 0, width, height);
-
-        if (telemetryDataPoints.length === 0) return;
-
-        // Determine max values for scaling
-        let minX = telemetryDataPoints[0].tokens;
-        let maxX = telemetryDataPoints[telemetryDataPoints.length - 1].tokens;
-        let rangeX = maxX - minX;
-        if (rangeX === 0) rangeX = 1; // Prevent division by zero
-
-        let maxY = Math.max(...telemetryDataPoints.map((p) => p.tps), 10); // Floor of 10 TPS
-        maxY = maxY * 1.2; // Add 20% headroom
-
-        // Draw Grid & Labels
-        ctx.lineWidth = 1;
-        ctx.font = "10px monospace";
-        ctx.fillStyle = "rgba(255, 255, 255, 0.5)";
-        ctx.textAlign = "right";
-        ctx.textBaseline = "middle";
-
-        // Horizontal lines (Y-axis)
-        ctx.beginPath();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-        for (let i = 0; i <= 4; i++) {
-          const y = paddingTop + plotHeight * (i / 4);
-          // Draw grid line
-          ctx.moveTo(paddingLeft, y);
-          ctx.lineTo(width - paddingRight, y);
-
-          // Draw label
-          const labelValue = (maxY - maxY * (i / 4)).toFixed(0);
-          ctx.fillText(labelValue, paddingLeft - 10, y);
-        }
-        ctx.stroke();
-
-        // Vertical lines (X-axis) - Dynamic 'Nice Ticks'
-        ctx.textAlign = "center";
-        ctx.textBaseline = "top";
-        ctx.beginPath();
-        ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
-
-        // Calculate a clean step size based on range
-        let tickStep;
-        if (rangeX <= 500) tickStep = 50;
-        else if (rangeX <= 2500) tickStep = 250;
-        else if (rangeX <= 10000) tickStep = 1000;
-        else if (rangeX <= 50000) tickStep = 5000;
-        else tickStep = 10000;
-
-        // Find the first clean multiple of tickStep that is >= minX
-        let currentTick = Math.ceil(minX / tickStep) * tickStep;
-
-        while (currentTick <= maxX) {
-          const x = paddingLeft + ((currentTick - minX) / rangeX) * plotWidth;
-
-          // Draw grid line
-          ctx.moveTo(x, paddingTop);
-          ctx.lineTo(x, height - paddingBottom);
-
-          // Draw label
-          let labelText;
-          if (tickStep >= 1000) {
-            labelText = (currentTick / 1000).toFixed(0) + "k";
-          } else {
-            // For small steps, use 1 decimal if needed, but drop .0
-            labelText = (currentTick / 1000).toFixed(1).replace(".0", "") + "k";
-          }
-
-          ctx.fillText(labelText, x, height - paddingBottom + 10);
-
-          currentTick += tickStep;
-        }
-        ctx.stroke();
-
-        // Create gradient for fill
-        const gradient = ctx.createLinearGradient(
-          0,
-          paddingTop,
-          0,
-          height - paddingBottom,
-        );
-        gradient.addColorStop(0, "rgba(16, 185, 129, 0.4)"); // Emerald
-        gradient.addColorStop(1, "rgba(16, 185, 129, 0.0)");
-
-        // Draw Filled Area
-        ctx.beginPath();
-        telemetryDataPoints.forEach((point, index) => {
-          const x = paddingLeft + ((point.tokens - minX) / rangeX) * plotWidth;
-          const y = height - paddingBottom - (point.tps / maxY) * plotHeight;
-          if (index === 0) {
-            ctx.moveTo(x, height - paddingBottom);
-            ctx.lineTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        });
-
-        if (telemetryDataPoints.length > 0) {
-          const lastPoint = telemetryDataPoints[telemetryDataPoints.length - 1];
-          const lastX =
-            paddingLeft + ((lastPoint.tokens - minX) / rangeX) * plotWidth;
-          const firstPoint = telemetryDataPoints[0];
-          const firstX =
-            paddingLeft + ((firstPoint.tokens - minX) / rangeX) * plotWidth;
-          ctx.lineTo(lastX, height - paddingBottom);
-          ctx.lineTo(firstX, height - paddingBottom);
-          ctx.fillStyle = gradient;
-          ctx.fill();
-        }
-
-        // Draw Waveform Line
-        ctx.beginPath();
-        ctx.strokeStyle = "var(--color-emerald)";
-        ctx.lineWidth = 3;
-        ctx.shadowBlur = 12;
-        ctx.shadowColor = "var(--color-emerald)";
-        ctx.lineCap = "round";
-        ctx.lineJoin = "round";
-
-        telemetryDataPoints.forEach((point, index) => {
-          const x = paddingLeft + ((point.tokens - minX) / rangeX) * plotWidth;
-          const y = height - paddingBottom - (point.tps / maxY) * plotHeight;
-
-          if (index === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-        });
-        ctx.stroke();
-
-        // Draw Data Points
-        ctx.shadowBlur = 0;
-        telemetryDataPoints.forEach((point) => {
-          const x = paddingLeft + ((point.tokens - minX) / rangeX) * plotWidth;
-          const y = height - paddingBottom - (point.tps / maxY) * plotHeight;
-          ctx.beginPath();
-          ctx.arc(x, y, 4, 0, Math.PI * 2);
-          ctx.fillStyle = "var(--color-neutral-900)";
-          ctx.fill();
-          ctx.lineWidth = 2;
-          ctx.strokeStyle = "var(--color-emerald)";
-          ctx.stroke();
-        });
-      }
-
-      // Initial empty draw
-      drawTelemetryChart();
-
-      try {
-        let requestStartTime = Date.now();
-        const response = await fetch("/api/models/test-speed", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            model: selectedModel,
-            target_context_threshold: targetContextThreshold,
-          }),
-        });
-
-        if (!response.ok) {
-          const err = await response.json();
-          throw new Error(err.error || "Server error");
-        }
-
-        testSpeedStatus.textContent = "Streaming Generation...";
-        testSpeedStatus.style.color = "var(--color-green-400)";
-
-        const reader = response.body.getReader();
-        const decoder = new TextDecoder("utf-8");
-        let ttftLogged = false;
-        let currentTurnTokens = 0;
-
-        let buffer = "";
-
-        // Aggregates
-        let totalTtftSum = 0;
-        let totalPrefillTpsSum = 0;
-        let totalDecodeTpsSum = 0;
-        let turnCount = 0;
-
-        // Temporary storage to sync timings and usage
-        let currentTurnDecodeTps = null;
-
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-
-          buffer += decoder.decode(value, { stream: true });
-          const lines = buffer.split("\n");
-          buffer = lines.pop(); // Keep the last incomplete line
-
-          for (let line of lines) {
-            line = line.trim();
-            if (line.startsWith("data: ") && line !== "data: [DONE]") {
-              try {
-                const data = JSON.parse(line.substring(6));
-
-                if (data.error) {
-                  throw new Error(data.error);
-                }
-
-                if (data.test_status) {
-                  testSpeedStatus.textContent = data.test_status;
-                  if (data.test_status.startsWith("Completed")) {
-                    testSpeedStatus.style.color = "var(--color-green-400)";
-                  } else {
-                    testSpeedStatus.style.color = "var(--color-blue-400)";
-                  }
-                  if (data.test_status.startsWith("Starting Turn")) {
-                    ttftLogged = false;
-                  }
-                }
-
-                if (
-                  data.choices &&
-                  data.choices.length > 0 &&
-                  data.choices[0].delta &&
-                  "content" in data.choices[0].delta
-                ) {
-                  if (!ttftLogged) {
-                    ttftLogged = true;
-                    testSpeedStatus.textContent = "Streaming Generation...";
-                    testSpeedStatus.style.color = "var(--color-green-400)";
-                  }
-                }
-
-                // Handle native timings block if available
-                if (data.timings) {
-                  turnCount++;
-                  const ttft = data.timings.prompt_ms;
-                  const prefillTps =
-                    data.timings.prompt_n / (data.timings.prompt_ms / 1000);
-                  currentTurnDecodeTps =
-                    data.timings.predicted_n /
-                    (data.timings.predicted_ms / 1000);
-
-                  totalTtftSum += ttft;
-                  totalPrefillTpsSum += prefillTps;
-                  totalDecodeTpsSum += currentTurnDecodeTps;
-
-                  const avgTtft = (totalTtftSum / turnCount).toFixed(0);
-                  const avgPrefill = (totalPrefillTpsSum / turnCount).toFixed(
-                    2,
-                  );
-                  const avgDecode = (totalDecodeTpsSum / turnCount).toFixed(2);
-
-                  testSpeedTtft.textContent = `${avgTtft}`;
-                  testSpeedPrefillTps.textContent = `${avgPrefill}`;
-                  testSpeedCurrentTps.textContent = `${avgDecode}`;
-
-                  const prompt_n = data.timings.prompt_n || 0;
-                  const predicted_n = data.timings.predicted_n || 0;
-                  // Fallback context size if usage block doesn't come
-                  if (
-                    prompt_n + predicted_n > 0 &&
-                    (!data.usage || !data.usage.total_tokens)
-                  ) {
-                    currentTurnTokens = prompt_n + predicted_n;
-                    testSpeedTokensGen.textContent =
-                      currentTurnTokens.toString();
-                  }
-                }
-
-                if (data.usage && data.usage.total_tokens) {
-                  currentTurnTokens = data.usage.total_tokens;
-                  testSpeedTokensGen.textContent = currentTurnTokens.toString();
-                }
-
-                // Sync Plotting
-                if (currentTurnTokens > 0 && currentTurnDecodeTps !== null) {
-                  telemetryDataPoints.push({
-                    tokens: currentTurnTokens,
-                    tps: currentTurnDecodeTps,
-                  });
-                  drawTelemetryChart();
-                  currentTurnDecodeTps = null; // Reset for next turn
-                }
-              } catch (e) {
-                // Ignore parse errors for incomplete chunks
-              }
-            }
-          }
-        }
-
-        if (testSpeedStatus.textContent === "Streaming Generation...") {
-          testSpeedStatus.textContent = "Completed";
-        }
-      } catch (err) {
-        testSpeedStatus.textContent = "Failed";
-        testSpeedStatus.style.color = "var(--color-rose-500)";
-        testSpeedCurrentTps.textContent = err.message;
-      }
-    });
-  }
-
-  // Theme Radios
-  themeRadios.forEach((radio) => {
-    radio.addEventListener("change", (e) => {
-      if (e.target.checked) {
-        themeMode = e.target.value;
-        localStorage.setItem("my_ai_theme_mode", themeMode);
-        applyTheme();
-      }
-    });
-  });
-
-  // Browser Stealth Radios
-  async function updateBrowserStealth(level) {
-    try {
-      const res = await fetch("/api/tools/config/browser", {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ stealth_level: level }),
-      });
-      if (!res.ok) throw new Error("Failed to update browser stealth config");
-      console.log(`Global browser stealth level updated to: ${level}`);
-    } catch (err) {
-      console.error("Error updating browser stealth:", err);
-    }
-  }
-
-  stealthRadios.forEach((radio) => {
-    radio.addEventListener("change", (e) => {
-      if (e.target.checked) {
-        updateBrowserStealth(e.target.value);
-      }
-    });
-  });
-
-  // Initialize Browser Stealth from server
-  async function initBrowserStealth() {
-    try {
-      const res = await fetch("/api/tools/config/browser");
-      if (res.ok) {
-        const data = await res.json();
-        stealthRadios.forEach((radio) => {
-          if (radio.value === data.stealth_level) radio.checked = true;
-        });
-      }
-    } catch (err) {
-      console.error("Error fetching browser stealth config:", err);
-    }
-  }
-  initBrowserStealth();
-
-  // Agent Config Implementation
-  async function fetchAgentsConfig() {
-    try {
-      const res = await fetch("/api/tools/config/agents");
-      if (res.ok) {
-        agentsConfig = await res.json();
-      }
-    } catch (err) {
-      console.error("Error fetching agents config:", err);
-    }
-  }
-
-  function openAgentConfig(agentName) {
-    currentEditingAgent = agentName;
-    const config = agentsConfig[agentName];
-    if (!config) return;
-
-    // Set title
-    const labels = {
-      document_agent: "Document Agent",
-      file_system_agent: "FileSystem Agent",
-      browsing_agent: "Browsing Agent",
-      search_web: "Search Agent",
-      visit_page: "Visit Page Agent"
-    };
-    agentConfigTitle.textContent = labels[agentName] || agentName;
-
-    // Sync UI
-    const btns = agentThinkingProfileSelector.querySelectorAll(".profile-btn");
-    btns.forEach(b => b.classList.toggle("active", b.dataset.profile === config.thinking_profile));
-
-    agentMaxTokensSlider.value = config.max_tokens;
-    agentMaxTokensVal.textContent = config.max_tokens;
-    agentThinkingBudgetSlider.value = config.thinking_budget;
-    agentThinkingBudgetVal.textContent = config.thinking_budget;
-
-    agentConfigModal.style.display = "flex";
-    setTimeout(() => agentConfigModal.classList.add("open"), 10);
-  }
-
-  function closeAgentConfig() {
-    agentConfigModal.classList.remove("open");
-    setTimeout(() => {
-      agentConfigModal.style.display = "none";
-    }, 300);
-  }
-
-  agentConfigBtns.forEach(btn => {
-    btn.addEventListener("click", () => {
-      openAgentConfig(btn.dataset.agent);
-    });
-  });
-
-  closeAgentConfigBtn.addEventListener("click", closeAgentConfig);
-
-  agentThinkingProfileSelector.addEventListener("click", (e) => {
-    const btn = e.target.closest(".profile-btn");
-    if (btn) {
-      const profile = btn.dataset.profile;
-      agentsConfig[currentEditingAgent].thinking_profile = profile;
-      const btns = agentThinkingProfileSelector.querySelectorAll(".profile-btn");
-      btns.forEach(b => b.classList.toggle("active", b.dataset.profile === profile));
-    }
-  });
-
-  agentMaxTokensSlider.addEventListener("input", (e) => {
-    const val = parseInt(e.target.value);
-    agentsConfig[currentEditingAgent].max_tokens = val;
-    agentMaxTokensVal.textContent = val;
-  });
-
-  agentThinkingBudgetSlider.addEventListener("input", (e) => {
-    const val = parseInt(e.target.value);
-    agentsConfig[currentEditingAgent].thinking_budget = val;
-    agentThinkingBudgetVal.textContent = val;
-  });
-
-  saveAgentConfigBtn.addEventListener("click", async () => {
-    const agent = currentEditingAgent;
-    const config = agentsConfig[agent];
-    
-    try {
-      const res = await fetch(`/api/tools/config/agents/${agent}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(config)
-      });
-      
-      if (res.ok) {
-        closeAgentConfig();
-        await showAlert("Success", `${agent} configuration saved.`);
-      } else {
-        throw new Error("Failed to save config");
-      }
-    } catch (err) {
-      console.error("Error saving agent config:", err);
-      await showAlert("Error", "Failed to save configuration.");
-    }
-  });
-
-  fetchAgentsConfig();
-
-  // --- Browser Portal Implementation (Proxied noVNC) ---
-  const portalModal = document.getElementById("browser-portal-modal");
-  const openPortalBtn = document.getElementById("open-browser-portal");
-  const closePortalBtn = document.getElementById("close-browser-portal");
-  const portalIframe = document.getElementById("portal-iframe");
 
   // --- Thought Process Full View Modal ---
   const thoughtFullViewModal = document.getElementById("thought-full-view-modal");
@@ -4067,445 +1910,10 @@ function saveChatArtifactFolders() {
       }
     });
   }
-  const portalLoadingOverlay = document.getElementById(
-    "portal-loading-overlay",
-  );
-  const portalErrorOverlay = document.getElementById("portal-error-overlay");
-  const portalErrorMessage = document.getElementById("portal-error-message");
-  const portalRetryBtn = document.getElementById("portal-retry-btn");
-  const portalStatusText = document.getElementById("portal-status-text");
 
-  async function initBrowserPortal() {
-    // Show loading, hide error
-    portalLoadingOverlay.style.display = "flex";
-    portalErrorOverlay.classList.add("hidden");
-    portalIframe.src = "";
-    portalStatusText.textContent = "Initializing browser session...";
 
-    try {
-      // 1. Wait for backend to launch the browser (blocking call)
-      const res = await fetch("/api/tools/portal/init", { method: "POST" });
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        throw new Error(err.error || `Server error: ${res.status}`);
-      }
 
-      portalStatusText.textContent = "Connecting to display...";
-
-      // 2. Set the iframe src to our proxied noVNC URL
-      //    The `path` param tells noVNC where to open its WebSocket
-      portalIframe.src =
-        "/api/tools/portal/vnc/vnc.html?autoconnect=true&resize=scale&path=api/tools/portal/ws";
-
-      // 3. Hide loading overlay once iframe loads
-      portalIframe.onload = () => {
-        portalLoadingOverlay.style.display = "none";
-        portalStatusText.textContent = "Connected — interactive live view.";
-      };
-
-      // 4. Timeout fallback — if iframe takes too long, assume failure
-      setTimeout(() => {
-        if (portalLoadingOverlay.style.display !== "none") {
-          // Still loading after 15s — hide spinner, show iframe anyway
-          // (noVNC may still be connecting internally)
-          portalLoadingOverlay.style.display = "none";
-          portalStatusText.textContent =
-            "Connected (stream may still be loading).";
-        }
-      }, 15000);
-    } catch (err) {
-      console.error("Portal init failed:", err);
-      portalLoadingOverlay.style.display = "none";
-      portalErrorOverlay.classList.remove("hidden");
-      portalErrorMessage.textContent =
-        err.message || "Could not reach the browser service.";
-      portalStatusText.textContent = "Connection failed.";
-    }
-  }
-
-  openPortalBtn.addEventListener("click", () => {
-    portalModal.classList.add("open");
-    initBrowserPortal();
-  });
-
-  closePortalBtn.addEventListener("click", () => {
-    portalModal.classList.remove("open");
-    portalIframe.src = ""; // Disconnect VNC
-    portalStatusText.textContent = "Disconnected.";
-  });
-
-  if (portalRetryBtn) {
-    portalRetryBtn.addEventListener("click", () => initBrowserPortal());
-  }
-
-  // New Chat Defaults Event Listeners
-  if (defaultThinkingProfileSelector) {
-    defaultThinkingProfileSelector.addEventListener("click", (e) => {
-      const btn = e.target.closest(".profile-btn");
-      if (btn) {
-        chatDefaults.thinkingProfile = btn.dataset.profile;
-        localStorage.setItem(
-          "my_ai_chat_defaults",
-          JSON.stringify(chatDefaults),
-        );
-
-        // Update UI active state
-        const btns =
-          defaultThinkingProfileSelector.querySelectorAll(".profile-btn");
-        btns.forEach((b) =>
-          b.classList.toggle(
-            "active",
-            b.dataset.profile === chatDefaults.thinkingProfile,
-          ),
-        );
-      }
-    });
-  }
-
-  if (defaultPreferencesToggle) {
-    defaultPreferencesToggle.addEventListener("click", () => {
-      chatDefaults.userPreferences = !chatDefaults.userPreferences;
-      defaultPreferencesToggle.classList.toggle(
-        "active",
-        chatDefaults.userPreferences,
-      );
-      localStorage.setItem("my_ai_chat_defaults", JSON.stringify(chatDefaults));
-    });
-  }
-
-  if (defaultMaxTokensSlider) {
-    defaultMaxTokensSlider.addEventListener("input", (e) => {
-      chatDefaults.maxTokens = parseInt(e.target.value);
-      if (defaultMaxTokensVal)
-        defaultMaxTokensVal.textContent = chatDefaults.maxTokens.toString();
-    });
-    defaultMaxTokensSlider.addEventListener("change", () => {
-      localStorage.setItem("my_ai_chat_defaults", JSON.stringify(chatDefaults));
-    });
-  }
-
-  if (defaultThinkingBudgetSlider) {
-    defaultThinkingBudgetSlider.addEventListener("input", (e) => {
-      chatDefaults.thinkingBudgetTokens = parseInt(e.target.value);
-      if (defaultThinkingBudgetVal)
-        defaultThinkingBudgetVal.textContent =
-          chatDefaults.thinkingBudgetTokens.toString();
-    });
-    defaultThinkingBudgetSlider.addEventListener("change", () => {
-      localStorage.setItem("my_ai_chat_defaults", JSON.stringify(chatDefaults));
-    });
-  }
-
-  if (sysClearAllChatsBtn) {
-    sysClearAllChatsBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      if (
-        await showConfirm(
-          "Clear All Chats",
-          "Are you sure you want to delete ALL chat conversations? This cannot be undone.",
-          true,
-        )
-      ) {
-        try {
-          const response = await fetch(`${API_MODULES.CHATS}/`, {
-            method: "DELETE",
-          });
-          if (response.ok) {
-            savedChats = [];
-            startNewChat();
-            renderChatList();
-            closeSystemSettings();
-            await showAlert(
-              "Success",
-              "All chat conversations have been cleared.",
-            );
-          }
-        } catch (e) {
-          console.error("Error clearing chats:", e);
-        }
-      }
-    });
-  }
-
-  if (sysResetAppBtn) {
-    sysResetAppBtn.addEventListener("click", async (e) => {
-      e.preventDefault();
-      if (
-        await showConfirm(
-          "Reset App",
-          "Are you sure you want to clear your connection settings? This will require a re-authorization.",
-          true,
-        )
-      ) {
-        localStorage.removeItem("my_ai_server_link");
-        localStorage.removeItem("my_ai_api_token_secure");
-        localStorage.removeItem("my_ai_selected_model");
-        localStorage.removeItem("my_ai_selected_model_name");
-        localStorage.removeItem("my_ai_theme_mode");
-        location.reload();
-      }
-    });
-  }
-
-  // User Preferences UI Logic
-  let allPreferences = [];
-
-  const loadPreferences = async () => {
-    try {
-      const res = await fetch(
-        `${API_MODULES.TOOLS}/preferences?chat_id=${currentChatId}`,
-      );
-      const data = await res.json();
-      if (data.success) {
-        allPreferences = data.preferences;
-        renderPreferences();
-      }
-    } catch (e) {
-      console.error("Error loading memories:", e);
-    }
-  };
-
-  const renderPreferences = () => {
-    if (!preferencesListContainer) return;
-    preferencesListContainer.innerHTML = "";
-
-    let filtered = [...allPreferences];
-
-    // Filter by Tag
-    const tagFilter = preferencesFilterSelect.value;
-    if (tagFilter !== "all") {
-      filtered = filtered.filter((m) => m.tag === tagFilter);
-    }
-
-    // Search
-    const query = preferencesSearchInput.value.toLowerCase();
-    if (query) {
-      filtered = filtered.filter((m) =>
-        m.content.toLowerCase().includes(query),
-      );
-    }
-
-    // Sort
-    const sortMode = preferencesSortSelect.value;
-    if (sortMode === "newest") {
-      filtered.sort((a, b) => b.timestamp - a.timestamp);
-    } else {
-      filtered.sort((a, b) => a.timestamp - b.timestamp);
-    }
-
-    if (filtered.length === 0) {
-      preferencesListContainer.innerHTML = `<div class="text-center" style="color: var(--content-muted); padding: 2rem;">No preferences found.</div>`;
-      return;
-    }
-
-    filtered.forEach((mem) => {
-      const item = document.createElement("div");
-      item.className = "hardware-surface";
-      item.style.padding = "1rem";
-      item.style.display = "flex";
-      item.style.flexDirection = "column";
-      item.style.gap = "0.5rem";
-
-      const tagColorMap = {
-        user_preference: "var(--color-primary-500)",
-        user_profile: "var(--brand-accent-1)",
-        environment_global: "var(--color-emerald)",
-        explicit_fact: "var(--color-amber)",
-      };
-      const tagColor = tagColorMap[mem.tag] || "var(--content-muted)";
-
-      const dateStr = new Date(mem.timestamp * 1000).toLocaleString();
-
-      item.innerHTML = `
-                <div style="display: flex; justify-content: space-between; align-items: flex-start; gap: 1rem;">
-                    <div style="flex: 1;">
-                        <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-                            <span style="font-size: 0.7rem; font-weight: 700; text-transform: uppercase; color: ${tagColor}; border: 1px solid ${tagColor}; padding: 2px 6px; border-radius: 4px;">${mem.tag.replace("_", " ")}</span>
-                            <span style="font-size: 0.7rem; color: var(--content-muted);">${dateStr}</span>
-                        </div>
-                        <div style="font-size: 0.95rem; color: var(--content-primary); line-height: 1.5; white-space: pre-wrap;">${escapeHtml(mem.content)}</div>
-                    </div>
-                    <div style="display: flex; gap: 0.5rem;">
-                        <button class="btn-ghost edit-mem-btn" title="Edit" style="padding: 0.5rem;">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>
-                        </button>
-                        <button class="btn-ghost delete-mem-btn" title="Delete" style="padding: 0.5rem; color: var(--color-rose-500);">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
-                        </button>
-                    </div>
-                </div>
-            `;
-
-      item
-        .querySelector(".edit-mem-btn")
-        .addEventListener("click", () => openEditPreferenceModal(mem));
-      item
-        .querySelector(".delete-mem-btn")
-        .addEventListener("click", async () => {
-          if (
-            await showConfirm(
-              "Delete Preference",
-              "Are you sure you want to delete this preference?",
-            )
-          ) {
-            try {
-              const res = await fetch(
-                `${API_MODULES.TOOLS}/preferences/${mem.id}?chat_id=${currentChatId}`,
-                { method: "DELETE" },
-              );
-              if (res.ok) {
-                loadPreferences();
-              }
-            } catch (e) {
-              console.error("Failed to delete", e);
-            }
-          }
-        });
-
-      preferencesListContainer.appendChild(item);
-    });
-  };
-
-  if (preferencesSearchInput)
-    preferencesSearchInput.addEventListener("input", renderPreferences);
-  if (preferencesFilterSelect)
-    preferencesFilterSelect.addEventListener("change", renderPreferences);
-  if (preferencesSortSelect)
-    preferencesSortSelect.addEventListener("change", renderPreferences);
-
-  if (sysManagePreferencesBtn) {
-    sysManagePreferencesBtn.addEventListener("click", () => {
-      closeSystemSettings();
-      if (preferencesFileSystemOverlay) {
-        preferencesFileSystemOverlay.classList.remove("hidden");
-        setTimeout(() => preferencesFileSystemOverlay.classList.add("open"), 10);
-        loadPreferences();
-      }
-    });
-  }
-
-  if (closePreferencesBtn) {
-    closePreferencesBtn.addEventListener("click", () => {
-      preferencesFileSystemOverlay.classList.remove("open");
-      setTimeout(() => preferencesFileSystemOverlay.classList.add("hidden"), 300);
-    });
-  }
-
-  /**
-   * Opens a prompt modal to add a new preference or edit an existing one.
-   * Manually creates textarea and select elements for granular control.
-   * @param {object} mem - Existing preference object for editing (null for new).
-   */
-  const openEditPreferenceModal = async (mem = null) => {
-    const isEdit = !!mem;
-    const inputEl = document.getElementById("prompt-input");
-    const parent = inputEl.parentNode;
-
-    // Custom UI injectors for preferences dialog
-    const textarea = document.createElement("textarea");
-    textarea.className = "input-primary";
-    textarea.style.minHeight = "120px";
-    textarea.placeholder = "Enter key details to remember...";
-    if (isEdit) textarea.value = mem.content;
-
-    const tagSelect = document.createElement("select");
-    tagSelect.className = "select-primary";
-    tagSelect.innerHTML = `
-            <option value="user_preference">User Preference</option>
-            <option value="user_profile">User Profile</option>
-            <option value="environment_global">Environment Fact</option>
-            <option value="explicit_fact">Explicit Fact</option>
-        `;
-    if (isEdit) tagSelect.value = mem.tag;
-
-    parent.insertBefore(textarea, inputEl);
-    parent.insertBefore(tagSelect, inputEl);
-    inputEl.style.display = "none";
-
-    const result = await new Promise((resolve) => {
-      const modal = document.getElementById("prompt-modal");
-      const titleEl = document.getElementById("prompt-title");
-      const msgEl = document.getElementById("prompt-message");
-      const confirmBtn = document.getElementById("prompt-action-btn");
-      const cancelBtn = document.getElementById("prompt-cancel-btn");
-      const selectContainer = document.getElementById(
-        "prompt-select-container",
-      );
-
-      selectContainer.style.display = "none";
-      titleEl.textContent = isEdit ? "Edit Preference" : "Add Preference";
-      msgEl.textContent = "Provide the fact and select its category:";
-      confirmBtn.textContent = "Save Preference";
-      cancelBtn.textContent = "Cancel";
-
-      const iconSvg = document.getElementById("prompt-icon-svg");
-      if (iconSvg) {
-        iconSvg.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .52 8.125A5.002 5.002 0 0 0 14 18a5 5 0 0 0 4-8 4.003 4.003 0 0 0-3-6.912Q13.5 3 12 5Z"/><path d="M9 18q4.5 0 4.5-4.5c0-4.5 4.5-4.5 4.5-4.5"/><path d="M12 5v14"/></svg>`;
-      }
-
-      modal.style.display = "flex";
-      void modal.offsetWidth;
-      modal.classList.add("open");
-      textarea.focus();
-
-      const cleanup = () => {
-        modal.classList.remove("open");
-        setTimeout(() => {
-          modal.style.display = "none";
-          textarea.remove();
-          tagSelect.remove();
-          inputEl.style.display = "block";
-        }, 300);
-        confirmBtn.onclick = null;
-        cancelBtn.onclick = null;
-      };
-
-      confirmBtn.onclick = () => {
-        const content = textarea.value.trim();
-        const tag = tagSelect.value;
-        cleanup();
-        resolve(content ? { content, tag } : null);
-      };
-
-      cancelBtn.onclick = () => {
-        cleanup();
-        resolve(null);
-      };
-    });
-
-    // Backend Sync
-    if (result) {
-      try {
-        if (isEdit) {
-          await fetch(
-            `${API_MODULES.TOOLS}/preferences/${mem.id}?chat_id=${currentChatId}`,
-            {
-              method: "PUT",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(result),
-            },
-          );
-        } else {
-          await fetch(
-            `${API_MODULES.TOOLS}/preferences?chat_id=${currentChatId}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(result),
-            },
-          );
-        }
-        loadPreferences();
-      } catch (e) {
-        console.error("Failed to save preference", e);
-      }
-    }
-  };
-
-  if (preferencesAddBtn)
-    preferencesAddBtn.addEventListener("click", () =>
-      openEditPreferenceModal(),
-    );
+  // User Preferences UI Logic has been modularized into static/js/preferences-manager.js
 
   // Deprecated theme toggle listener removed
 
@@ -4531,63 +1939,7 @@ function saveChatArtifactFolders() {
     }
   });
 
-  /**
-   * Settings Lifecycle Logic
-   */
-  const openSettings = () => {
-    if (settingsModal) {
-      settingsModal.style.display = "flex";
-      setTimeout(() => settingsModal.classList.add("open"), 10);
-      setScrollLock(true);
-    }
-  };
 
-  const closeSettings = () => {
-    if (settingsModal) {
-      settingsModal.classList.remove("open");
-      setTimeout(() => {
-        settingsModal.style.display = "none";
-        setScrollLock(false);
-      }, 300);
-    }
-  };
-
-  if (settingsTrigger)
-    settingsTrigger.addEventListener("click", async (e) => {
-      e.preventDefault();
-      openSettings();
-      await updateModelStatusUI(); // Ensure model activity status is fresh
-    });
-
-  if (closeSettingsBtn)
-    closeSettingsBtn.addEventListener("click", closeSettings);
-  if (closeSettingsActionBtn)
-    closeSettingsActionBtn.addEventListener("click", closeSettings);
-
-  // Tab Interface within Settings Modal
-  tabItems.forEach((tab) => {
-    tab.addEventListener("click", () => {
-      tabItems.forEach((t) => t.classList.remove("active"));
-      tabContents.forEach((c) => {
-        c.classList.remove("active");
-        c.classList.add("hidden");
-      });
-
-      tab.classList.add("active");
-      const targetContent = document.getElementById(`tab-${tab.dataset.tab}`);
-      if (targetContent) {
-        targetContent.classList.remove("hidden");
-        targetContent.classList.add("active");
-      }
-    });
-  });
-
-  // Close modal on backdrop click
-  window.addEventListener("click", (e) => {
-    if (e.target === settingsModal) {
-      closeSettings();
-    }
-  });
 
 /**
    * Determines MIME type based on File API or extension fallback.
@@ -4617,7 +1969,7 @@ function saveChatArtifactFolders() {
     resumeState = null,
     isReattach = false,
   ) {
-    if (isGenerating || (!selectedModel && !isResume && !isReattach)) return;
+    if (isGenerating || (!window.ModelManager.getSelectedModel() && !isResume && !isReattach)) return;
 
     // Ensure session integrity
     if (!currentChatId) currentChatId = generateId();
@@ -4752,7 +2104,7 @@ function saveChatArtifactFolders() {
     if (isResume) {
       console.log("Resuming existing task, skipping VRAM cleanup.");
     } else {
-      await unloadAllModels([selectedModel]);
+      await window.ModelManager.unloadAllModels([window.ModelManager.getSelectedModel()]);
     }
 
     updateResearchUI();
@@ -4822,8 +2174,8 @@ function saveChatArtifactFolders() {
     // Clean up file state - files are stored in chat history for persistence
     const sentFiles = window.AttachmentManager.getStagedFiles();
 
-    let reqModel = selectedModel;
-    let reqModelName = selectedModelName;
+    let reqModel = window.ModelManager.getSelectedModel();
+    let reqModelName = window.ModelManager.getSelectedModelName();
 
     try {
       const requestBody = {
@@ -4832,10 +2184,10 @@ function saveChatArtifactFolders() {
         messages: messages,
         userPreferences: isUserPreferences,
         researchMode: isResearchMode,
-        visionEnabled: isVisionEnabled,
+        visionEnabled: window.ModelManager.getIsVisionEnabled(),
         fileSystemMode: fileSystemMode,
         browsingMode: browsingMode,
-        persona_id: selectedPersonaId,
+        persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
 
         approvedPlan: approvedPlanPayload || undefined,
         resumeState: resumeState || undefined,
@@ -4920,16 +2272,13 @@ function saveChatArtifactFolders() {
       const decoder = new TextDecoder();
       let accumulatedContent = "";
       let accumulatedReasoning = ""; // Raw accumulator for DB persistence (includes JSON activity chunks)
-      let liveSubAgentHistory = [];
-      let displayReasoning = ""; // Clean accumulator for live thought bubble rendering
       let historyContentStartIdx = 0;
       let historyReasoningStartIdx = 0;
       let buffer = "";
       let usageCounted = false;
       let isReasoningPhase = true; // Track if we're still in reasoning-only mode
       let contentStarted = false; // Track if actual content has started
-      let assistantMessagePushed = false; // Track if assistant message was already pushed to chatHistory
-      let actualModelName = selectedModelName; // Fallback
+      let actualModelName = window.ModelManager.getSelectedModelName(); // Fallback
       
       // Retries & Targeted Redaction Tracking
       let currentAttemptId = Date.now().toString();
@@ -5234,7 +2583,7 @@ function saveChatArtifactFolders() {
       // Update the bot message row to show which model generated this response
       const modelLabel = botMsgDiv.querySelector(".bot-model-label");
       if (modelLabel) {
-        modelLabel.textContent = resolveModelDisplayName(actualModelName);
+        modelLabel.textContent = window.ModelManager.resolveModelDisplayName(actualModelName);
         modelLabel.closest(".bot-message-footer").style.display = "flex";
       }
 
@@ -5242,7 +2591,7 @@ function saveChatArtifactFolders() {
       if (!isTemporaryChat && currentChatId) {
         // Update local model tracker
         if (currentChatData) {
-          currentChatData.last_model = selectedModelName;
+          currentChatData.last_model = window.ModelManager.getSelectedModelName();
         }
 
         // Explicitly sync the last model to the backend immediately
@@ -5250,7 +2599,7 @@ function saveChatArtifactFolders() {
         fetch(`${API_MODULES.CHATS}/${currentChatId}`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ last_model: selectedModelName }),
+          body: JSON.stringify({ last_model: window.ModelManager.getSelectedModelName() }),
         }).catch((e) => console.error("Error updating last model:", e));
 
         // Delay slightly to ensure backend commit
@@ -5407,8 +2756,6 @@ function saveChatArtifactFolders() {
             }
           }
         }
-
-        setScrollLock(container.classList.contains("expanded"));
       }
       return;
     }
@@ -5508,221 +2855,6 @@ function saveChatArtifactFolders() {
     }
   });
 
-  /**
-   * Handles message deletion with DB synchronization.
-   * Deletes the message and all subsequent messages to maintain context integrity.
-   */
-  async function deleteMessageAction(btn) {
-    if (isGenerating) {
-      await showAlert(
-        "Generation in Progress",
-        "Please wait for the current response to finish.",
-      );
-      return;
-    }
-    const row = btn.closest(".message-row");
-    const messageId = row.dataset.messageId;
-    if (!messageId) {
-      console.error("deleteMessageAction: messageId missing from row");
-      return;
-    }
-
-    const confirmed = await showConfirm(
-      "Delete Message",
-      "Delete this message and all subsequent history permanently?",
-    );
-    if (!confirmed) return;
-
-    if (currentChatId && !isTemporaryChat) {
-      try {
-        const res = await fetch(
-          `${API_MODULES.CHATS}/${currentChatId}/messages/${messageId}`,
-          {
-            method: "DELETE",
-          },
-        );
-        if (res.ok) {
-          // Refresh history to ensure UI sync
-          loadChat(currentChatId, false, true);
-        } else {
-          console.error("Delete failed", await res.text());
-        }
-      } catch (e) {
-        console.error("Error during delete:", e);
-      }
-    } else {
-      // Logic for temporary chats (local only)
-      const index = parseInt(row.dataset.historyIndex, 10);
-      if (index !== -1) {
-        chatHistory.splice(index);
-        renderHistoryFromLocal();
-      }
-    }
-  }
-
-  async function editMessageAction(btn) {
-    if (isGenerating) {
-      await showAlert(
-        "Generation in Progress",
-        "Please wait for the current response to finish before editing messages.",
-      );
-      return;
-    }
-    const row = btn.closest(".message-row");
-
-    // Fix D: Same data-history-index approach as delete — immune to DOM collapsing.
-    const index =
-      row.dataset.historyIndex !== undefined
-        ? parseInt(row.dataset.historyIndex, 10)
-        : -1;
-    if (index === -1) {
-      console.error(
-        "editMessageAction: could not resolve historyIndex from row. Aborting.",
-      );
-      return;
-    }
-
-    if (index !== -1 && chatHistory[index]) {
-      const content = chatHistory[index].content;
-      let textToEdit = "";
-      if (Array.isArray(content)) {
-        const textObj = content.find((i) => i.type === "text");
-        if (textObj) textToEdit = textObj.text;
-        // Note: Images in edited messages are not editable - they were uploaded files
-        // The image_url is kept in the message for display purposes only
-      } else {
-        textToEdit = content;
-      }
-
-      textArea.value = textToEdit;
-      textArea.style.height = "auto";
-      textArea.style.height = textArea.scrollHeight + "px";
-      textArea.focus();
-
-      // Fix E: Defer the destructive truncate until the user actually hits Send.
-      pendingEditIndex = index;
-      editingMessageId = row.dataset.messageId;
-
-      // Optimistic UI: remove everything from this row onwards so the user sees
-      // the textarea in context, but we haven't touched the DB yet.
-      if (isTemporaryChat) {
-        // For temp chats there is no DB, so truncate history immediately.
-        chatHistory.splice(index);
-        while (row.nextSibling) row.nextSibling.remove();
-        row.remove();
-        updateActionVisibility();
-        pendingEditIndex = null; // no deferred DB call needed
-      } else {
-        // For persisted chats: remove DOM rows visually only.
-        while (row.nextSibling) row.nextSibling.remove();
-        row.remove();
-        updateActionVisibility();
-        // chatHistory and DB truncation happen in sendMessage via pendingEditIndex.
-      }
-    }
-  }
-
-  async function retryMessageAction(btn) {
-    if (isGenerating) {
-      await showAlert(
-        "Generation in Progress",
-        "Please wait for the current response to finish before retrying messages.",
-      );
-      return;
-    }
-    const row = btn.closest(".message-row");
-    const messageId = row.dataset.messageId;
-
-    if (currentChatId && !isTemporaryChat && messageId) {
-      try {
-        await fetch(
-          `${API_MODULES.CHATS}/${currentChatId}/messages/${messageId}`,
-          {
-            method: "DELETE",
-          },
-        );
-        await loadChat(currentChatId, false, true);
-        sendMessage(null, null, true);
-      } catch (error) {
-        console.error("Failed to delete for retry:", error);
-      }
-    } else {
-      const index = parseInt(row.dataset.historyIndex, 10);
-      if (index !== -1) {
-        chatHistory.splice(index);
-        renderHistoryFromLocal();
-        sendMessage(null, null, true);
-      }
-    }
-  }
-
-  async function showRetryModelDialog() {
-    return new Promise((resolve) => {
-      const overlay = document.createElement("div");
-      overlay.className = "modal-backdrop open";
-      overlay.style.zIndex = "9999";
-
-      let compatibleModels = availableModels;
-
-      let optionsHtml = compatibleModels
-        .map((m) => {
-          const shortName = m.display_name || m.key.split("/").pop();
-          const isActive = m.key === selectedModel;
-          return `<div class="retry-model-option" data-id="${m.key}" data-name="${shortName}" style="padding: 12px; border: 1px solid var(--border-subtle); border-radius: 8px; margin-bottom: 8px; cursor: pointer; display: flex; justify-content: space-between; align-items: center; background: ${isActive ? "var(--color-primary-500)" : "transparent"}; color: ${isActive ? "white" : "var(--content-primary)"}">
-                    <span>${shortName}</span>
-                    ${isActive ? '<span style="font-size: 0.8rem; opacity: 0.8;">Current</span>' : ""}
-                </div>`;
-        })
-        .join("");
-
-      if (optionsHtml === "") {
-        optionsHtml = `<div style="padding: 16px; text-align: center; color: var(--color-rose-500);">No compatible models found to retry this chat.</div>`;
-      }
-
-      overlay.innerHTML = `
-                <div class="modal-content" style="max-width: 400px; text-align: left;">
-                    <div class="modal-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px;">
-                        <h3 style="margin: 0;">Retry with Model</h3>
-                        <button class="modal-close" style="background:none; border:none; cursor:pointer; color: var(--content-muted);">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                        </button>
-                    </div>
-                    <div class="modal-body">
-                        <p style="margin-bottom: 16px; font-size: 0.9rem; color: var(--content-muted); line-height: 1.5;">
-                            Select a model to retry the latest message cycle. Warning: Switching to a new model might take a few moments.
-                        </p>
-                        <div style="max-height: 300px; overflow-y: auto; display: flex; flex-direction: column;">
-                            ${optionsHtml}
-                        </div>
-                    </div>
-                </div>
-            `;
-      document.body.appendChild(overlay);
-
-      const closeBtn = overlay.querySelector(".modal-close");
-      closeBtn.onclick = () => {
-        overlay.remove();
-        resolve(false);
-      };
-
-      const options = overlay.querySelectorAll(".retry-model-option");
-      options.forEach((opt) => {
-        opt.onclick = async () => {
-          const newModelId = opt.getAttribute("data-id");
-          const newModelName = opt.getAttribute("data-name");
-          overlay.remove();
-
-          if (newModelId !== selectedModel) {
-            await selectModel(newModelId, newModelName);
-            // Delay briefly to allow settings load overlays to finish transitioning
-            await new Promise((r) => setTimeout(r, 600));
-          }
-          resolve(true);
-        };
-      });
-    });
-  }
-
   // Handle Autoscroll on Image Load
   messagesContainer.addEventListener(
     "load",
@@ -5733,351 +2865,6 @@ function saveChatArtifactFolders() {
     },
     true,
   ); // Use capture phase because 'load' doesn't bubble
-
-  let lastScrollTime = 0;
-
-/**
-   * Orchestrates container scrolling with smart behavior.
-   * Prevents autoscroll if the user has manually scrolled up to read earlier history.
-   */
-  function scrollToBottom(behavior = "auto", forced = false) {
-    const messages = document.getElementById("messages");
-    if (!messages) return;
-
-    // Throttled scrolling to prevent UI jank
-    const now = Date.now();
-    if (!forced && now - lastScrollTime < 100) return;
-    lastScrollTime = now;
-
-    // Smart Scroll: Detection of user scroll position relative to bottom
-    const isNearBottom =
-      messages.scrollHeight - messages.scrollTop <= messages.clientHeight + 60;
-
-    if (forced || isNearBottom) {
-      requestAnimationFrame(() => {
-        messages.scrollTo({ top: messages.scrollHeight, behavior: behavior });
-      });
-    }
-  }
-
-  /**
-   * UNIFIED MESSAGE CONSTRUCTOR
-   * Generates a fully-styled chat bubble for both User and Assistant roles.
-   * Includes support for avatars, action menus, image previews, and file pills.
-   * @param {object} config - Configuration for the bubble (role, text, attachments).
-   * @returns {HTMLElement} The constructed message row.
-   */
-  function createMessageBubble(config) {
-    let {
-      role,
-      text = "",
-      modelName = "",
-      thoughtBoxHtml = null,
-      messageId = null,
-      historyIndex = 0,
-      images = [],
-      files = [],
-      sub_agent_history = [],
-      collections = [],
-      reasoningContent = "",
-      interleaved = [],
-    } = config;
-
-    // Strip System Note about files from user messages to prevent UI clutter
-    if (role === "user" && text) {
-      text = text.replace(/\n\n\[System Note: The user has attached the following files\. Use the `document_agent` tool with the provided file_id to read their contents if needed:[\s\S]*?\]/g, "");
-      text = text.replace(/\n\n\[System Note: The user has attached the following files\. Use the `read_file` tool with the provided file_id to read their contents if needed:[\s\S]*?\]/g, "");
-    }
-
-    const row = document.createElement("div");
-    row.className = `message-row chat-row ${role === "user" ? "user-message" : "bot-message bot"}`;
-    if (messageId) row.dataset.messageId = messageId;
-    if (historyIndex !== null) row.dataset.historyIndex = historyIndex;
-
-    let avatarMarkup = "";
-    let actionsMarkup = "";
-
-    // Template Selection based on Role
-    if (role === "user") {
-      avatarMarkup = `
-                <div class="avatar-wrapper">
-                    <div class="avatar" style="display: flex; align-items: center; justify-content: center; color: var(--content-muted); font-weight: 800; font-size: 0.75rem;">
-                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                    </div>
-                </div>
-            `;
-      actionsMarkup = `
-                <div class="message-actions-container user-actions">
-                    <button class="action-btn edit-msg-btn" title="Edit Message"><svg viewBox="0 0 24 24" fill="none" class="edit-icon" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></button>
-                    <button class="action-btn copy-msg-btn" title="Copy Text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
-                    <button class="action-btn delete-msg-btn" title="Delete Message"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg></button>
-                </div>
-            `;
-    } else {
-      avatarMarkup = `
-                <div class="avatar-wrapper">
-                    <div class="avatar-orbit"></div>
-                    <div class="avatar" style="display: flex; align-items: center; justify-content: center; color: white; font-weight: 800; font-size: 0.75rem;">
-                        <svg width="18" height="18" viewBox="0 0 32 32" fill="none"><path d="M16 2L26 12L16 30L6 12Z" fill="white" opacity="0.9"/><path d="M16 2L26 12H6Z" fill="white" opacity="0.3"/><circle cx="16" cy="12" r="2.5" fill="white" opacity="0.7"/></svg>
-                    </div>
-                </div>
-            `;
-      actionsMarkup = `
-                <div class="message-actions-container bot-actions">
-                    <button class="action-btn copy-msg-btn" title="Copy Text"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg></button>
-                    <button class="action-btn retry-msg-btn" title="Retry with a different model"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 2v6h-6"></path><path d="M21 13a9 9 0 1 1-3-7.7L21 8"></path></svg></button>
-                </div>
-            `;
-    }
-
-    // --- Attachments & Collections ---
-    let combinedFiles = [...(files || [])];
-    if (collections && collections.length > 0) {
-      collections.forEach((coll) => {
-        if (coll.collection_type === "files") {
-          let items = coll.items;
-          if (typeof items === "string") {
-            try {
-              items = JSON.parse(items);
-            } catch (e) {
-              console.error("Failed to parse collection items", e);
-            }
-          }
-          if (Array.isArray(items)) {
-            combinedFiles.push(...items);
-          }
-        }
-      });
-    }
-
-    let imageMarkup =
-      images && images.length > 0
-        ? `
-            <div class="message-images" style="display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px;">
-                ${images.map((img) => `<img src="${img}" style="max-width: 200px; max-height: 200px; border-radius: 8px; border: 1px solid var(--border-subtle); cursor: pointer; transition: opacity 0.2s;" onmouseover="this.style.opacity=0.8" onmouseout="this.style.opacity=1" onclick="openImageModal(this.src)">`).join("")}
-            </div>`
-        : "";
-
-    let fileAttachmentsMarkup =
-      combinedFiles && combinedFiles.length > 0
-        ? `
-            <div class="message-attachments" style="display: flex; flex-direction: column; gap: 4px; margin-bottom: 12px;">
-                ${combinedFiles
-                  .map(
-                    (
-                      f,
-                    ) => `<div class="file-attachment-pill" style="display: flex; align-items: center; gap: 6px; padding: 4px 10px; background: var(--surface-secondary); border: 1px solid var(--border-subtle); border-radius: 6px; font-size: 0.75rem;">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"></path><polyline points="13 2 13 9 20 9"></polyline></svg>
-                    <span>${escapeHtml(f.name || f.filename || f.original_filename || "File")}</span>
-                </div>`,
-                  )
-                  .join("")}
-            </div>`
-        : "";
-
-    // Unified Bubble Structure
-    if (role === "assistant" || role === "assistant_active") {
-      const hasReasoning =
-        thoughtBoxHtml ||
-        (sub_agent_history && sub_agent_history.length > 0) ||
-        reasoningContent ||
-        (interleaved && interleaved.length > 0) ||
-        (text && text.includes("<think>"));
-
-      row.innerHTML = `
-                <div class="assistant-header-row" style="display: flex; align-items: stretch; gap: 16px; width: 100%; margin-bottom: 12px;">
-                    <div class="assistant-avatar-column" style="display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                        ${avatarMarkup.trim()}
-                    </div>
-                    <div class="thought-section-wrapper ${hasReasoning ? "" : "hidden"}" style="flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 8px;">
-                        <div class="thought-content-wrapper" style="width: 100%;">
-                            <div class="thought-container ${role === "assistant_active" ? "reasoning-active" : ""}" style="margin-bottom: 0;">
-                                <div class="thought-header">
-                                    <div class="thought-status" style="display: flex; align-items: center; gap: 8px;">
-                                        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9.5 2A2.5 2.5 0 0 1 12 4.5v15a2.5 2.5 0 0 1-4.96.44 2.5 2.5 0 0 1-2.96-3.08 3 3 0 0 1-.34-5.58 2.5 2.5 0 0 1 1.32-4.24 2.5 2.5 0 0 1 4.3-3.6z"/><path d="M14.5 2A2.5 2.5 0 0 0 12 4.5v15a2.5 2.5 0 0 0 4.96.44 2.5 2.5 0 0 0 2.96-3.08 3 3 0 0 0 .34-5.58 2.5 2.5 0 0 0-1.32-4.24 2.5 2.5 0 0 0-4.3-3.6z"/></svg>
-                                        <span class="thought-header-title">${role === "assistant_active" ? 'Thinking...<span class="thought-progress-dots"><span></span><span></span><span></span></span>' : "Thought Process"}</span>
-                                    </div>
-                                    <div class="thought-actions" style="display: flex; align-items: center; gap: 8px;">
-                                        <button class="thought-full-view-btn btn-ghost" title="Full Screen View" style="width: 2.25rem; height: 2.25rem; padding: 0; border-radius: 0.6rem; display: flex; align-items: center; justify-content: center; transition: all 0.2s ease;">
-                                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
-                                                <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7" stroke-linecap="round" stroke-linejoin="round"/>
-                                            </svg>
-                                        </button>
-                                        <svg class="thought-chevron" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="thought-timeline-wrapper full-width-reasoning" style="width: 100%; margin-bottom: 0;">
-                    <div class="thought-body">
-                        <div class="thought-body-inner">
-                            ${thoughtBoxHtml || `<div class="activity-feed-wrapper"><div class="activity-feed"></div></div>`}
-                        </div>
-                    </div>
-                </div>
-                <div class="message-content-wrapper" style="width: 100%; display: flex; flex-direction: column;">
-                    <div class="message-content raw-text-content" style="width: 100%;" data-raw="${encodeURIComponent(text)}">
-                        ${imageMarkup}${fileAttachmentsMarkup}${formatMarkdown(text)}
-                    </div>
-                    <div class="bot-message-footer" style="display: ${modelName ? "flex" : "none"}; align-items: center; margin-top: 4px; padding: 0 4px;">
-                        <span class="bot-model-label" style="font-size: 0.65rem; font-weight: 500; color: var(--content-muted); user-select: none; opacity: 0.8;">${modelName || ""}</span>
-                    </div>
-                    ${actionsMarkup}
-                </div>
-            `;
-
-      const activityFeed = row.querySelector(".activity-feed");
-      // Interleaved items: route through appendSubAgentActivity (discrete mode)
-      // so rehydrated history produces the exact same .sub-agent-container DOM
-      // as live streaming does. This is now the UNIFIED path for all activities.
-      if (interleaved && interleaved.length > 0) {
-        interleaved.forEach((item) => {
-          const agentName = item.agentName || item.agent_name || "Assistant";
-          appendSubAgentActivity(
-            activityFeed,
-            agentName,
-            item.type,
-            item.content,
-            item.timestamp || Date.now(),
-            false,
-            false,
-          );
-        });
-      }
-
-      // SCOPED ANCHORING: Also render persistent collections (like task lists)
-      // that were attached via get_woven_history.
-      // Guard: skip a task_list collection if the interleaved feed already
-      // contains a tool_result from the same agent — that means the task list
-      // tool result was already rendered inline and a second render would
-      // produce a duplicate container.
-      if (collections && collections.length > 0) {
-        collections.forEach((coll) => {
-          if (coll.collection_type === "task_list") {
-            const agentName =
-              coll.parent_type === "main" ? "Assistant" : coll.parent_type;
-
-            const alreadyRenderedInFeed =
-              interleaved &&
-              interleaved.some(
-                (item) =>
-                  item.type === "tool_result" && item.agentName === agentName,
-              );
-            if (alreadyRenderedInFeed) return;
-
-            let items = coll.items;
-            if (typeof items === "string") {
-              try {
-                items = JSON.parse(items);
-              } catch (e) {
-                console.error("Failed to parse task list items", e);
-              }
-            }
-
-            appendSubAgentActivity(
-              activityFeed,
-              agentName,
-              "tool_result",
-              items,
-              coll.timestamp || Date.now(),
-              false,
-              false,
-            );
-          }
-        });
-      }
-
-      if (role === "assistant_active") {
-        row.classList.add("thinking");
-      }
-    } else {
-      const limit = 1000;
-      const isTruncated = text && text.length > limit;
-      const displayContent = isTruncated
-        ? text.substring(0, limit) + "..."
-        : text;
-
-      row.innerHTML = `
-                ${avatarMarkup}
-                <div class="message-content raw-text-content ${isTruncated ? "truncated-content" : ""}" data-raw="${encodeURIComponent(text)}">
-                    ${imageMarkup}${fileAttachmentsMarkup}
-                    <div class="message-text-wrapper">${formatMarkdown(displayContent)}</div>
-                    ${isTruncated ? '<button class="read-more-btn">Read More</button>' : ""}
-                </div>
-                ${actionsMarkup}
-            `;
-    }
-    return row;
-  }
-
-  /**
-   * Unified message bubble constructor.
-   * Generates a styled chat row for any participant.
-   */
-  function appendMessage(
-    role,
-    text,
-    type = "user",
-    messageId = null,
-    images = [],
-    files = [],
-    historyIndex = 0,
-  ) {
-    const row = createMessageBubble({
-      role: role === "Assistant" ? "assistant" : "user",
-      text: text,
-      modelName: role === "Assistant" ? selectedModelName : null,
-      messageId: messageId,
-      historyIndex: historyIndex,
-      images: images,
-      files: files,
-    });
-    messagesContainer.appendChild(row);
-
-    updateActionVisibility();
-    scrollToBottom("smooth");
-    return row;
-  }
-
-  /**
-   * Contextual Action Visibility Controller
-   * Toggles visibility of edit/delete/retry buttons based on:
-   * 1. Message position (only last user msg is editable)
-   * 2. Interaction state (hidden during research/generation)
-   */
-  function updateActionVisibility() {
-    const userRows = messagesContainer.querySelectorAll(".user-message");
-    const botRows = messagesContainer.querySelectorAll(".bot-message");
-
-    userRows.forEach((r, i) => {
-      const editBtn = r.querySelector(".edit-msg-btn");
-      const deleteBtn = r.querySelector(".delete-msg-btn");
-      if (isResearchMode || isGenerating) {
-        if (editBtn) editBtn.style.display = "none";
-        if (deleteBtn) deleteBtn.style.display = "none";
-      } else {
-        // User Edit: only allow editing the absolute last turn to prevent history divergence
-        if (editBtn)
-          editBtn.style.display = i === userRows.length - 1 ? "flex" : "none";
-        if (deleteBtn) deleteBtn.style.display = "flex";
-      }
-    });
-
-    botRows.forEach((r, i) => {
-      const retryBtn = r.querySelector(".retry-msg-btn");
-      if (isResearchMode || isGenerating) {
-        if (retryBtn) retryBtn.style.display = "none";
-      } else {
-        // Bot Retry: only allowed on the final response index
-        if (retryBtn)
-          retryBtn.style.display = i === botRows.length - 1 ? "flex" : "none";
-      }
-    });
-
-    updateTempChatBtnState();
-  }
 
   function updateUIState(loading) {
     if (loading) {
@@ -6149,7 +2936,7 @@ function saveChatArtifactFolders() {
         `;
 
     banner.querySelector(".resume-confirm").addEventListener("click", () => {
-      if (!selectedModel) {
+      if (!window.ModelManager.getSelectedModel()) {
         showAlert(
           "Model Not Ready",
           "Please wait for models to load before resuming.",
@@ -6179,149 +2966,7 @@ function saveChatArtifactFolders() {
     scrollToBottom();
   }
 
-  function getLogicalMessageGroups(history) {
-    const groups = [];
-    let currentGroup = null;
-
-    history.forEach((msg, index) => {
-      if (msg.role === "user") {
-        if (currentGroup) groups.push(currentGroup);
-        groups.push({
-          role: "user",
-          messages: [{ ...msg, _originalIndex: index }],
-        });
-        currentGroup = null;
-      } else {
-        if (!currentGroup) {
-          currentGroup = { role: "bot", messages: [] };
-        }
-        currentGroup.messages.push({ ...msg, _originalIndex: index });
-      }
-    });
-
-    if (currentGroup) groups.push(currentGroup);
-    return groups;
-  }
-
-  async function getToolCallHtmlForMessageGroup(group) {
-    // Redundant polling for /sse_chunks removed.
-    // Component activity is now rendered directly via woven history.
-    return "";
-  }
-
   // ==================== PHASE 2: ASSISTANT TURNS & ACTIVITY FEED ====================
-
-  function _extractActivitiesFromMessage(msg, isSubAgent = false) {
-    const activities = [];
-    const contentStr =
-      typeof msg.content === "string"
-        ? msg.content
-        : msg.content
-          ? JSON.stringify(msg.content)
-          : "";
-
-    if (contentStr) {
-      const thinkRegex = /<think>([\s\S]*?)(?:<\/think>|$)/g;
-      let m;
-      while ((m = thinkRegex.exec(contentStr)) !== null) {
-        activities.push({
-          type: "thinking",
-          content: m[1].trim(),
-          timestamp: msg.timestamp,
-          agentName: isSubAgent
-            ? msg.agent_name || msg.parent_type
-            : msg.parent_type || null,
-          isSubAgent: isSubAgent,
-          chunkId: `${isSubAgent ? "sub" : "msg"}-think-${msg.id}`,
-        });
-      }
-    }
-
-    if (msg.role === "event") {
-      activities.push({
-        type: "event",
-        content: msg.content,
-        timestamp: msg.timestamp,
-        agentName: isSubAgent ? msg.agent_name : msg.parent_type || null,
-        isSubAgent: isSubAgent,
-        chunkId: `event-${msg.id}`,
-      });
-    }
-
-    if (msg.tool_calls) {
-      try {
-        const tcList =
-          typeof msg.tool_calls === "string"
-            ? JSON.parse(msg.tool_calls)
-            : msg.tool_calls;
-        (Array.isArray(tcList) ? tcList : [tcList]).forEach((tc) => {
-          activities.push({
-            type: "tool_call",
-            content: JSON.stringify(tc),
-            timestamp: msg.timestamp,
-            agentName: isSubAgent
-              ? msg.agent_name || msg.parent_type
-              : msg.parent_type || null,
-            isSubAgent: isSubAgent,
-            chunkId: `${isSubAgent ? "sub" : "msg"}-call-${tc.id}`,
-            toolCallId: tc.id,
-          });
-        });
-      } catch (e) {}
-    }
-
-    if (msg.role === "tool") {
-      activities.push({
-        type: "tool_result",
-        content: isSubAgent
-          ? JSON.stringify({ output: msg.content })
-          : msg.content,
-        timestamp: msg.timestamp,
-        agentName: isSubAgent
-          ? msg.agent_name || msg.parent_type
-          : msg.parent_type || "Assistant",
-        isSubAgent: isSubAgent,
-        chunkId: `${isSubAgent ? "sub" : "msg"}-res-${msg.id}`,
-      });
-    }
-    return activities;
-  }
-
-  function _extractActivitiesFromSseChunks(chunks) {
-    const activities = [];
-    let currentCluster = null;
-
-    const flush = () => {
-      if (!currentCluster) return;
-      if (currentCluster.type !== "content") {
-        activities.push({
-          type: currentCluster.type,
-          content: currentCluster.content,
-          timestamp: currentCluster.timestamp,
-          chunkId: `sse-cluster-${currentCluster.type}-${currentCluster.timestamp}`,
-        });
-      }
-    };
-
-    const sorted = [...chunks].sort(
-      (a, b) => (a.chunk_index || 0) - (b.chunk_index || 0),
-    );
-    for (const c of sorted) {
-      const type = c.chunk_type;
-      if (currentCluster && currentCluster.type === type) {
-        currentCluster.content += c.content || "";
-      } else {
-        flush();
-        currentCluster = {
-          type,
-          content: c.content || "",
-          timestamp: c.timestamp,
-        };
-      }
-    }
-    flush();
-    return activities;
-  }
 
   /**
    * Sort activities chronologically
@@ -6356,454 +3001,8 @@ function saveChatArtifactFolders() {
 
   // → parseResearchPlan moved to static/js/utils.js
 
-  function getSharedAgentCard(activityFeed, rawAgentName, attemptId = null) {
-    if (!activityFeed) return null;
-    const agentName = String(rawAgentName || "Agent").toLowerCase();
+  // → getSharedAgentCard and appendSubAgentActivity moved to static/js/agent-renderers.js
 
-    // CHRONOLOGY FIX: For main Assistant activities, we append directly to the activityFeed (no card)
-    if (agentName === "assistant" || agentName === "main" || agentName === "assistant_active") {
-      return activityFeed;
-    }
-
-    // CHRONOLOGY FIX: Check if the LAST card in the feed matches this agent.
-    // If not, we MUST create a new card to preserve the Assistant -> Agent -> Assistant flow.
-    let card = activityFeed.lastElementChild;
-    if (
-      !card ||
-      !card.classList.contains("sub-agent-container") ||
-      card.dataset.agentName !== agentName
-    ) {
-      let label = rawAgentName.replace(/_/g, " ");
-      if (agentName === "research") label = "Research Agent";
-      if (agentName === "file_system_agent") label = "File System Agent";
-      if (agentName === "assistant" || agentName === "main")
-        label = "Assistant";
-
-      const html = `
-                <div class="activity-item sub-agent-container collapsed" data-agent-name="${agentName}">
-                    <div class="activity-header">
-                        <div class="sub-agent-icon-wrapper" style="margin-right: 6px; display: flex; align-items: center; justify-content: center; color: var(--content-muted);">${getAgentIcon(agentName)}</div>
-                        <div class="activity-type" style="margin-right: auto;">${label}</div>
-                        <div class="thought-chevron" style="margin-left: auto;"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
-                    </div>
-                    <div class="activity-content sub-agent-activity-feed" style="margin-left: 0; border-left: none;"></div>
-                </div>
-            `;
-      activityFeed.insertAdjacentHTML("beforeend", html);
-      card = activityFeed.lastElementChild;
-
-      // SYNC TO MODAL
-      if (activeThoughtModalSource === activityFeed) {
-        const modalBody = document.getElementById("thought-modal-content-area");
-        if (modalBody) {
-          const clone = card.cloneNode(true);
-          clone.classList.add("collapsed");
-          clone.classList.remove("expanded");
-          modalBody.appendChild(clone);
-        }
-      }
-
-      if (attemptId) card.dataset.attemptId = attemptId;      
-      // Wire up click-to-toggle for the new sub-agent container
-      const hdr = card.querySelector(".activity-header");
-      if (hdr) {
-        hdr.addEventListener("click", (e) => {
-          e.stopPropagation();
-          const isCollapsed = card.classList.toggle("collapsed");
-          card.classList.toggle("expanded", !isCollapsed);
-        });
-      }
-    }
-    return card;
-  }
-
-  /**
-   * UNIFIED sub-agent activity insertion.
-   * The single canonical function for adding any activity item to an agent container.
-   * Used by ALL live-streaming paths so rendering code is in one place.
-   *
-   * @param {Element}  activityFeed  - The .activity-feed DOM element
-   * @param {string}   rawAgentName  - Agent identifier (any casing)
-   * @param {string}   activityType  - 'thinking' | 'content' | 'tool_call' | 'tool_result'
-   * @param {string}   content       - Text/JSON content to display
-   * @param {number}   timestamp     - Unix ms timestamp
-   * @param {boolean}  accumulate    - true = streaming mode (append chars to open item,
-   *                                   seal on type-change to preserve chronological order);
-   *                                   false = discrete mode (always create a new item)
-   * @param {boolean}  isLive        - true = this is a fresh event (trigger interactions)
-   */
-  function appendSubAgentActivity(
-    activityFeed,
-    rawAgentName,
-    activityType,
-    content,
-    timestamp,
-    accumulate,
-    isLive = false,
-    attemptId = null
-  ) {
-    const targetContainer = getSharedAgentCard(activityFeed, rawAgentName, attemptId);
-    if (!targetContainer) return null;
-
-    // If targetContainer is the activityFeed itself, it's a naked stream item.
-    // Otherwise, it's a sub-agent card and we need its .sub-agent-activity-feed.
-    const contentArea =
-      targetContainer === activityFeed
-        ? activityFeed
-        : targetContainer.querySelector(".sub-agent-activity-feed");
-    if (!contentArea) return null;
-
-    if (accumulate) {
-      // Seal any streaming items whose type DIFFERS from the incoming type.
-      // This is what enforces chronological order: thinking→output→thinking
-      // instead of merging all thinking chunks into a single monster block.
-      let currentItem = null;
-      contentArea
-        .querySelectorAll(":scope > .activity-item[data-streaming]")
-        .forEach((item) => {
-          if (item.dataset.role === activityType) {
-            currentItem = item; // same type — reuse (still streaming)
-          } else {
-            // Different type started — seal it
-            delete item.dataset.streaming;
-          }
-        });
-
-      if (!currentItem) {
-        // No open accumulator of this type — create one
-        const html = _renderSubAgentActivityItemHtml({
-          type: activityType,
-          content: "",
-          timestamp: timestamp || Date.now(),
-        });
-        contentArea.insertAdjacentHTML("beforeend", html);
-        currentItem = contentArea.lastElementChild;
-
-        // SYNC TO MODAL (Creation)
-        if (activeThoughtModalSource === activityFeed) {
-          const modalBody = document.getElementById("thought-modal-content-area");
-          if (modalBody) {
-            // We need to find where to append this in the modal.
-            // If contentArea is the main feed, append to root.
-            // If contentArea is a sub-agent's feed, we need to find that agent's feed in the modal.
-            if (contentArea === activityFeed) {
-              const clone = currentItem.cloneNode(true);
-              clone.classList.add("collapsed");
-              clone.classList.remove("expanded");
-              modalBody.appendChild(clone);
-            } else {
-              // Nested item - find parent container in modal
-              const parentAgent = contentArea.closest(".sub-agent-container");
-              if (parentAgent) {
-                const agentName = parentAgent.dataset.agentName;
-                const modalParentAgent = modalBody.querySelector(`.sub-agent-container[data-agent-name="${agentName}"]`);
-                if (modalParentAgent) {
-                  const modalContentArea = modalParentAgent.querySelector(".sub-agent-activity-feed");
-                  if (modalContentArea) {
-                    const clone = currentItem.cloneNode(true);
-                    clone.classList.add("collapsed");
-                    clone.classList.remove("expanded");
-                    modalContentArea.appendChild(clone);
-                  }
-                }
-              }
-            }
-          }
-        }
-
-        if (currentItem) {
-          currentItem.dataset.role = activityType;
-          currentItem.dataset.streaming = "true";
-          if (attemptId) currentItem.dataset.attemptId = attemptId;
-          // Wire up click-to-toggle so the header chevron works
-          const hdr = currentItem.querySelector(".activity-header");
-          if (hdr) {
-            hdr.addEventListener("click", (e) => {
-              e.stopPropagation();
-              const isCollapsed = currentItem.classList.toggle("collapsed");
-              currentItem.classList.toggle("expanded", !isCollapsed);
-            });
-          }
-        }
-      }
-
-      if (currentItem) {
-        const textWrapper = currentItem.querySelector(".activity-content, .event-text");
-        if (textWrapper) {
-          const raw = (textWrapper.dataset.raw || "") + (content || "");
-          textWrapper.dataset.raw = raw;
-          textWrapper.innerHTML = escapeHtml(raw);
-
-          // SYNC TO MODAL (Text Update)
-          if (activeThoughtModalSource === activityFeed) {
-            const modalBody = document.getElementById("thought-modal-content-area");
-            if (modalBody) {
-              // We need to find this item in the modal.
-              // It should have the same timestamp and role.
-              const timestamp = currentItem.dataset.timestamp;
-              const modalItem = modalBody.querySelector(`.activity-item[data-timestamp="${timestamp}"][data-role="${activityType}"]`);
-              if (modalItem) {
-                const modalTextWrapper = modalItem.querySelector(".activity-content, .event-text");
-                if (modalTextWrapper) {
-                  modalTextWrapper.innerHTML = escapeHtml(raw);
-                }
-              }
-            }
-          }
-
-          // Trigger clarification pop-over if this is a request_clarification tool call
-          if (activityType === "tool_call") {
-            try {
-              const parsed = JSON.parse(raw);
-              if (parsed.function?.name === "request_clarification") {
-                // Check if this ID is in the active list (from backend or live stream)
-                if (isLive || activeClarificationIds.includes(parsed.id)) {
-                  const args =
-                    typeof parsed.function.arguments === "string"
-                      ? JSON.parse(parsed.function.arguments)
-                      : parsed.function.arguments;
-                  window.showClarificationPopOver(
-                    args.question,
-                    args.options,
-                    parsed.id,
-                    {
-                      chatId: currentChatId,
-                      onSuccess: (id) => {
-                        activeClarificationIds = activeClarificationIds.filter(
-                          (cid) => cid !== id,
-                        );
-                      },
-                      showNotification: window.showAlert,
-                      showConfirm: showConfirm
-                    }
-                  );
-                  // Ensure it's in the list for re-renders during this session
-                  if (!activeClarificationIds.includes(parsed.id)) {
-                    activeClarificationIds.push(parsed.id);
-                  }
-                }
-              }
-            } catch (e) {}
-          }
-        }
-
-        // Update history dataset for persistence
-        const history = JSON.parse(activityFeed.dataset.history || "[]");
-        const lastIdx = history.length - 1;
-        if (
-          lastIdx >= 0 &&
-          history[lastIdx].agentName === rawAgentName &&
-          history[lastIdx].type === activityType &&
-          history[lastIdx].accumulate
-        ) {
-          history[lastIdx].content = (history[lastIdx].content || "") + content;
-        } else {
-          history.push({
-            agentName: rawAgentName,
-            type: activityType,
-            content: content,
-            timestamp: timestamp || Date.now(),
-            accumulate: true,
-          });
-        }
-        activityFeed.dataset.history = JSON.stringify(history);
-      }
-      return currentItem;
-    } else {
-      // Discrete mode: seal any open streaming items, then insert a complete item
-      contentArea
-        .querySelectorAll(".activity-item[data-streaming]")
-        .forEach((item) => {
-          delete item.dataset.streaming;
-        });
-      const html = _renderSubAgentActivityItemHtml({
-        type: activityType,
-        content: content || "",
-        timestamp: timestamp || Date.now(),
-      });
-      contentArea.insertAdjacentHTML("beforeend", html);
-      const newItem = contentArea.lastElementChild;
-
-      // SYNC TO MODAL (Discrete Creation)
-      if (activeThoughtModalSource === activityFeed) {
-        const modalBody = document.getElementById("thought-modal-content-area");
-        if (modalBody) {
-          if (contentArea === activityFeed) {
-            const clone = newItem.cloneNode(true);
-            clone.classList.add("collapsed");
-            clone.classList.remove("expanded");
-            modalBody.appendChild(clone);
-          } else {
-            // Nested item - find parent container in modal
-            const parentAgent = contentArea.closest(".sub-agent-container");
-            if (parentAgent) {
-              const agentName = parentAgent.dataset.agentName;
-              const modalParentAgent = modalBody.querySelector(`.sub-agent-container[data-agent-name="${agentName}"]`);
-              if (modalParentAgent) {
-                const modalContentArea = modalParentAgent.querySelector(".sub-agent-activity-feed");
-                if (modalContentArea) {
-                  const clone = newItem.cloneNode(true);
-                  clone.classList.add("collapsed");
-                  clone.classList.remove("expanded");
-                  modalContentArea.appendChild(clone);
-                }
-              }
-            }
-          }
-        }
-      }
-
-      if (newItem) {
-        newItem.dataset.role = activityType;
-        if (attemptId) newItem.dataset.attemptId = attemptId;
-        // Wire up click-to-toggle
-        const hdr = newItem.querySelector(".activity-header");
-        if (hdr) {
-          hdr.addEventListener("click", (e) => {
-            e.stopPropagation();
-            const isCollapsed = newItem.classList.toggle("collapsed");
-            newItem.classList.toggle("expanded", !isCollapsed);
-          });
-        }
-
-        // Trigger clarification pop-over for discrete tool calls
-        if (activityType === "tool_call") {
-          try {
-            const parsed = JSON.parse(content);
-            if (parsed.function?.name === "request_clarification") {
-              if (isLive || activeClarificationIds.includes(parsed.id)) {
-                const args =
-                  typeof parsed.function.arguments === "string"
-                    ? JSON.parse(parsed.function.arguments)
-                    : parsed.function.arguments;
-                window.showClarificationPopOver(
-                  args.question,
-                  args.options,
-                  parsed.id,
-                  {
-                    chatId: currentChatId,
-                    onSuccess: (id) => {
-                      activeClarificationIds = activeClarificationIds.filter(
-                        (cid) => cid !== id,
-                      );
-                    },
-                    showNotification: window.showAlert,
-                    showConfirm: showConfirm
-                  }
-                );
-                if (!activeClarificationIds.includes(parsed.id)) {
-                  activeClarificationIds.push(parsed.id);
-                }
-              }
-            }
-          } catch (e) {}
-        }
-      }
-
-      // Update history dataset for persistence (discrete item)
-      const history = JSON.parse(activityFeed.dataset.history || "[]");
-      history.push({
-        agentName: rawAgentName,
-        type: activityType,
-        content: content,
-        timestamp: timestamp || Date.now(),
-        accumulate: false,
-      });
-      activityFeed.dataset.history = JSON.stringify(history);
-
-      return newItem;
-    }
-  }
-
-  function handleLiveSubAgentData(data) {
-    const isSse = !!data.__sse_chunk__;
-    const chunk = isSse ? data.__sse_chunk__ : data.__sub_agent_message__;
-    if (!chunk) return;
-
-    // Strict adherence to instruction: labels determined ONLY through parent_type (SSE) and agent_name (messages)
-    const agentName = isSse ? chunk.parent_type : chunk.agent_name;
-
-    // Final fallback for display if both are missing or 'main'
-    const label = agentName === "main" || !agentName ? "Agent" : agentName;
-    const pId = String(chunk.parent_message_id);
-
-    let parentRow = messagesContainer.querySelector(
-      `[data-message-id="${pId}"]`,
-    );
-    if (!parentRow && botMsgDiv) parentRow = botMsgDiv;
-
-    if (!parentRow) {
-      // FIX M2 + C1: Log the drop instead of silently discarding.
-      console.warn(
-        "[handleLiveSubAgentData] No parentRow found for parent_message_id:",
-        pId,
-        "— sub-agent chunk dropped:",
-        chunk,
-      );
-      return;
-    }
-
-    {
-      let activityFeed = parentRow.querySelector(".activity-feed");
-      if (!activityFeed) {
-        let thoughtBox = parentRow.querySelector(".thought-box");
-        if (!thoughtBox) {
-          // FIX C1: renderThoughtBox() was never defined. Inline the DOM creation
-          // to match the structure emitted by createMessageBubble().
-          const contentWrapper = parentRow.querySelector(
-            ".message-content-wrapper",
-          );
-          const thoughtContentWrapper = parentRow.querySelector(
-            ".thought-content-wrapper",
-          );
-          if (contentWrapper && thoughtContentWrapper) {
-            thoughtContentWrapper.classList.remove("hidden");
-            
-            // The thought header is already in the DOM from createMessageBubble,
-            // we just need to ensure the timeline wrapper exists and is visible.
-            const timelineWrapper = parentRow.querySelector(".thought-timeline-wrapper");
-            if (timelineWrapper) {
-              timelineWrapper.classList.remove("hidden");
-              timelineWrapper.style.display = "block";
-              
-              if (!timelineWrapper.querySelector(".activity-feed")) {
-                timelineWrapper.innerHTML = `
-                    <div class="thought-body">
-                        <div class="thought-body-inner">
-                            <div class="activity-feed-wrapper"><div class="activity-feed"></div></div>
-                        </div>
-                    </div>`;
-              }
-            }
-            thoughtBox = timelineWrapper;
-          }
-        }
-        activityFeed = thoughtBox?.querySelector(".activity-feed");
-      }
-
-      if (activityFeed) {
-        const activityType = chunk.chunk_type || "thinking";
-        const ok = appendSubAgentActivity(
-          activityFeed,
-          agentName,
-          activityType,
-          chunk.content || "",
-          chunk.timestamp || Date.now(),
-          false,
-        );
-        if (!ok) {
-          // Fallback for special chunk types (planning cards, retry indicators, etc.)
-          const agentCard = getSharedAgentCard(activityFeed, agentName);
-          const contentArea = agentCard?.querySelector(".activity-content");
-          if (contentArea) {
-            const chunkEl = _renderSSEChunk(chunk);
-            if (chunkEl) contentArea.appendChild(chunkEl);
-          }
-        }
-        scrollToBottom("auto");
-      }
-    }
-  }
 
   // → escapeHtml moved to static/js/utils.js
 
@@ -6830,29 +3029,7 @@ function saveChatArtifactFolders() {
     }
   });
 
-  // 6. Mobile Keyboard Stability (Visual Viewport Sync)
-  if (window.visualViewport) {
-    const chatInputArea = document.getElementById("chat-input-area");
-
-    const syncViewport = () => {
-      if (window.innerWidth <= 768) {
-        // Calculate the offset from the bottom of the layout viewport
-        const offset = window.innerHeight - window.visualViewport.height;
-
-        // Only move if keyboard height is significant (> 10px) to avoid jitter
-        if (offset > 10) {
-          chatInputArea.style.transform = `translateY(-${offset}px)`;
-        } else {
-          chatInputArea.style.transform = "translateY(0)";
-        }
-      } else {
-        chatInputArea.style.transform = "";
-      }
-    };
-
-    window.visualViewport.addEventListener("resize", syncViewport);
-    window.visualViewport.addEventListener("scroll", syncViewport);
-  }
+  // Visual Viewport Sync for keyboard height adjustment is managed in static/js/scroll-manager.js
 
   // → hashContent moved to static/js/utils.js
 
@@ -6890,6 +3067,7 @@ function saveChatArtifactFolders() {
       const res = await fetch(`${API_MODULES.FILE_SYSTEMS}?chat_id=${chatId}`);
       const data = await res.json();
       if (data.success) {
+        _allFileSystems = data.file_systems;
         window.FileSystemUI.updateData(data.file_systems);
         return data.file_systems.length;
       }
@@ -6962,36 +3140,6 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
       document.body.removeChild(a);
     } catch (e) {
       console.error("Download failed:", e);
-    }
-  }
-
-  async function exportFileSystem(file_systemId, format = "markdown") {
-    // Legacy export function - still here in case something else uses it
-    try {
-      const res = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}/export/${format}?chat_id=${currentChatId}`,
-      );
-      if (!res.ok) {
-        console.error("Failed to export file_system");
-        return;
-      }
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      const contentDisposition = res.headers.get("content-disposition");
-      let filename = `file_system.${format}`;
-      if (contentDisposition) {
-        const match = contentDisposition.match(/filename="([^"]+)"/);
-        if (match) filename = match[1];
-      }
-      a.download = filename;
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (e) {
-      console.error("Failed to export file_system:", e);
     }
   }
 
@@ -7756,21 +3904,6 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     }, 2500); // Save 2.5 seconds after user stops typing
   }
 
-  // Persist AI-generated file_system changes to backend
-  function persistFileSystemChange(file_systemId, content) {
-    fetch(`${API_MODULES.FILE_SYSTEMS}/${file_systemId}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ 
-        chat_id: currentChatId, 
-        workspace_id: currentFileSystemWorkspaceId,
-        content: content 
-      }),
-    }).catch((err) =>
-      console.error("Failed to persist AI file_system change:", err),
-    );
-  }
-
   // Auto-save on input for file_system panel and report file_system
   // Removed old fileSystemPanelEditor listener since CodeMirror's updateListener handles it
 
@@ -7818,6 +3951,70 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     onContextMenu: (type, id, title, e, workspaceId) => showContextMenu(type, id, title, e, workspaceId)
   });
 
+  /* ═══════════════════════════════════════════
+       FILE EXPLORER MODAL INITIALIZATION
+       ═══════════════════════════════════════════ */
+  window.FileExplorerModal.init({
+    getAllFileSystems: () => _allFileSystems,
+    getChatId: () => currentChatId,
+    fetchFileSystems: fetchFileSystems,
+    showAlert: showAlert,
+    showPromptModal: showPromptModal,
+    setScrollLock: setScrollLock
+  });
+
+  /* ═══════════════════════════════════════════
+       BROWSER PORTAL INITIALIZATION
+       ═══════════════════════════════════════════ */
+  window.BrowserPortal.init({
+    showAlert: showAlert
+  });
+
+  /* ═══════════════════════════════════════════
+       BROWSER STEALTH INITIALIZATION
+       ═══════════════════════════════════════════ */
+  window.BrowserStealth.init();
+
+  window.TelemetryChart.init({
+    closeSystemSettings: closeSystemSettings
+  });
+
+  /* ═══════════════════════════════════════════
+       SIDEBAR CONTEXT MENU INITIALIZATION
+       ═══════════════════════════════════════════ */
+  window.ContextMenu.init({
+    renameChat: renameChat,
+    deleteChat: deleteChat,
+    moveChatToWorkspace: (id, ws) => window.WorkspaceManager.moveChatToWorkspace(id, ws),
+    getChatWorkspaces: () => window.WorkspaceManager.getChatWorkspaces(),
+    getSavedChats: () => savedChats,
+    loadChats: loadChats,
+    renderChatList: renderChatList,
+    startNewChat: startNewChat,
+    renameWorkspace: (id, ev) => window.WorkspaceManager.renameWorkspace(id, ev),
+    deleteWorkspace: (id, ev) => window.WorkspaceManager.deleteWorkspace(id, ev),
+    showPromptModal: showPromptModal,
+    showFileExplorerModal: showFileExplorerModal,
+    renameOrMoveFileSystemPath: renameOrMoveFileSystemPath,
+    deleteFileSystem: deleteFileSystem,
+    deleteFileSystemFolder: deleteFileSystemFolder,
+    getIsUserPreferences: () => isUserPreferences,
+    getIsResearchMode: () => isResearchMode,
+    getSamplingParams: () => samplingParams,
+    getCurrentChatId: () => currentChatId
+  });
+
+  /* ═══════════════════════════════════════════
+       PERSONA MANAGER INITIALIZATION
+       ═══════════════════════════════════════════ */
+  if (window.PersonaManager) {
+    window.PersonaManager.init({
+      getChatHistory: () => chatHistory,
+      getCurrentChatId: () => currentChatId
+    });
+  }
+
+
 /* ═══════════════════════════════════════════
        DOWNLOAD (FileSystem Panel Header)
        ═══════════════════════════════════════════ */
@@ -7851,7 +4048,6 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
 
   if (fileSystemPanelResizer) {
     let isResizing = false;
-    const baseWidth = 50; // Base width as percentage
     const minWidth = 200;
     const maxWidth = window.innerWidth * 0.8;
 
@@ -7940,272 +4136,5 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
   });
 
   // → 3D background animation moved to static/js/bg-animation.js
-
-  // ==================== PHASE 9: NEW RENDERING PIPELINE ====================
-
-  /**
-   * Get sub-agent messages for a specific assistant turn
-   *
-   * @param {number} parentMessageId - The parent assistant message ID
-   * @param {Array} allSubAgents - All sub-agent messages
-   * @returns {Array} Filtered sub-agent messages for this turn
-   */
-  function getSubAgentsForTurn(parentMessageId, allSubAgents) {
-    if (!allSubAgents || !Array.isArray(allSubAgents)) return [];
-    return allSubAgents.filter((m) => m.parent_message_id === parentMessageId);
-  }
-
-  /**
-   * Render a unified thought box with activity feed for an assistant turn
-   *
-   * @param {Object} turnData - Assistant turn data with userMessage, assistantMessages, chunks, activities
-   * @param {Array} subAgents - Sub-agent messages for this turn
-   * @returns {string} HTML for the thought box with activity feed
-   */
-  function _renderAssistantTurnThoughtBox(
-    turnData,
-    subAgents = [],
-    extraContent = "",
-  ) {
-    const {
-      userMessage,
-      assistantMessages = [],
-      chunks,
-      activities,
-    } = turnData;
-
-    // Allow rendering even if no assistantMessages exist (for in-progress turn recovery from SSE chunks)
-    const hasAssistantMessages =
-      assistantMessages && assistantMessages.length > 0;
-    const lastAssistantMsg = hasAssistantMessages
-      ? assistantMessages[assistantMessages.length - 1]
-      : null;
-    const model = lastAssistantMsg ? lastAssistantMsg.model : "";
-
-    // Extract clean content from assistant messages (excluding reasoning tags, sub-agent tags)
-    let cleanContent = "";
-    for (const msg of assistantMessages) {
-      if (msg.role === "assistant" && msg.content) {
-        let content = msg.content;
-        if (Array.isArray(content)) {
-          content = content.find((c) => c.type === "text")?.text || "";
-        } else if (typeof content === "object") {
-          try {
-            content = JSON.stringify(content);
-          } catch (e) {
-            content = String(content);
-          }
-        }
-        // Remove <think> tags
-        const startTag = "<think>";
-        const endTag = "</think>";
-        const startIdx = content.indexOf(startTag);
-        const endIdx =
-          startIdx !== -1
-            ? content.indexOf(endTag, startIdx) + endTag.length
-            : -1;
-        if (startIdx !== -1 && endIdx !== -1) {
-          content = content.substring(0, startIdx) + content.substring(endIdx);
-        }
-        // Remove <think> tags (legacy)
-        const startTag2 = "<think>";
-        const endTag2 = "</think>";
-        const startIdx2 = content.indexOf(startTag2);
-        const endIdx2 =
-          startIdx2 !== -1
-            ? content.indexOf(endTag2, startIdx2) + endTag2.length
-            : -1;
-        if (startIdx2 !== -1 && endIdx2 !== -1) {
-          content =
-            content.substring(0, startIdx2) + content.substring(endIdx2);
-        }
-        if (content) {
-          if (cleanContent) cleanContent += "\n\n";
-          cleanContent += content;
-        }
-      }
-    }
-
-    // If content is still empty, check for friendly tool call status
-    if (!cleanContent.trim() && lastAssistantMsg) {
-      cleanContent = getAssistantFriendlyContent(lastAssistantMsg);
-    }
-
-    // Append extra content from SSE chunks (e.g. for incomplete turns)
-    if (extraContent && !cleanContent.includes(extraContent.substring(0, 10))) {
-      if (cleanContent) cleanContent += "\n";
-      cleanContent += extraContent;
-    }
-
-    // Build activity feed inner HTML.
-    // _buildActivityFeedContent handles grouping of named-agent activities into
-    // .sub-agent-section containers that match the live-streaming DOM exactly.
-    const activityFeedInner = _buildActivityFeedContent(activities);
-
-    // Fallback: only render sub_agent_messages when SSE chunks produced no sub-agent sections
-    // (e.g. for older records written before SSE chunk storage was added).
-    const hasSseSubAgentActivities = activities.some((a) => a.isSubAgent);
-    let fallbackSubAgentsHtml = "";
-    if (!hasSseSubAgentActivities && subAgents.length > 0) {
-      // Group sub-agent messages by agent name
-      const groupMap = {};
-      const groupOrder = [];
-      for (const msg of subAgents) {
-        const name = (msg.agent_name || msg.agent || "Sub-Agent").toLowerCase();
-        const displayName = msg.agent_name || msg.agent || "Sub-Agent";
-        if (!groupMap[name]) {
-          groupMap[name] = { displayName, messages: [] };
-          groupOrder.push(name);
-        }
-        groupMap[name].messages.push(msg);
-      }
-      for (const key of groupOrder) {
-        fallbackSubAgentsHtml += _renderSubAgentSectionForTurn(groupMap[key]);
-      }
-    }
-
-    // Check if there's any content to display
-    const hasThinking = activities.some((a) => a.type === "thinking");
-    const hasToolCalls = activities.some((a) => a.type === "tool_call");
-    const hasToolResults = activities.some((a) => a.type === "tool_result");
-    const hasSubAgents = hasSseSubAgentActivities || subAgents.length > 0;
-    const hasCleanContent = !!cleanContent.trim();
-
-    // Extract file attachments from collections
-    let collectionsHtml = "";
-    const fileCollections = (turnData.collections || []).filter(
-      (c) => c.collection_type === "files",
-    );
-    for (const col of fileCollections) {
-      try {
-        if (col.items) {
-          let items = col.items;
-          if (typeof items === "string") items = JSON.parse(items);
-          if (items && items.length > 0) {
-            // collectionsHtml += renderUploadedFiles(JSON.stringify(items));
-            // renderUploadedFiles was removed/never existed. Preventing ReferenceError.
-          }
-        }
-      } catch (e) {
-        console.error("Failed to parse collection items", e);
-      }
-    }
-
-    // Build thought box HTML if there's content
-    const hasThoughtBoxContent =
-      hasThinking || hasToolCalls || hasToolResults || hasSubAgents;
-    let thoughtBoxHtml = "";
-
-    if (hasThoughtBoxContent) {
-      const parentMsgId = lastAssistantMsg
-        ? lastAssistantMsg.id
-        : activities[0]?.parentId ||
-          turnData.contentChunks[0]?.parent_message_id;
-      // Use a single .activity-feed containing both main activities and agent containers.
-      const feedInnerHtml = activityFeedInner + fallbackSubAgentsHtml;
-
-      thoughtBoxHtml = `
-                <div class="activity-feed" data-parent-message-id="${parentMsgId}">
-                    ${feedInnerHtml}
-                </div>
-            `;
-    }
-
-    const assistantContentHtml = `
-            ${collectionsHtml}
-            ${hasCleanContent ? formatMarkdown(cleanContent) : ""}
-        `;
-
-    return { thoughtBoxHtml, assistantContentHtml, cleanContent };
-  }
-
-  /**
-                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"></path><polyline points="22 4 12 14.01 9 11.01"></polyline></svg>
-                        <span style="font-weight: 500;">${item.name || 'Activity'}:</span>
-                        <span>${item.content}</span>
-                    </div>
-                </div>`;
-        }
-    }
-
-    /**
-     * Render sub-agent section for an assistant turn
-     *
-     * @param {Object} subAgent - Sub-agent data with agent name and messages
-     * @returns {string} HTML for the sub-agent section
-     */
-
-  /**
-   * Render activity feed for sub-agent messages
-   *
-   * @param {Array} messages - Sub-agent messages
-   * @returns {string} HTML for sub-agent activity feed
-   */
-
-  function renderSubAgentTurn(activityFeed, turn) {
-    if (!turn) return;
-    const agentName = turn.agent_name || "Sub-Agent";
-
-    if (turn.role === "assistant") {
-      if (turn.reasoning_content) {
-        appendSubAgentActivity(
-          activityFeed,
-          agentName,
-          "thinking",
-          turn.reasoning_content,
-          turn.timestamp,
-          false,
-        );
-      }
-      if (turn.tool_calls) {
-        const tcs =
-          typeof turn.tool_calls === "string"
-            ? JSON.parse(turn.tool_calls)
-            : turn.tool_calls;
-        (Array.isArray(tcs) ? tcs : [tcs]).forEach((tc) => {
-          appendSubAgentActivity(
-            activityFeed,
-            agentName,
-            "tool_call",
-            JSON.stringify(tc),
-            turn.timestamp,
-            false,
-          );
-        });
-      }
-      if (turn.content) {
-        appendSubAgentActivity(
-          activityFeed,
-          agentName,
-          "content",
-          turn.content,
-          turn.timestamp,
-          false,
-        );
-      }
-    } else if (turn.role === "tool") {
-      appendSubAgentActivity(
-        activityFeed,
-        agentName,
-        "tool_result",
-        turn.content,
-        turn.timestamp,
-        false,
-      );
-    } else if (turn.role === "event") {
-      appendSubAgentActivity(
-        activityFeed,
-        agentName,
-        "event",
-        turn.content,
-        turn.timestamp,
-        false,
-      );
-    }
-  }
-
-  /**
-   * Helper to render a discrete activity item based on type.
-   */
 
 });

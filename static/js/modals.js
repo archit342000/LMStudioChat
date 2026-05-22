@@ -247,13 +247,6 @@ window.showModal = async function(title, message, options = {}) {
     });
 };
 
-window.showPrompt = async function(title, message, options = {}) {
-    return await window.showModal(title, message, {
-        type: "prompt",
-        ...options,
-    });
-};
-
 window.showConfirm = async function(title, message, isDanger = false) {
     return await window.showModal(title, message, { type: "confirm", isDanger });
 };

@@ -954,8 +954,8 @@
         <div class="modal-content" style="max-width: 400px; text-align: center;">
             <div class="modal-body" style="padding: 2.5rem 2rem;">
                 <div id="prompt-icon-container" class="hardware-surface"
-                    style="width: 3.5rem; height: 3.5rem; border-radius: 50%; display: grid; place-items: center; color: var(--color-primary-600);">
-                    <div id="prompt-icon-svg" style="display: flex; align-items: center; justify-content: center; transform: translateY(1px);">
+                    style="width: 3.5rem; height: 3.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--color-primary-600); margin: 0 auto 1.5rem;">
+                    <div id="prompt-icon-svg" style="display: flex; align-items: center; justify-content: center;">
                         <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                             <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path>
                             <line x1="12" y1="11" x2="12" y2="17"></line>
@@ -1068,8 +1068,8 @@
         <div class="modal-content" style="max-width: 400px; text-align: center;">
             <div class="modal-body" style="padding: 2.5rem 2rem;">
                 <div id="confirm-icon-container" class="hardware-surface"
-                    style="width: 3.5rem; height: 3.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--color-primary-600);">
-                    <div id="confirm-icon-svg">
+                    style="width: 3.5rem; height: 3.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--color-primary-600); margin: 0 auto 1.5rem;">
+                    <div id="confirm-icon-svg" style="display: flex; align-items: center; justify-content: center;">
                         <!-- Dynamic Icon -->
                     </div>
                 </div>
@@ -1139,10 +1139,10 @@
                     </div>
                     <select id="preferences-filter-select" class="input-luminous" style="height: 40px; min-height: 40px; padding: 0 0.75rem; width: auto; cursor: pointer;">
                         <option value="all">All Tags</option>
-                        <option value="user_preference">Preference</option>
-                        <option value="user_profile">Profile</option>
-                        <option value="environment_global">Environment</option>
-                        <option value="explicit_fact">Fact</option>
+                        <option value="preference">Preference</option>
+                        <option value="personal_info">Personal Info</option>
+                        <option value="dislike">Dislike</option>
+                        <option value="other">Other</option>
                     </select>
                     <select id="preferences-sort-select" class="input-luminous" style="height: 40px; min-height: 40px; padding: 0 0.75rem; width: auto; cursor: pointer;">
                         <option value="newest">Newest First</option>
@@ -1439,6 +1439,9 @@
     <script src="/js/utils.js"></script>
     <script src="/js/constants.js"></script>
     <script src="/js/bg-animation.js"></script>
+    <script src="/js/browser-portal.js"></script>
+    <script src="/js/browser-stealth.js"></script>
+    <script src="/js/telemetry-chart.js"></script>
     <script src="/js/icons.js"></script>
     <script src="/js/agent-renderers.js"></script>
     <script src="/js/modals.js"></script>
@@ -1446,9 +1449,20 @@
     <script src="/js/clarification-popover.js"></script>
     <script src="/js/file-system-ui.js"></script>
     <script src="/js/version-manager.js"></script>
+    <script src="/js/settings-manager.js"></script>
+    <script src="/js/workspace-manager.js"></script>
     <script src="/js/editor-manager.js"></script>
     <script src="/js/attachment-manager.js"></script>
     <script src="/js/image-modal.js"></script>
+    <script src="/js/markdown-renderer.js"></script>
+    <script src="/js/file-explorer-modal.js"></script>
+    <script src="/js/context-menu.js"></script>
+    <script src="/js/persona-manager.js"></script>
+    <script src="/js/agent-config.js"></script>
+    <script src="/js/preferences-manager.js"></script>
+    <script src="/js/model-manager.js"></script>
+    <script src="/js/scroll-manager.js"></script>
+    <script src="/js/message-manager.js"></script>
     <script src="/script.js"></script>
 </body>
 

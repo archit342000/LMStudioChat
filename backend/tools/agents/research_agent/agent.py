@@ -77,6 +77,8 @@ class ResearchAgent:
         self.model = model
         self.emitter = ManualChunkEmitter()
         self.file_system_lock = asyncio.Lock() # Serializes file_system writes
+        self._sampling_kwargs = {}  # Extra sampling params forwarded to run_inference_step
+
 
     def _msg_from_db(self, m: Dict) -> Dict:
         """Build a message dict from a DB row, preserving reasoning_content for the inference engine."""

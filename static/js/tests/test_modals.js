@@ -74,17 +74,6 @@ describe('modals.js', () => {
         assert.strictEqual(result, false);
     });
 
-    test('showPrompt displays and returns input value', async () => {
-        const promise = window.showPrompt('Test Prompt', 'Prompt Msg');
-        
-        const input = document.getElementById('confirm-input');
-        input.value = 'User Input';
-        
-        document.getElementById('confirm-action-btn').click();
-        const result = await promise;
-        assert.strictEqual(result, 'User Input');
-    });
-
     test('showPromptModal resolves input on custom folder modal', async () => {
         const promise = window.showPromptModal('Folder Prompt', 'Msg', 'default');
         

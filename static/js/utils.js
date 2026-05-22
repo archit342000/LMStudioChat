@@ -6,27 +6,22 @@
  */
 
 // ---------------------------------------------------------------------------
+// Environment / Device Detection
+// ---------------------------------------------------------------------------
+
+function isMobileOrTouchDevice() {
+    return window.innerWidth <= 1024 ||
+        ("ontouchstart" in window) ||
+        (navigator.maxTouchPoints > 0);
+}
+
+// ---------------------------------------------------------------------------
 // String / Encoding Helpers
 // ---------------------------------------------------------------------------
 
 function escapeHtml(str) {
     if (!str) return '';
     return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-}
-
-function hashContent(str) {
-    if (!str) return 'empty';
-    let hash = 0;
-    for (let i = 0; i < str.length; i++) {
-        const char = str.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-    return Math.abs(hash).toString(36);
-}
-
-function cleanReasoningForPersistence(reasoning) {
-    return reasoning || '';
 }
 
 // ---------------------------------------------------------------------------
@@ -76,17 +71,6 @@ function getIconHtmlForMime(mime) {
         return `<svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>`;
     }
     return `<svg class="svg-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/></svg>`;
-}
-
-function getFileIconForMime(mimeType) {
-    if (!mimeType) return '📄';
-    if (mimeType.startsWith('image/')) return '🖼️';
-    if (mimeType.startsWith('video/')) return '🎥';
-    if (mimeType.startsWith('audio/')) return '🎵';
-    if (mimeType === 'application/pdf') return '📄';
-    if (mimeType === 'application/vnd.openxmlformats-officedocument.wordprocessingml.document') return '📝';
-    if (mimeType === 'text/plain') return '📄';
-    return '📄';
 }
 
 function formatFileSize(bytes) {

@@ -126,12 +126,14 @@
   --radius-md: var(--radius-lg);
 }
 
-/* 1. Core Architecture */body {
+/* 1. Core Architecture */html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body {
   margin: 0;
   padding: 0;
-  min-height: 100vh;
-  min-height: 100svh;
-  overflow-x: hidden;
   background: transparent;
   color: var(--content-primary);
   font-family: var(--font-body);
@@ -142,16 +144,11 @@
 
 /* Scroll Lock — prevents body scroll when modals/overlays are open */body.no-scroll {
   overflow: hidden !important;
-  position: fixed;
-  inset: 0;
-  width: 100%;
 }main {
   flex: 1;
   width: 0;
   display: flex;
   flex-direction: column;
-  height: 100vh;
-  height: 100svh;
   position: relative;
   overflow: hidden;
   transition: margin-left 400ms var(--ease-spring);
@@ -165,6 +162,7 @@
   scrollbar-color: var(--color-neutral-200) transparent;
   scroll-behavior: smooth;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
   display: flex;
   flex-direction: column;
 }
@@ -387,10 +385,14 @@
   transition:
     transform 0.2s var(--ease-spring),
     box-shadow 0.2s;
-}.hardware-surface:hover {
-  transform: translateY(-2px);
-  box-shadow: var(--surface-shadow-intense);
-}.dark .hardware-surface {
+}
+@media (hover: hover) and (pointer: fine) {
+  .hardware-surface:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--surface-shadow-intense);
+  }
+}
+.dark .hardware-surface {
   background: rgba(255, 255, 255, 0.02);
   border-color: rgba(255, 255, 255, 0.05);
   box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.03);
@@ -674,23 +676,34 @@
   opacity: 0;
   transition: opacity 0.2s;
   margin-top: 8px;
-}.message-row:hover .message-actions-container, .message-actions-container:focus-within {
-  opacity: 1;
-}.message-actions-container.user-actions {
+}
+@media (hover: hover) and (pointer: fine) {
+  .message-row:hover .message-actions-container, .message-actions-container:focus-within {
+    opacity: 1;
+  }
+}
+.message-actions-container.user-actions {
   margin-top: 0;
   flex-direction: row;
 }
 
-@media (max-width: 1024px) {.message-actions-container {
+@media (max-width: 1024px) {
+  .message-actions-container {
     opacity: 1;
-  }.message-actions-container.user-actions {
+  }
+  .message-actions-container.user-actions {
     flex-direction: row;
     margin-top: 8px;
   }
-}.is-touch-device .message-actions-container {
-  opacity: 1;
+}
+
+@media (hover: none), (pointer: coarse) {
+  .message-actions-container {
+    opacity: 1;
+  }
 }.message-row a {
   -webkit-touch-callout: none;
+  touch-action: inherit;
 }.action-btn {
   background: transparent;
   border: none;
@@ -814,13 +827,7 @@
 }.bot-message {
   align-items: flex-start;
 }.bot-message .message-content {
-  background: linear-gradient(
-    135deg,
-    rgba(255, 255, 255, 0.92),
-    rgba(255, 255, 255, 0.82)
-  );
-  backdrop-filter: blur(16px) saturate(180%);
-  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  background: transparent !important;
   border: 1px solid var(--accent-subtle);
   border-radius: 1.5rem;
   padding: 12px 20px;
@@ -832,7 +839,23 @@
     transform 0.3s var(--ease-spring),
     box-shadow 0.3s,
     border-color 0.3s;
-}.bot-message .message-content:hover {
+}
+.bot-message .message-content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    135deg,
+    rgba(255, 255, 255, 0.92),
+    rgba(255, 255, 255, 0.82)
+  );
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
+  z-index: -1;
+  pointer-events: none;
+}
+.bot-message .message-content:hover {
   transform: translateY(-1px);
   box-shadow:
     0 8px 25px var(--accent-subtle),
@@ -844,12 +867,17 @@
   background: transparent;
   border: none;
 }.dark .bot-message .message-content {
-  background: rgba(20, 20, 25, 0.8);
+  background: transparent !important;
   color: var(--content-primary);
   border-color: rgba(255, 255, 255, 0.04);
   box-shadow:
     inset 0 0 0 1px rgba(255, 255, 255, 0.02),
     var(--surface-shadow);
+}
+.dark .bot-message .message-content::before {
+  background: rgba(20, 20, 25, 0.8);
+  backdrop-filter: blur(16px) saturate(180%);
+  -webkit-backdrop-filter: blur(16px) saturate(180%);
 }.user-message {
   flex-direction: row-reverse;
   align-items: flex-start;
@@ -882,8 +910,6 @@
   font-weight: 600;
   text-align: center;
   transition: all 0.2s ease;
-  backdrop-filter: blur(4px);
-  -webkit-backdrop-filter: blur(4px);
 }.read-more-btn:hover, .read-less-btn:hover {
   background: rgba(255, 255, 255, 0.25);
   border-color: rgba(255, 255, 255, 0.3);
@@ -1107,7 +1133,6 @@
   padding: 0.65rem 1rem;
   font-weight: 600;
   cursor: pointer;
-  user-select: none;
   transition: background 0.2s;
 }.phase-header:hover {
   background: rgba(0, 0, 0, 0.02);
@@ -1537,11 +1562,7 @@ background: var(--accent-border);
 /* 5.R Modals */.modal-backdrop {
   position: fixed;
   inset: 0;
-  background: transparent;
-  /* Remove gray overlay */
-  backdrop-filter: blur(8px);
-  /* Subtle blur to focus without graying */
-  -webkit-backdrop-filter: blur(8px);
+  background: transparent !important;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1549,18 +1570,29 @@ background: var(--accent-border);
   opacity: 0;
   pointer-events: none;
   transition: opacity 300ms var(--ease-spring);
-}.modal-backdrop.open {
+  overscroll-behavior: none;
+}
+.modal-backdrop::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: transparent;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  z-index: -1;
+  pointer-events: none;
+}
+.modal-backdrop.open {
   opacity: 1;
   pointer-events: auto;
 }.modal-content {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur-sidebar);
-  -webkit-backdrop-filter: var(--glass-blur-sidebar);
+  background: transparent !important;
   border: 1px solid var(--sidebar-border-color);
   border-radius: var(--radius-2xl);
   max-width: 512px;
   width: 90%;
   max-height: 85vh;
+  min-height: 0;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -1574,7 +1606,19 @@ background: var(--accent-border);
   box-shadow:
     0 30px 60px rgba(0, 0, 0, 0.12),
     inset 0 0 0 1px rgba(255, 255, 255, 0.1);
-}.modal-header {
+}
+.modal-content::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur-sidebar);
+  -webkit-backdrop-filter: var(--glass-blur-sidebar);
+  z-index: -1;
+  pointer-events: none;
+}
+.modal-header {
   padding: 32px 32px 20px 32px;
   flex-shrink: 0;
 }.modal-header h2 {
@@ -1587,6 +1631,7 @@ background: var(--accent-border);
   scrollbar-width: thin;
   scrollbar-color: var(--accent-border) transparent;
   -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
 }.modal-body::-webkit-scrollbar {
   width: 6px;
 }.modal-body::-webkit-scrollbar-track {
@@ -1595,7 +1640,7 @@ background: var(--accent-border);
   background-color: var(--accent-border);
   border-radius: 10px;
 }.dark .modal-content {
-  background: var(--glass-bg);
+  background: transparent !important;
   /* Re-Unified translucency */
   border: 1px solid var(--sidebar-border-color);
   box-shadow:
@@ -1972,7 +2017,6 @@ background: var(--accent-border);
   text-transform: uppercase;
   color: var(--content-muted);
   padding: 0.75rem 0.5rem 0.375rem;
-  user-select: none;
 }#folders-section-header {
   transition: color 0.2s ease;
 }#folders-section-header:hover {
@@ -2021,7 +2065,6 @@ background: var(--accent-border);
   border-radius: 12px;
   color: var(--content-primary);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  user-select: none;
   margin: 2px 0;
 }.folder-header:hover {
   background: rgba(var(--accent-rgb), 0.04);
@@ -2356,15 +2399,23 @@ background: var(--accent-border);
 
 /* 6. Thought Process / Reasoning — Single Canonical Definition */.thought-container {
   background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
   border: 1px solid var(--glass-border);
   border-radius: var(--radius-xl);
   margin-bottom: 8px;
   overflow: hidden;
+  position: relative;
   transition:
     border-color 0.2s ease,
     box-shadow 0.2s ease;
+}.thought-container::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  z-index: -1;
+  pointer-events: none;
 }.thought-container.expanded {
   box-shadow: 0 2px 12px var(--accent-subtle);
 }
@@ -2599,10 +2650,6 @@ background: var(--accent-border);
   color: var(--content-muted);
   gap: 0.5rem;
   text-decoration: none !important;
-  -webkit-touch-callout: none;
-  -webkit-user-select: none;
-  user-select: none;
-  -webkit-user-drag: none;
 }a.chat-list-item, a.chat-list-item:visited, a.chat-list-item:active {
   color: var(--content-muted);
   text-decoration: none;
@@ -2802,7 +2849,6 @@ background: var(--accent-border);
   cursor: pointer;
   color: var(--accent);
   font-weight: 500;
-  user-select: none;
   outline: none;
   display: flex;
   align-items: center;
@@ -3461,9 +3507,7 @@ background: var(--accent-border);
   height: 100svh;
   border-left: 1px solid var(--glass-border);
   display: flex;
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background: transparent !important;
   box-shadow: -10px 0 30px rgba(0, 0, 0, 0.3);
   z-index: calc(var(--z-sidebar) + 100); /* Ensure on top of sidebars which are 1000 */
   flex-shrink: 0;
@@ -3471,6 +3515,16 @@ background: var(--accent-border);
     transform 400ms var(--ease-spring),
     width 100ms linear;
   overflow: hidden;
+}
+#file-system-panel::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  z-index: -1;
+  pointer-events: none;
 }
 
 /* Side-by-side layout for desktop */
@@ -3484,9 +3538,7 @@ background: var(--accent-border);
     width: auto !important;
   }
 }.dark #file-system-panel {
-  background: var(--glass-bg);
-  backdrop-filter: var(--glass-blur);
-  -webkit-backdrop-filter: var(--glass-blur);
+  background: transparent !important;
   border-left: 1px solid rgba(255, 255, 255, 0.08);
 }#file-system-panel.hidden {
   display: none !important;
@@ -4082,7 +4134,6 @@ font-weight: 500;
     transparent
   );
   cursor: pointer;
-  user-select: none;
   transition: background 0.2s ease;
   min-height: 44px;
   box-sizing: border-box;
@@ -4173,7 +4224,6 @@ font-weight: 500;
   gap: 8px;
   padding: 12px 16px;
   cursor: pointer;
-  user-select: none;
   font-size: 0.65rem;
   font-weight: 800;
   text-transform: uppercase;
@@ -4394,7 +4444,6 @@ padding: 12px 16px;
   justify-content: space-between;
   padding: 12px 16px;
   cursor: pointer;
-  user-select: none;
   background: linear-gradient(
     to right,
     rgba(var(--accent-rgb), 0.05),
@@ -4409,11 +4458,9 @@ display: flex;
   padding: 10px 14px;
   background: transparent;
   cursor: pointer;
-  user-select: none;
   transition: background 0.2s ease;
 }.thought-container.expanded .thought-header {
   border-bottom: 1px solid var(--glass-border);
-border-bottom: 1px solid var(--glass-border);
   background: rgba(var(--accent-rgb), 0.05);
 }.thought-header:hover {
   background: var(--accent-subtle);
@@ -4464,7 +4511,6 @@ max-height: 70vh;
   display: none !important;
 }.activity-header, .sub-agent-summary {
   cursor: pointer;
-  user-select: none;
 }
 
 /* Activity Item Spacing - handled by base .activity-item rule */.sub-agent-thinking {
@@ -4934,7 +4980,6 @@ max-height: 70vh;
 }.breadcrumb-separator {
   color: var(--color-neutral-300);
   opacity: 0.5;
-  user-select: none;
 }
 
 /* -------------------------------------------------------------------------- */
@@ -5153,11 +5198,210 @@ max-height: 70vh;
   cursor: pointer;
   opacity: 0.7;
   transition: opacity 0.2s;
-  user-select: none;
 }
 .lightbox-close:hover {
   opacity: 1;
 }
 
+/* Sidebar Context Menu styles */
+.sidebar-context-menu {
+  position: fixed;
+  z-index: 10000;
+  min-width: 200px;
+  background: var(--glass-surface, rgba(255, 255, 255, 0.7));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.2));
+  border-radius: var(--radius-xl, 12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+  opacity: 0;
+  transform: scale(0.95);
+  transform-origin: top left;
+  transition: opacity 0.15s cubic-bezier(0.34, 1.56, 0.64, 1), transform 0.15s cubic-bezier(0.34, 1.56, 0.64, 1);
+  pointer-events: none;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.sidebar-context-menu.open {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+.sidebar-context-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  color: var(--content-primary, #111827);
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: none;
+  background: transparent;
+  border-radius: var(--radius-lg, 8px);
+  cursor: pointer;
+  text-align: left;
+  width: 100%;
+  transition: background 0.15s ease, color 0.15s ease;
+  box-sizing: border-box;
+}
+.sidebar-context-menu-item:hover {
+  background: var(--accent-subtle, rgba(59, 130, 246, 0.1));
+  color: var(--accent, #3b82f6);
+}
+.sidebar-context-menu-item.danger:hover {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+}
+.sidebar-context-menu-separator {
+  height: 1px;
+  background: var(--glass-border, rgba(0, 0, 0, 0.1));
+  margin: 4px 6px;
+}
+.sidebar-context-menu-sub {
+  position: absolute;
+  top: 0;
+  left: 100%;
+  min-width: 180px;
+  background: var(--glass-surface, rgba(255, 255, 255, 0.7));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.2));
+  border-radius: var(--radius-xl, 12px);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
+  padding: 6px;
+  display: none;
+  flex-direction: column;
+  gap: 2px;
+  opacity: 0;
+  transform: translateX(-10px);
+  transition: opacity 0.15s ease, transform 0.15s ease;
+  z-index: 10001;
+}
+.sidebar-context-menu-item.has-sub:hover .sidebar-context-menu-sub,
+.sidebar-context-menu-sub.open {
+  display: flex;
+  opacity: 1;
+  transform: translateX(0);
+}
+/* Ensure dark mode works beautifully */
+.dark .sidebar-context-menu,
+.dark .sidebar-context-menu-sub {
+  background: var(--glass-surface, rgba(17, 24, 39, 0.7));
+  border-color: var(--glass-border, rgba(255, 255, 255, 0.08));
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+}
+.dark .sidebar-context-menu-item {
+  color: var(--content-primary, #f9fafb);
+}
+.dark .sidebar-context-menu-separator {
+  background: var(--glass-border, rgba(255, 255, 255, 0.08));
+}
 
+/* Touch screen scrolling/swipe optimizations (iPad/iOS WebKit fixes) */
+@media (pointer: coarse) {
+  .bot-message .message-content {
+    transform: none !important;
+    transition: none !important;
+  }
+  .bot-message .message-content:hover {
+    transform: none !important;
+    box-shadow: none !important;
+  }
+}
+
+/* iOS/iPadOS layout scroll, overscroll-behavior and touch-action containment fixes */
+/* Enable native inertia scrolling, GPU composition layers, and touch containment on all scrollable components */
+.is-ios #messages,
+.is-ios .modal-body,
+.is-ios .cm-scroller,
+.is-ios #file-system-preview-container,
+.is-ios .file-system-body,
+.is-ios .thought-modal-body,
+.is-ios .sidebar-body,
+.is-ios .thought-container.expanded .thought-body-inner {
+  overscroll-behavior-y: contain !important;
+  touch-action: pan-y !important;
+  -webkit-overflow-scrolling: touch !important;
+  transform: translate3d(0, 0, 0) !important;
+  will-change: scroll-position !important;
+}
+
+/* Disable WebKit hardware backdrop filters that block touch scroll execution */
+.is-ios *,
+.is-ios *::before,
+.is-ios *::after {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* Premium glass fallbacks: replace translucent blurs with clean, semi-opaque backgrounds for is-ios */
+.is-ios .modal-content::before,
+.is-ios aside,
+.is-ios .sidebar-context-menu,
+.is-ios .sidebar-context-menu-sub,
+.is-ios .thought-container,
+.is-ios .thought-box,
+.is-ios .thought-header,
+.is-ios .input-container,
+.is-ios .research-mode-selector {
+  background-color: rgba(248, 247, 244, 0.96) !important;
+}
+
+.is-ios .bot-message .message-content::before {
+  background: rgba(255, 255, 255, 0.96) !important;
+}
+
+.is-ios .modal-backdrop {
+  background: rgba(15, 15, 20, 0.6) !important;
+}
+
+/* Dark mode overrides for is-ios premium glass fallbacks */
+.dark.is-ios .modal-content::before,
+.dark.is-ios aside,
+.dark.is-ios .sidebar-context-menu,
+.dark.is-ios .sidebar-context-menu-sub,
+.dark.is-ios .thought-container,
+.dark.is-ios .thought-box,
+.dark.is-ios .thought-header,
+.dark.is-ios .input-container,
+.dark.is-ios .research-mode-selector {
+  background-color: rgba(15, 15, 20, 0.96) !important;
+}
+
+.dark.is-ios .bot-message .message-content::before {
+  background: rgba(20, 20, 25, 0.95) !important;
+}
+
+.dark.is-ios .modal-backdrop {
+  background: rgba(5, 5, 8, 0.8) !important;
+}
+
+.is-ios .bot-message .message-content {
+  transform: none !important;
+  transition: none !important;
+}
+.is-ios .bot-message .message-content:hover {
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+
+/* Prevent parent scroll hijacking on the integrated editor by hiding parent overflow when CodeMirror or preview is active */
+.is-ios .file-system-body:has(.file-system-editor-container:not(.hidden)),
+.is-ios .file-system-body:has(.file-system-preview-container:not(.hidden)) {
+  overflow: hidden !important;
+}
+
+/* Ensure WebKit recognizes scrollable overflow in settings and general modals by enforcing explicit heights */
+.is-ios .modal-content {
+  max-height: 80vh !important;
+  height: auto !important;
+}
+.is-ios .modal-body {
+  height: 100% !important;
+  max-height: 100% !important;
+  display: block !important;
+}
 

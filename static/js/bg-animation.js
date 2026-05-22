@@ -28,7 +28,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     // Ripple Effect State
     let rippleX = 0;
-    let rippleY = 0;
     let rippleStrength = 0;
 
     const colors = [
@@ -200,9 +199,7 @@ document.addEventListener("DOMContentLoaded", function () {
     window.addEventListener(
       "pointerdown",
       (e) => {
-        if (e.pointerType === "mouse") {
-          triggerRipple(e.clientX, e.clientY);
-        }
+        triggerRipple(e.clientX, e.clientY);
       },
       { passive: true },
     );
@@ -219,8 +216,8 @@ document.addEventListener("DOMContentLoaded", function () {
       { passive: true },
     );
 
-    // Touch prevention handled via touch-action: none in CSS for #bg-stars
-    canvas.addEventListener("touchstart", (e) => {}, { passive: true });
+    // Prevent default touch actions (scrolling/jank) when interacting with background
+    canvas.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
 
     resize();
     createParticles();
