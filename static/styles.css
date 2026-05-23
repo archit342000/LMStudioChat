@@ -2098,6 +2098,9 @@ background: var(--accent-border);
   color: var(--content-primary);
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   margin: 2px 0;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }.folder-header:hover {
   background: rgba(var(--accent-rgb), 0.04);
 }.dark .folder-header:hover {
@@ -2682,6 +2685,9 @@ background: var(--accent-border);
   color: var(--content-muted);
   gap: 0.5rem;
   text-decoration: none !important;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }a.chat-list-item, a.chat-list-item:visited, a.chat-list-item:active {
   color: var(--content-muted);
   text-decoration: none;
@@ -3378,6 +3384,9 @@ background: var(--accent-border);
   display: flex;
   flex-direction: column;
   gap: 0.1rem;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
 }.file-system-item:hover {
   background: var(--accent-subtle);
 }.file-system-item.active {
