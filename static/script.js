@@ -1199,9 +1199,9 @@ const chatTitleHeader = document.getElementById("chat-title-header");
 
     // Open Right Sidebar & load files for this workspace
     if (rightSidebar) {
-      rightSidebar.classList.remove("collapsed");
       await fetchFileSystems(null, workspaceId);
     }
+    updateResearchUI();
   }
 
   async function createWorkspaceChatImmediately(workspaceId) {
@@ -1995,7 +1995,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
 
     // Files visibility state
     if (navFilesBtn) {
-      if (fileSystemMode) {
+      if (fileSystemMode || currentWorkspaceId) {
         navFilesBtn.classList.remove("disabled");
         navFilesBtn.style.opacity = "1";
         navFilesBtn.style.pointerEvents = "auto";

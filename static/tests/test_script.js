@@ -139,4 +139,124 @@ describe('script.js', () => {
             }
         });
     });
+
+    test('workspace view and file sidebar state', async () => {
+        return new Promise((resolve, reject) => {
+            const virtualConsole = new VirtualConsole();
+            virtualConsole.on("jsdomError", (error) => reject(error));
+            virtualConsole.on("error", (...args) => {
+                const errorStr = args.map(a => a ? a.toString() : '').join(' ');
+                if (errorStr.includes('Failed to fetch')) return;
+                if (errorStr.includes('Model config fetch error')) return;
+                reject(new Error(`Console Error: ${errorStr}`));
+            });
+
+            const htmlContent = loadFile('index.html').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            const dom = new JSDOM(htmlContent, { 
+                runScripts: "dangerously",
+                url: "http://localhost/",
+                virtualConsole 
+            });
+            const window = dom.window;
+            
+            // Mock canvas and required window helpers
+            window.HTMLCanvasElement.prototype.getContext = () => ({
+                scale: () => {}, clearRect: () => {}, beginPath: () => {}, arc: () => {}, fill: () => {}
+            });
+            window.requestAnimationFrame = () => {};
+            window.matchMedia = () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} });
+            
+            window.fetch = async (url) => ({
+                ok: true,
+                json: async () => {
+                    if (url && url.includes('/file_systems')) return { file_systems: [], success: true };
+                    return [];
+                }
+            });
+            
+            window.URL = {
+                createObjectURL: () => '',
+                revokeObjectURL: () => {}
+            };
+            
+            const injectScript = (code) => {
+                const scriptEl = window.document.createElement("script");
+                scriptEl.textContent = code;
+                window.document.body.appendChild(scriptEl);
+            };
+
+            // Load dependencies
+            injectScript(loadFile('js/utils.js'));
+            injectScript(loadFile('js/constants.js'));
+            injectScript(loadFile('js/context-menu.js'));
+            injectScript(loadFile('js/persona-manager.js'));
+            injectScript(loadFile('js/agent-config.js'));
+            injectScript(loadFile('js/preferences-manager.js'));
+            injectScript(loadFile('js/skills-manager.js'));
+            injectScript(loadFile('js/slash-autocomplete.js'));
+            injectScript(loadFile('js/model-manager.js'));
+            injectScript(loadFile('js/bg-animation.js'));
+            injectScript(loadFile('js/icons.js'));
+            injectScript(loadFile('js/agent-renderers.js'));
+            injectScript(loadFile('js/modals.js'));
+            injectScript(loadFile('js/toast.js'));
+            injectScript(loadFile('js/clarification-popover.js'));
+            injectScript(loadFile('js/file-system-ui.js'));
+            injectScript(loadFile('js/version-manager.js'));
+            injectScript(loadFile('js/settings-manager.js'));
+            injectScript(loadFile('js/workspace-manager.js'));
+            injectScript(loadFile('js/editor-manager.js'));
+            injectScript(loadFile('js/attachment-manager.js'));
+            injectScript(loadFile('js/image-modal.js'));
+            injectScript(loadFile('js/markdown-renderer.js'));
+            injectScript(loadFile('js/file-explorer-modal.js'));
+            injectScript(loadFile('js/browser-portal.js'));
+            injectScript(loadFile('js/browser-stealth.js'));
+            injectScript(loadFile('js/telemetry-chart.js'));
+            injectScript(loadFile('js/scroll-manager.js'));
+            injectScript(loadFile('js/message-manager.js'));
+            
+            window.EditorManager.loadCodeMirror = async () => {};
+
+            // Load main script
+            injectScript(loadFile('script.js'));
+            
+            // Trigger DOMContentLoaded
+            const event = new window.Event('DOMContentLoaded');
+            window.document.dispatchEvent(event);
+            
+            setTimeout(() => {
+                try {
+                    // Navigate to a workspace page
+                    window.history.pushState({ workspaceId: "test-workspace" }, "", "/workspace/test-workspace");
+                    const popstateEvent = new window.Event('popstate');
+                    window.dispatchEvent(popstateEvent);
+
+                    // Wait a moment for loadWorkspace and popstate handling to finish
+                    setTimeout(() => {
+                        try {
+                            const rightSidebar = window.document.getElementById("right-sidebar");
+                            const navFilesBtn = window.document.getElementById("nav-files-btn");
+
+                            // Assertions:
+                            // 1. Right sidebar should not toggle itself open on opening the workspace page (should remain collapsed)
+                            assert.ok(rightSidebar.classList.contains("collapsed"), "Right sidebar should remain collapsed on opening workspace page");
+
+                            // 2. The files toggle button (nav-files-btn) should be enabled on workspace page irrespective of workspace contents
+                            assert.ok(!navFilesBtn.classList.contains("disabled"), "nav-files-btn should not have disabled class");
+                            assert.strictEqual(navFilesBtn.style.opacity, "1", "nav-files-btn style opacity should be 1");
+                            assert.strictEqual(navFilesBtn.style.pointerEvents, "auto", "nav-files-btn style pointerEvents should be auto");
+
+                            resolve();
+                        } catch (err) {
+                            reject(err);
+                        }
+                    }, 50);
+                } catch (err) {
+                    reject(err);
+                }
+            }, 100);
+        });
+    });
 });
+
