@@ -41,3 +41,44 @@ def test_persona_crud(temp_db):
     success = temp_db.delete_persona(p2["id"])
     assert success
     assert len(temp_db.get_all_personas()) == 1
+
+def test_persona_agent_toggles(temp_db):
+    # Create with toggles
+    p = temp_db.create_persona("Agent Persona", "Prompt context", is_default=0, research_mode=0, file_system_mode=1, browsing_mode=1)
+    assert p["research_mode"] == 0
+    assert p["file_system_mode"] == 1
+    assert p["browsing_mode"] == 1
+
+    # Fetch and check
+    fetched = temp_db.get_persona(p["id"])
+    assert fetched["research_mode"] == 0
+    assert fetched["file_system_mode"] == 1
+    assert fetched["browsing_mode"] == 1
+
+    # Update toggles
+    success = temp_db.update_persona(p["id"], "Agent Persona", "Prompt context", is_default=0, research_mode=0, file_system_mode=0, browsing_mode=1)
+    assert success
+    fetched = temp_db.get_persona(p["id"])
+    assert fetched["file_system_mode"] == 0
+    assert fetched["browsing_mode"] == 1
+
+def test_persona_agent_constraints(temp_db):
+    # Enforce research_mode overrides other agents on creation
+    p = temp_db.create_persona("Research Only", "Context", is_default=0, research_mode=1, file_system_mode=1, browsing_mode=1)
+    assert p["research_mode"] == 1
+    assert p["file_system_mode"] == 0
+    assert p["browsing_mode"] == 0
+
+    # Fetch and check
+    fetched = temp_db.get_persona(p["id"])
+    assert fetched["research_mode"] == 1
+    assert fetched["file_system_mode"] == 0
+    assert fetched["browsing_mode"] == 0
+
+    # Enforce on update
+    success = temp_db.update_persona(p["id"], "Research Only", "Context", is_default=0, research_mode=1, file_system_mode=1, browsing_mode=1)
+    assert success
+    fetched = temp_db.get_persona(p["id"])
+    assert fetched["research_mode"] == 1
+    assert fetched["file_system_mode"] == 0
+    assert fetched["browsing_mode"] == 0

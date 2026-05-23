@@ -929,6 +929,34 @@
                                 placeholder="You are a helpful assistant specialized in..."
                                 style="width: 100%; flex: 1; min-height: 200px; padding: 1.25rem; font-family: var(--font-serif); resize: vertical; line-height: 1.6;"></textarea>
                         </div>
+                        <!-- Agent Toggles for Persona -->
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem; padding: 1rem; background: var(--surface-secondary); border-radius: 12px; border: 1px solid var(--border-subtle);">
+                            <label class="text-xs" style="color: var(--content-muted); font-weight: 700; text-transform: uppercase; margin-bottom: 0.25rem; display: block;">Auto-Enable Agent Toggles</label>
+                            <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                                <div class="persona-checkbox-row" style="display: flex; align-items: center; gap: 0.75rem; transition: opacity 0.2s;">
+                                    <input type="checkbox" id="persona-research-checkbox" style="width: 1.1rem; height: 1.1rem; cursor: pointer;">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <label for="persona-research-checkbox" style="font-size: 0.9rem; font-weight: 600; color: var(--content-primary); cursor: pointer; user-select: none;">Research Agent</label>
+                                        <span style="font-size: 0.75rem; color: var(--content-muted);">Auto-enable deep multi-step autonomous research</span>
+                                    </div>
+                                </div>
+                                <div class="persona-checkbox-row" style="display: flex; align-items: center; gap: 0.75rem; transition: opacity 0.2s;">
+                                    <input type="checkbox" id="persona-file-system-checkbox" style="width: 1.1rem; height: 1.1rem; cursor: pointer;">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <label for="persona-file-system-checkbox" style="font-size: 0.9rem; font-weight: 600; color: var(--content-primary); cursor: pointer; user-select: none;">File System Agent</label>
+                                        <span style="font-size: 0.75rem; color: var(--content-muted);">Auto-enable virtualized side-panel file workspace</span>
+                                    </div>
+                                </div>
+                                <div class="persona-checkbox-row" style="display: flex; align-items: center; gap: 0.75rem; transition: opacity 0.2s;">
+                                    <input type="checkbox" id="persona-browsing-checkbox" style="width: 1.1rem; height: 1.1rem; cursor: pointer;">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <label for="persona-browsing-checkbox" style="font-size: 0.9rem; font-weight: 600; color: var(--content-primary); cursor: pointer; user-select: none;">Browsing Agent</label>
+                                        <span style="font-size: 0.75rem; color: var(--content-muted);">Auto-enable headless web scraping/navigation</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
                         <div style="display: flex; gap: 1rem; justify-content: flex-end; align-items: center;">
                             <div style="flex: 1; display: flex; align-items: center; gap: 0.75rem;">
                                 <input type="checkbox" id="persona-default-checkbox" style="width: 1.1rem; height: 1.1rem; cursor: pointer;">

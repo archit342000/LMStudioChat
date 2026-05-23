@@ -55,9 +55,33 @@ def init_db():
                 name TEXT,
                 content TEXT,
                 is_default INTEGER DEFAULT 0,
-                timestamp REAL
+                timestamp REAL,
+                research_mode INTEGER DEFAULT 0,
+                file_system_mode INTEGER DEFAULT 0,
+                browsing_mode INTEGER DEFAULT 0
             )
         ''')
+
+        c.execute("PRAGMA table_info(personas)")
+        persona_cols = [col[1] for col in c.fetchall()]
+        if 'research_mode' not in persona_cols:
+            logger.info("MIGRATION: Adding 'research_mode' column to 'personas' table.")
+            try:
+                c.execute("ALTER TABLE personas ADD COLUMN research_mode INTEGER DEFAULT 0")
+            except Exception as e:
+                logger.error(f"Error adding research_mode column to personas: {e}")
+        if 'file_system_mode' not in persona_cols:
+            logger.info("MIGRATION: Adding 'file_system_mode' column to 'personas' table.")
+            try:
+                c.execute("ALTER TABLE personas ADD COLUMN file_system_mode INTEGER DEFAULT 0")
+            except Exception as e:
+                logger.error(f"Error adding file_system_mode column to personas: {e}")
+        if 'browsing_mode' not in persona_cols:
+            logger.info("MIGRATION: Adding 'browsing_mode' column to 'personas' table.")
+            try:
+                c.execute("ALTER TABLE personas ADD COLUMN browsing_mode INTEGER DEFAULT 0")
+            except Exception as e:
+                logger.error(f"Error adding browsing_mode column to personas: {e}")
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS chats (

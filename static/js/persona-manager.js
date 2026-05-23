@@ -28,6 +28,9 @@
         personaNameInput: document.getElementById("persona-name-input"),
         personaContentInput: document.getElementById("persona-content-input"),
         personaDefaultCheckbox: document.getElementById("persona-default-checkbox"),
+        personaResearchCheckbox: document.getElementById("persona-research-checkbox"),
+        personaFileSystemCheckbox: document.getElementById("persona-file-system-checkbox"),
+        personaBrowsingCheckbox: document.getElementById("persona-browsing-checkbox"),
         newPersonaBtn: document.getElementById("new-persona-btn"),
         cancelPersonaBtn: document.getElementById("cancel-persona-btn"),
         savePersonaBtn: document.getElementById("save-persona-btn"),
@@ -43,9 +46,40 @@
       if (this.nodes.savePersonaBtn) {
         this.nodes.savePersonaBtn.addEventListener("click", () => this.savePersona());
       }
+      if (this.nodes.personaResearchCheckbox) {
+        this.nodes.personaResearchCheckbox.addEventListener("change", () => this.syncPersonaAgentCheckboxes());
+      }
 
       // Initial synchronization
       this.fetchPersonas();
+    },
+
+    /**
+     * Instantly disables and unchecks other agents if Research Agent is enabled in persona editor.
+     */
+    syncPersonaAgentCheckboxes() {
+      const isResearch = this.nodes.personaResearchCheckbox && this.nodes.personaResearchCheckbox.checked;
+      if (isResearch) {
+        if (this.nodes.personaFileSystemCheckbox) {
+          this.nodes.personaFileSystemCheckbox.checked = false;
+          this.nodes.personaFileSystemCheckbox.disabled = true;
+          this.nodes.personaFileSystemCheckbox.parentElement.style.opacity = "0.4";
+        }
+        if (this.nodes.personaBrowsingCheckbox) {
+          this.nodes.personaBrowsingCheckbox.checked = false;
+          this.nodes.personaBrowsingCheckbox.disabled = true;
+          this.nodes.personaBrowsingCheckbox.parentElement.style.opacity = "0.4";
+        }
+      } else {
+        if (this.nodes.personaFileSystemCheckbox) {
+          this.nodes.personaFileSystemCheckbox.disabled = false;
+          this.nodes.personaFileSystemCheckbox.parentElement.style.opacity = "1";
+        }
+        if (this.nodes.personaBrowsingCheckbox) {
+          this.nodes.personaBrowsingCheckbox.disabled = false;
+          this.nodes.personaBrowsingCheckbox.parentElement.style.opacity = "1";
+        }
+      }
     },
 
     /**
@@ -63,6 +97,9 @@
             const defaultPersona = this.personas.find((p) => p.is_default);
             if (defaultPersona) {
               this.selectedPersonaId = defaultPersona.id;
+              if (this.deps.onPersonaSelected) {
+                this.deps.onPersonaSelected(defaultPersona);
+              }
             }
           }
 
@@ -186,6 +223,10 @@
           if (!chatStarted) {
             this.selectedPersonaId = this.selectedPersonaId === persona.id ? null : persona.id;
             this.renderPersonas();
+            if (this.deps.onPersonaSelected) {
+              const selectedPersona = this.personas.find(p => p.id === this.selectedPersonaId);
+              this.deps.onPersonaSelected(selectedPersona || null);
+            }
           }
         };
 
@@ -209,6 +250,15 @@
         if (this.nodes.personaDefaultCheckbox) {
           this.nodes.personaDefaultCheckbox.checked = persona.is_default === 1;
         }
+        if (this.nodes.personaResearchCheckbox) {
+          this.nodes.personaResearchCheckbox.checked = persona.research_mode === 1;
+        }
+        if (this.nodes.personaFileSystemCheckbox) {
+          this.nodes.personaFileSystemCheckbox.checked = persona.file_system_mode === 1;
+        }
+        if (this.nodes.personaBrowsingCheckbox) {
+          this.nodes.personaBrowsingCheckbox.checked = persona.browsing_mode === 1;
+        }
       } else {
         if (this.nodes.personaIdInput) this.nodes.personaIdInput.value = "";
         if (this.nodes.personaNameInput) this.nodes.personaNameInput.value = "";
@@ -216,7 +266,17 @@
         if (this.nodes.personaDefaultCheckbox) {
           this.nodes.personaDefaultCheckbox.checked = false;
         }
+        if (this.nodes.personaResearchCheckbox) {
+          this.nodes.personaResearchCheckbox.checked = false;
+        }
+        if (this.nodes.personaFileSystemCheckbox) {
+          this.nodes.personaFileSystemCheckbox.checked = false;
+        }
+        if (this.nodes.personaBrowsingCheckbox) {
+          this.nodes.personaBrowsingCheckbox.checked = false;
+        }
       }
+      this.syncPersonaAgentCheckboxes();
     },
 
     /**
@@ -236,6 +296,9 @@
       const name = this.nodes.personaNameInput ? this.nodes.personaNameInput.value.trim() : "";
       const content = this.nodes.personaContentInput ? this.nodes.personaContentInput.value.trim() : "";
       const is_default = this.nodes.personaDefaultCheckbox && this.nodes.personaDefaultCheckbox.checked ? 1 : 0;
+      const research_mode = this.nodes.personaResearchCheckbox && this.nodes.personaResearchCheckbox.checked ? 1 : 0;
+      const file_system_mode = this.nodes.personaFileSystemCheckbox && this.nodes.personaFileSystemCheckbox.checked ? 1 : 0;
+      const browsing_mode = this.nodes.personaBrowsingCheckbox && this.nodes.personaBrowsingCheckbox.checked ? 1 : 0;
 
       const showAlert = window.showAlert || ((title, msg) => window.alert(msg));
 
@@ -244,7 +307,7 @@
         return;
       }
 
-      const payload = { name, content, is_default };
+      const payload = { name, content, is_default, research_mode, file_system_mode, browsing_mode };
       const url = id ? `/api/personas/${id}` : "/api/personas";
       const method = id ? "PUT" : "POST";
 
@@ -303,6 +366,9 @@
       const defaultPersona = this.personas.find((p) => p.is_default);
       this.selectedPersonaId = defaultPersona ? defaultPersona.id : null;
       this.renderPersonas();
+      if (this.deps.onPersonaSelected) {
+        this.deps.onPersonaSelected(defaultPersona || null);
+      }
     },
   };
 

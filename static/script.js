@@ -1738,8 +1738,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     
     lightbox.classList.add('open');
   }
-
-  /**
+/**
    * Synchronizes the UI state based on research, preferences, and file_system modes.
    * Toggles visibility of specialized buttons, locks inputs during agent execution,
    * and updates greeting text.
@@ -1747,18 +1746,92 @@ const chatTitleHeader = document.getElementById("chat-title-header");
   function updateResearchUI() {
     document.body.classList.toggle("research-agent-active", isResearchMode);
 
+    // Check if any mode is locked/required by the active persona
+    const selectedPersonaId = window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null;
+    const activePersona = selectedPersonaId && window.PersonaManager
+      ? window.PersonaManager.getPersonas().find(p => p.id === selectedPersonaId)
+      : null;
+
+    const isResearchLockedByPersona = activePersona && activePersona.research_mode === 1;
+    const isFSLockedByPersona = activePersona && activePersona.file_system_mode === 1;
+    const isBrowsingLockedByPersona = activePersona && activePersona.browsing_mode === 1;
+
+    // Grey out and disable other agent toggles if research mode is active
+    if (isResearchMode) {
+      fileSystemMode = false;
+      browsingMode = false;
+
+      if (fileSystemModeToggle) {
+        fileSystemModeToggle.classList.remove("active");
+        fileSystemModeToggle.classList.add("disabled-by-research");
+        fileSystemModeToggle.style.opacity = "0.4";
+        fileSystemModeToggle.style.pointerEvents = "none";
+        fileSystemModeToggle.style.cursor = "not-allowed";
+        fileSystemModeToggle.title = "File System Agent is disabled when Research Agent is enabled.";
+      }
+      if (browsingModeToggle) {
+        browsingModeToggle.classList.remove("active");
+        browsingModeToggle.classList.add("disabled-by-research");
+        browsingModeToggle.style.opacity = "0.4";
+        browsingModeToggle.style.pointerEvents = "none";
+        browsingModeToggle.style.cursor = "not-allowed";
+        browsingModeToggle.title = "Browsing Agent is disabled when Research Agent is enabled.";
+      }
+      closeFileSystemPanel();
+    } else {
+      if (fileSystemModeToggle) {
+        fileSystemModeToggle.classList.remove("disabled-by-research");
+        fileSystemModeToggle.classList.toggle("active", fileSystemMode);
+        if (isFSLockedByPersona) {
+          fileSystemModeToggle.style.opacity = "0.7";
+          fileSystemModeToggle.style.pointerEvents = "none";
+          fileSystemModeToggle.style.cursor = "default";
+          fileSystemModeToggle.title = "File System Agent is required by the active persona.";
+        } else if (fileSystemModeToggle.classList.contains("locked")) {
+          fileSystemModeToggle.style.opacity = "1";
+          fileSystemModeToggle.style.pointerEvents = "none";
+          fileSystemModeToggle.style.cursor = "default";
+          fileSystemModeToggle.title = "FileSystem Mode is active.";
+        } else {
+          fileSystemModeToggle.style.opacity = "1";
+          fileSystemModeToggle.style.pointerEvents = "auto";
+          fileSystemModeToggle.style.cursor = "pointer";
+          fileSystemModeToggle.title = "Enable FileSystem Mode";
+        }
+      }
+      if (browsingModeToggle) {
+        browsingModeToggle.classList.remove("disabled-by-research");
+        browsingModeToggle.classList.toggle("active", browsingMode);
+        if (isBrowsingLockedByPersona) {
+          browsingModeToggle.style.opacity = "0.7";
+          browsingModeToggle.style.pointerEvents = "none";
+          browsingModeToggle.style.cursor = "default";
+          browsingModeToggle.title = "Browsing Agent is required by the active persona.";
+        } else {
+          browsingModeToggle.style.opacity = "1";
+          browsingModeToggle.style.pointerEvents = "auto";
+          browsingModeToggle.style.cursor = "pointer";
+          browsingModeToggle.title = "Enable Browsing Agent";
+        }
+      }
+    }
+
     // 1. Research Agent Toggle logic
     if (uiResearchToggle) {
       uiResearchToggle.classList.toggle("active", isResearchMode);
 
-      // Lock research toggle if research is ongoing
-      const shouldBlockResearch = isResearchOngoing;
+      // Lock research toggle if research is ongoing or required by persona
+      const shouldBlockResearch = isResearchOngoing || isResearchLockedByPersona;
 
       if (shouldBlockResearch) {
-        uiResearchToggle.parentElement.style.opacity = "0.5";
+        uiResearchToggle.parentElement.style.opacity = "0.7";
         uiResearchToggle.parentElement.style.pointerEvents = "none";
-        uiResearchToggle.parentElement.style.cursor = "not-allowed";
-        uiResearchToggle.title = "Research is currently in progress.";
+        uiResearchToggle.parentElement.style.cursor = "default";
+        if (isResearchLockedByPersona) {
+          uiResearchToggle.title = "Research Agent is required by the active persona.";
+        } else {
+          uiResearchToggle.title = "Research is currently in progress.";
+        }
       } else {
         uiResearchToggle.parentElement.style.opacity = "1";
         uiResearchToggle.parentElement.style.pointerEvents = "auto";
@@ -1932,6 +2005,14 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       uiResearchToggle.parentElement.addEventListener("click", (e) => {
         e.stopPropagation();
         if (isResearchOngoing) return; // Prevent toggle if research is executing
+
+        const selectedPersonaId = window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null;
+        const activePersona = selectedPersonaId && window.PersonaManager
+          ? window.PersonaManager.getPersonas().find(p => p.id === selectedPersonaId)
+          : null;
+        const isResearchLockedByPersona = activePersona && activePersona.research_mode === 1;
+        if (isResearchLockedByPersona) return; // Prevent toggle if required by persona
+
         // Toggle Research Mode
         isResearchMode = !isResearchMode;
         localStorage.setItem("my_ai_is_research_mode", isResearchMode);
@@ -4243,9 +4324,9 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
 
   if (fileSystemModeToggle) {
     fileSystemModeToggle.addEventListener("click", () => {
-      // Don't allow toggling when locked (chat has file_systems)
-      if (fileSystemModeToggle.classList.contains("locked")) {
-        return; // Prevent any toggle action when locked
+      // Don't allow toggling when locked (chat has file_systems) or disabled by research
+      if (fileSystemModeToggle.classList.contains("locked") || fileSystemModeToggle.classList.contains("disabled-by-research")) {
+        return; // Prevent any toggle action when locked or disabled
       }
       fileSystemMode = !fileSystemMode;
       fileSystemModeToggle.classList.toggle("active", fileSystemMode);
@@ -4297,6 +4378,9 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
 
   if (browsingModeToggle) {
     browsingModeToggle.addEventListener("click", () => {
+      if (browsingModeToggle.classList.contains("disabled-by-research")) {
+        return;
+      }
       browsingMode = !browsingMode;
       browsingModeToggle.classList.toggle("active", browsingMode);
       if (chatHistory.length > 0) {
@@ -4480,7 +4564,49 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
   if (window.PersonaManager) {
     window.PersonaManager.init({
       getChatHistory: () => chatHistory,
-      getCurrentChatId: () => currentChatId
+      getCurrentChatId: () => currentChatId,
+      onPersonaSelected: (persona) => {
+        if (persona) {
+          isResearchMode = !!persona.research_mode;
+          if (!fileSystemModeToggle || !fileSystemModeToggle.classList.contains("locked")) {
+            fileSystemMode = !!persona.file_system_mode;
+          }
+          browsingMode = !!persona.browsing_mode;
+        }
+
+        // Apply rules: research_mode overrides others
+        if (isResearchMode) {
+          fileSystemMode = false;
+          browsingMode = false;
+        }
+
+        // Synchronize general frontend UI toggles
+        updateResearchUI();
+        if (fileSystemModeToggle) {
+          if (!fileSystemModeToggle.classList.contains("locked")) {
+            fileSystemModeToggle.classList.toggle("active", fileSystemMode);
+          }
+          if (!fileSystemMode) {
+            closeFileSystemPanel();
+          }
+        }
+        if (browsingModeToggle) {
+          browsingModeToggle.classList.toggle("active", browsingMode);
+        }
+
+        // Check compatibility and fetch models if research mode changes
+        window.ModelManager.checkSendButtonCompatibility();
+        window.ModelManager.fetchModels(isResearchMode);
+
+        // Sync to backend mid-chat if applicable
+        if (chatHistory.length > 0) {
+          patchChat({
+            research_mode: isResearchMode,
+            file_system_mode: fileSystemMode,
+            browsing_mode: browsingMode
+          });
+        }
+      }
     });
   }
 

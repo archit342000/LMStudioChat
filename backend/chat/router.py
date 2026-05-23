@@ -616,11 +616,14 @@ def create_persona():
     name = data.get('name')
     content = data.get('content')
     is_default = data.get('is_default', 0)
+    research_mode = data.get('research_mode', 0)
+    file_system_mode = data.get('file_system_mode', 0)
+    browsing_mode = data.get('browsing_mode', 0)
 
     if not name or not content:
         return jsonify({"success": False, "error": "Name and content are required"}), 400
 
-    persona = db.create_persona(name, content, is_default)
+    persona = db.create_persona(name, content, is_default, research_mode, file_system_mode, browsing_mode)
     return jsonify({"success": True, "persona": persona}), 201
 
 
@@ -630,11 +633,14 @@ def update_persona(persona_id):
     name = data.get('name')
     content = data.get('content')
     is_default = data.get('is_default', 0)
+    research_mode = data.get('research_mode', 0)
+    file_system_mode = data.get('file_system_mode', 0)
+    browsing_mode = data.get('browsing_mode', 0)
 
     if not name or not content:
         return jsonify({"success": False, "error": "Name and content are required"}), 400
 
-    success = db.update_persona(persona_id, name, content, is_default)
+    success = db.update_persona(persona_id, name, content, is_default, research_mode, file_system_mode, browsing_mode)
     if not success:
         return jsonify({"success": False, "error": "Persona not found"}), 404
 

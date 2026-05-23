@@ -1,5 +1,9 @@
 # CHANGELOG
 
+## v4.5.2
+* **Persona-Associated Agent Configurations**: Enabled persona-level toggles for Research, File System, and Browsing agents that automatically sync with general chat controls, lock active switches on selection, and enforce Research Agent exclusivity.
+* **Version Bump**: Incremented version globally to 4.5.2.
+
 ## v4.5.1
 * **LaTeX / KaTeX Responsive Equation Rendering**:
     - **Table-Wrapper Integration**: Wrapped all markdown table tags inside a responsive `.table-wrapper` container using a custom `marked.js` table renderer.

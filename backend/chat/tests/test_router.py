@@ -451,14 +451,27 @@ def test_create_persona(mock_db, client):
 
     # Success
     mock_db.create_persona.return_value = {
-        "id": "p1", "name": "Pirate", "content": "Arr!", "is_default": 0
+        "id": "p1", "name": "Pirate", "content": "Arr!", "is_default": 0,
+        "research_mode": 0, "file_system_mode": 0, "browsing_mode": 0
     }
     response = client.post('/api/personas', json={"name": "Pirate", "content": "Arr!"})
     assert response.status_code == 201
     data = response.json
     assert data["success"] is True
     assert data["persona"]["name"] == "Pirate"
-    mock_db.create_persona.assert_called_with("Pirate", "Arr!", 0)
+    mock_db.create_persona.assert_called_with("Pirate", "Arr!", 0, 0, 0, 0)
+
+    # Success with agent toggles
+    mock_db.create_persona.return_value = {
+        "id": "p2", "name": "FS Developer", "content": "FS only", "is_default": 0,
+        "research_mode": 0, "file_system_mode": 1, "browsing_mode": 1
+    }
+    response = client.post('/api/personas', json={
+        "name": "FS Developer", "content": "FS only", "file_system_mode": 1, "browsing_mode": 1
+    })
+    assert response.status_code == 201
+    assert response.json["persona"]["file_system_mode"] == 1
+    mock_db.create_persona.assert_called_with("FS Developer", "FS only", 0, 0, 1, 1)
 
 
 @patch('backend.chat.router.db')
@@ -476,14 +489,15 @@ def test_update_persona(mock_db, client):
     # Success
     mock_db.update_persona.return_value = True
     mock_db.get_persona.return_value = {
-        "id": "p1", "name": "Updated", "content": "New prompt", "is_default": 1
+        "id": "p1", "name": "Updated", "content": "New prompt", "is_default": 1,
+        "research_mode": 1, "file_system_mode": 0, "browsing_mode": 0
     }
-    response = client.put('/api/personas/p1', json={"name": "Updated", "content": "New prompt", "is_default": 1})
+    response = client.put('/api/personas/p1', json={"name": "Updated", "content": "New prompt", "is_default": 1, "research_mode": 1})
     assert response.status_code == 200
     data = response.json
     assert data["success"] is True
     assert data["persona"]["name"] == "Updated"
-    mock_db.update_persona.assert_called_with("p1", "Updated", "New prompt", 1)
+    mock_db.update_persona.assert_called_with("p1", "Updated", "New prompt", 1, 1, 0, 0)
 
 
 @patch('backend.chat.router.db')
