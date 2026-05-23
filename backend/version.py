@@ -1,6 +1,6 @@
 VERSION_MAJOR = 4
 VERSION_MINOR = 5
-VERSION_PATCH = 0
+VERSION_PATCH = 1
 
 
 def get_version():

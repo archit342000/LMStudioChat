@@ -135,6 +135,12 @@ if (typeof marked !== "undefined" && typeof hljs !== "undefined") {
     return `<a href="${href}" target="_blank" rel="noopener noreferrer">${text}</a>`;
   };
 
+  const originalTable = renderer.table;
+  renderer.table = function(...args) {
+    const html = originalTable.call(this, ...args);
+    return `<div class="table-wrapper">${html}</div>`;
+  };
+
   if (marked.use) {
     marked.use({ renderer });
     

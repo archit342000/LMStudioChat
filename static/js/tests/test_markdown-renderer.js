@@ -183,4 +183,16 @@ describe('markdown-renderer.js', () => {
         const strikethroughHtml = window.marked.parse(strikethroughMarkdown);
         assert.ok(strikethroughHtml.includes('<del>del</del>'));
     });
+
+    test('table rendering wrapped in .table-wrapper', () => {
+        const markdown = '| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |';
+        const html = window.marked.parse(markdown);
+
+        assert.ok(html.includes('<div class="table-wrapper">'));
+        assert.ok(html.includes('<table>'));
+        assert.ok(html.includes('<thead>'));
+        assert.ok(html.includes('Header 1'));
+        assert.ok(html.includes('Cell 1'));
+    });
 });
+

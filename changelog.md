@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v4.5.1
+* **LaTeX / KaTeX Responsive Equation Rendering**:
+    - **Table-Wrapper Integration**: Wrapped all markdown table tags inside a responsive `.table-wrapper` container using a custom `marked.js` table renderer.
+    - **Table Layout Sizing**: Switched table display rules to `table-layout: auto` and added dynamic scrolling constraints to allow columns to scale seamlessly around wide content (such as inline and block-level mathematical formulas).
+    - **Smooth Inline Math Scrolling**: Configured `.katex` inline elements with horizontal overflow scrolling and hidden scrollbars to prevent long equations from overflowing the chat message bubbles or table borders while keeping text lines visually clean.
+    - **Display Block Math Handling**: Configured `.katex-display` equations to respect maximum width boundaries and scroll horizontally using custom thin scrollbars.
+* **Version Bump**: Incremented version globally to 4.5.1.
+
 ## v4.5.0
 * **Dedicated Workspace View Pages & Sidebar File System Synchronization**:
     - **Dedicated Workspace Landing Pages**: Built a dedicated workspace view page (`/workspace/<workspace_id>`) displaying workspace statistics, a premium glassmorphic list of chats belonging to the workspace with rename/delete quick actions, and an empty state card with a shortcut to immediately create a chat.
