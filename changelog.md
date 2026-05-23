@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.5.3
+* **Inference Proxy Modularization**: Refactored out the inference and model lifecycle management logic to reside as a modular, standalone external proxy microservice (`inference_proxy`).
+* **Optimized Messages Rendering**: Optimized the rendering of chat messages in the frontend interface.
+* **Version Bump**: Incremented version globally to 4.5.3.
+
 ## v4.5.2
 * **Persona-Associated Agent Configurations**: Enabled persona-level toggles for Research, File System, and Browsing agents that automatically sync with general chat controls, lock active switches on selection, and enforce Research Agent exclusivity.
 * **Version Bump**: Incremented version globally to 4.5.2.
