@@ -1,7 +1,7 @@
 import json
 import logging
 from typing import List, Dict, Any
-from backend.models.loader import get_model_metadata
+from backend.models import get_model_metadata
 from backend.rag.token_counter import count_chat_tokens
 from backend.database import db
 

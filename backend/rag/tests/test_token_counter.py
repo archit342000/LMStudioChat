@@ -115,7 +115,7 @@ def test_split_text_by_tokens_with_split(mock_get_tokenizer):
     assert chunks == ["c1", "c2", "c3"]
 
 
-@patch("backend.models.loader.get_model_metadata")
+@patch("backend.models.get_model_metadata")
 @patch("backend.rag.token_counter.AutoTokenizer.from_pretrained")
 def test_get_tokenizer_for_model(mock_from_pretrained, mock_get_metadata):
     tc._model_tokenizers = {}

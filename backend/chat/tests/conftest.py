@@ -25,7 +25,7 @@ class MockLlamaCppHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length)
         payload = json.loads(body.decode("utf-8"))
 
-        if self.path == "/v1/chat/completions":
+        if self.path in ["/v1/chat/completions", "/api/models/v1/chat/completions"]:
             if MockServerState.chat_responses:
                 resp = MockServerState.chat_responses.pop(0)
                 if callable(resp):
@@ -81,7 +81,7 @@ class MockLlamaCppHandler(BaseHTTPRequestHandler):
                 }
                 self.wfile.write(json.dumps(resp).encode("utf-8"))
 
-        elif self.path == "/v1/embeddings":
+        elif self.path in ["/v1/embeddings", "/api/models/v1/embeddings"]:
             if MockServerState.embeddings_responses:
                 resp = MockServerState.embeddings_responses.pop(0)
                 self.send_response(200)
@@ -115,7 +115,8 @@ def mock_server():
     # Patch global config URLs
     with patch("backend.config.AI_URL", url), patch(
         "backend.config.EMBEDDING_URL", url
-    ):
+    ), patch("backend.config.AI_PROXY_URL", url), \
+       patch.dict("os.environ", {"AI_PROXY_URL": url}):
         yield url
 
     server.shutdown()

@@ -5,7 +5,7 @@ import json
 import asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from unittest.mock import patch, MagicMock
-from backend.inference.engine import InferenceEngine, AsyncMPSemaphore
+from backend.inference.engine import InferenceEngine
 import multiprocessing
 
 class MockLlamaCppHandler(BaseHTTPRequestHandler):
@@ -17,7 +17,7 @@ class MockLlamaCppHandler(BaseHTTPRequestHandler):
         body = self.rfile.read(content_length)
         payload = json.loads(body.decode('utf-8'))
         
-        if self.path == '/v1/chat/completions':
+        if self.path in ['/v1/chat/completions', '/api/models/v1/chat/completions']:
             if payload.get('stream'):
                 self.send_response(200)
                 self.send_header('Content-Type', 'text/event-stream')
@@ -49,7 +49,7 @@ class MockLlamaCppHandler(BaseHTTPRequestHandler):
                 }
                 self.wfile.write(json.dumps(resp).encode('utf-8'))
         
-        elif self.path == '/v1/embeddings':
+        elif self.path in ['/v1/embeddings', '/api/models/v1/embeddings']:
             self.send_response(200)
             self.send_header('Content-Type', 'application/json')
             self.end_headers()
@@ -60,6 +60,12 @@ class MockLlamaCppHandler(BaseHTTPRequestHandler):
             data = [{"embedding": [0.1, 0.2, 0.3]} for _ in inputs]
             resp = {"data": data}
             self.wfile.write(json.dumps(resp).encode('utf-8'))
+            
+        elif self.path == '/api/models/load':
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            self.wfile.write(b'{"status": "ok"}')
         
         else:
             self.send_response(404)
@@ -79,46 +85,31 @@ def mock_server():
 def engine(mock_server):
     # Reset singleton before test
     InferenceEngine._instance = None
-    InferenceEngine._mp_sem = None
     
-    with patch('backend.config.AI_URL', mock_server), \
-         patch('backend.config.EMBEDDING_URL', mock_server), \
-         patch('backend.config.AI_API_KEY', "test_key"), \
+    with patch('backend.config.AI_API_KEY', "test_key"), \
          patch('backend.config.EMBEDDING_API_KEY', "test_key"), \
-         patch('backend.config.INFERENCE_PARALLELISM', 5):
+         patch('backend.config.AI_PROXY_URL', mock_server), \
+         patch.dict('os.environ', {"AI_PROXY_URL": mock_server}):
          
          eng = InferenceEngine()
          yield eng
     
-    # Reset singleton after test to prevent cross-session contamination.
-    # Without this, the singleton holds a stale dead URL from the module-scoped
-    # mock_server fixture, causing ConnectError in unrelated tests that run after.
     InferenceEngine._instance = None
-    InferenceEngine._mp_sem = None
 
 
 @pytest.fixture(autouse=True)
 def mock_logger():
     with patch('backend.inference.engine.log_event'), \
          patch('backend.inference.engine.log_llm_call'), \
-         patch('backend.inference.engine.log_embedding_call'), \
-         patch('backend.models.ensure_model_loaded'):
-        yield
+         patch('backend.inference.engine.log_embedding_call'):
+         yield
 
-@pytest.mark.anyio
-async def test_async_mp_semaphore():
-    sem = multiprocessing.Semaphore(1)
-    async_sem = AsyncMPSemaphore(sem)
-    async with async_sem:
-        assert sem.get_value() == 0
-    assert sem.get_value() == 1
 
 @pytest.mark.anyio
 async def test_engine_singleton(mock_server):
     InferenceEngine._instance = None
-    InferenceEngine._mp_sem = None
-    with patch('backend.config.AI_URL', mock_server), \
-         patch('backend.config.INFERENCE_PARALLELISM', 5):
+    with patch('backend.config.AI_PROXY_URL', mock_server), \
+         patch.dict('os.environ', {"AI_PROXY_URL": mock_server}):
         eng1 = InferenceEngine()
         eng2 = InferenceEngine()
         assert eng1 is eng2
@@ -131,8 +122,7 @@ async def test_engine_start(engine):
 async def test_engine_chat(engine):
     messages = [{"role": "user", "content": "Hi"}]
     res = await engine.chat(messages, model="test-model", chat_template_kwargs={"enable_thinking": True})
-    assert res["choices"][0]["message"]["content"] == "Hello World"
-    assert res["choices"][0]["message"]["reasoning_content"] == "Thinking...\n"
+    assert res["choices"][0]["message"]["content"] == "<think>\nThinking...\n</think>\nHello World"
 
 @pytest.mark.anyio
 async def test_engine_chat_error(engine):
@@ -183,22 +173,18 @@ def test_engine_embed_sync(engine):
 
 @pytest.mark.anyio
 async def test_ensure_model_loaded(engine):
-    with patch('backend.models.ensure_model_loaded') as mock_lifecycle:
-        await engine.ensure_model_loaded("test-model", engine.ai_url, engine.ai_api_key, "llm")
-        mock_lifecycle.assert_called_once()
+    # This will hit MockLlamaCppHandler's /api/models/load endpoint successfully
+    await engine.ensure_model_loaded("test-model", engine.ai_api_key)
         
     # Error handling
-    with patch('backend.models.ensure_model_loaded', side_effect=Exception("Load Error")), \
+    with patch('httpx.AsyncClient.request', side_effect=Exception("Load Error")), \
          patch('backend.inference.engine.log_event') as mock_log:
-        await engine.ensure_model_loaded("test-model", engine.ai_url, engine.ai_api_key, "llm")
-        mock_log.assert_called_with("ensure_model_loaded_error", {"error": "Load Error", "model": "test-model", "category": "llm", "server": engine.ai_url})
-
-    # Empty base_url
-    await engine.ensure_model_loaded("test-model", "", engine.ai_api_key, "llm") # Should return immediately
+        await engine.ensure_model_loaded("test-model", engine.ai_api_key)
+        mock_log.assert_called_with("ensure_model_loaded_error", {"error": "Load Error", "model": "test-model"})
 
 @pytest.mark.anyio
 async def test_request(engine):
-    res = await engine._request("POST", f"{engine.ai_url}/v1/chat/completions", "test_key", {"stream": False}, 10.0)
+    res = await engine._request("POST", f"{engine.proxy_url}/v1/chat/completions", "test_key", {"stream": False}, 10.0)
     assert res.status_code == 200
 
 def test_get_headers(engine):
@@ -374,3 +360,59 @@ async def test_stream_retry_on_exception(engine):
                 
             assert any("__redact__" in c for c in chunks)
             assert any("Recovered" in c for c in chunks)
+
+
+@pytest.mark.anyio
+async def test_engine_chat_proxy_mode(engine):
+    # Mock proxy-parsed response: reasoning_content is already populated and stripped
+    proxy_response = MagicMock()
+    proxy_response.json.return_value = {
+        "choices": [{
+            "message": {
+                "role": "assistant",
+                "content": "Hello World",
+                "reasoning_content": "Thinking..."
+            }
+        }],
+        "timings": {"prompt_n": 10}
+    }
+    
+    with patch.object(engine, '_request', return_value=proxy_response):
+        with patch.object(engine, 'proxy_url', "http://proxy-mock"):
+            res = await engine.chat([{"role": "user", "content": "Hi"}], model="test-model")
+            
+            # Assert that client preserves reasoning_content exactly as returned by proxy without double parsing
+            assert res["choices"][0]["message"]["content"] == "Hello World"
+            assert res["choices"][0]["message"]["reasoning_content"] == "Thinking..."
+
+@pytest.mark.anyio
+async def test_engine_stream_proxy_mode(engine):
+    from unittest.mock import AsyncMock
+    # Mock proxy-parsed stream responses
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    
+    async def mock_aiter_lines():
+        lines = [
+            'data: {"choices": [{"delta": {"reasoning_content": "Thinking..."}}]}',
+            'data: {"choices": [{"delta": {"content": "Hello World"}}]}',
+            'data: [DONE]'
+        ]
+        for line in lines:
+            yield line
+            
+    mock_resp.aiter_lines = mock_aiter_lines
+    
+    mock_context = MagicMock()
+    mock_context.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_context.__aexit__ = AsyncMock()
+    
+    with patch('httpx.AsyncClient.stream', return_value=mock_context):
+        with patch.object(engine, 'proxy_url', "http://proxy-mock"):
+            chunks = []
+            async for chunk in engine.stream([{"role": "user", "content": "Hi"}], model="test-model"):
+                chunks.append(chunk)
+                
+            assert len(chunks) == 2
+            assert "reasoning_content" in chunks[0]
+            assert "content" in chunks[1]

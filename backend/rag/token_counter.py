@@ -162,7 +162,7 @@ def get_tokenizer_for_model(model_name: str) -> AutoTokenizer:
     if model_name in _model_tokenizers:
         return _model_tokenizers[model_name]
 
-    from backend.models.loader import get_model_metadata
+    from backend.models import get_model_metadata
     metadata = get_model_metadata(model_name)
     tokenizer_name = metadata["tokenizer"]
 

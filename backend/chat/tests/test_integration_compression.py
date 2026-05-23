@@ -82,7 +82,7 @@ async def test_integration_trigger_compression(
 
         # Set context window size very small to trigger compression immediately in both imported sites
         with patch("backend.inference.compression.get_model_metadata") as mock_meta1, \
-             patch("backend.models.loader.get_model_metadata") as mock_meta2:
+             patch("backend.models.get_model_metadata") as mock_meta2:
             
             mock_meta1.return_value = {
                 "context_window": 100,

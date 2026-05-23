@@ -2,8 +2,8 @@ import httpx
 import logging
 import json
 from typing import List, Dict, Any, Optional
-from backend.logging import log_event
-from .loader import load_model_config
+from logging_utils import log_event
+from loader import load_model_config
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +89,6 @@ async def _load_model(client: httpx.AsyncClient, model_name: str, base_url: str,
     """Send load command to the server."""
     endpoint = f"{base_url}/models/load"
     payload = {"model": model_name}
-    # Use a longer timeout for loading
     response = await client.post(endpoint, json=payload, headers=headers)
     response.raise_for_status()
 

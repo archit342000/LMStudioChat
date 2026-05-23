@@ -25,6 +25,7 @@ AI_URL = get_secret("AI_URL")
 AI_API_KEY = get_secret("AI_API_KEY", "")
 EMBEDDING_URL = get_secret("EMBEDDING_URL", None)
 EMBEDDING_API_KEY = get_secret("EMBEDDING_API_KEY", None)
+AI_PROXY_URL = get_secret("AI_PROXY_URL", "http://localhost:5001")
 
 # Strict Validation: Fail if EMBEDDING_URL is missing
 if not EMBEDDING_URL:
@@ -68,7 +69,6 @@ SUBSCRIBER_POLL_INTERVAL = float(os.getenv("SUBSCRIBER_POLL_INTERVAL", 5.0))
 # WEB EXTRACTION & PARSING
 # =============================================================================
 MAX_CHARS_VISIT_PAGE = 8000        # Character cap for standard visit_page tool
-
 # Minimum content length thresholds (chars) to accept extraction as valid
 RESEARCH_EXTRACT_MIN_RAW_CONTENT = 50       # Raw content from Tavily search results
 RESEARCH_EXTRACT_MIN_PDF_CONTENT = 100      # PDF extraction via pymupdf
@@ -84,7 +84,7 @@ RESEARCH_CONTENT_CHUNK_LIMIT = 15000
 # RAG & EMBEDDINGS
 # =============================================================================
 try:
-    from backend.models.loader import get_embedding_model
+    from backend.models import get_embedding_model
     EMBEDDING_MODEL = get_embedding_model()
 except Exception:
     EMBEDDING_MODEL = "embeddinggemma/embeddinggemma-300M-Q8_0"

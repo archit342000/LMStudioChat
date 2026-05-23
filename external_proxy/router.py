@@ -1,19 +1,21 @@
 from flask import Blueprint, request, jsonify, Response, stream_with_context
 import requests
 import json
-from backend import config
-from .loader import load_model_config
+import time
+import asyncio
+import httpx
+import config
+from loader import load_model_config
+from engine import InferenceEngine
 
 models_bp = Blueprint('models', __name__)
 
 @models_bp.route('', methods=['GET'])
 @models_bp.route('/', methods=['GET'])
-@models_bp.route('/v1', methods=['GET', 'OPTIONS']) # Aliases /api/models/v1
+@models_bp.route('/v1', methods=['GET', 'OPTIONS'])
 def proxy_get_models():
-    """Proxy GET models endpoints to the local AI backend, injecting the API key."""
+    """Proxy GET models endpoints to the local AI backend."""
     api_url = config.AI_URL.rstrip("/")
-    
-    # Standardize base URL
     base_url = api_url[:-3] if api_url.endswith('/v1') else api_url
     endpoint = f"{base_url}/v1/models"
     headers = {"Content-Type": "application/json"}
@@ -44,7 +46,6 @@ def proxy_load_model():
     """Proxy POST to llama.cpp /models/load."""
     data = request.json or {}
     api_url = config.AI_URL.rstrip("/")
-    
     base_url = api_url[:-3] if api_url.endswith('/v1') else api_url
     endpoint = f"{base_url}/models/load"
         
@@ -67,7 +68,6 @@ def proxy_unload_model():
     """Proxy POST to llama.cpp /models/unload."""
     data = request.json or {}
     api_url = config.AI_URL.rstrip("/")
-    
     base_url = api_url[:-3] if api_url.endswith('/v1') else api_url
     endpoint = f"{base_url}/models/unload"
         
@@ -85,10 +85,101 @@ def proxy_unload_model():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+# -------------------------------------------------------------------------
+# Core Proxy Inference Endpoints
+# -------------------------------------------------------------------------
+
+@models_bp.route('/v1/chat/completions', methods=['POST'])
+def proxy_chat_completions():
+    """
+    Exposes chat completions via InferenceEngine.
+    Enforces serialization and streams/extracts thoughts on the fly.
+    """
+    data = request.json or {}
+    messages = data.get("messages", [])
+    model = data.get("model")
+    chat_id = data.get("chat_id")
+    stream = data.get("stream", False)
+    
+    if not model or not messages:
+        return jsonify({"error": "Missing 'model' or 'messages'"}), 400
+
+    # Extract dynamic parameters
+    params = {k: v for k, v in data.items() if k not in ["model", "messages", "stream", "chat_id"]}
+    
+    engine = InferenceEngine()
+
+    if stream:
+        def stream_response():
+            # Run the async generator inside an event loop for Flask streaming compatibility
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                gen = engine.stream(messages=messages, model=model, chat_id=chat_id, **params)
+                while True:
+                    try:
+                        chunk = loop.run_until_complete(gen.__anext__())
+                        yield chunk + "\n\n"
+                    except StopAsyncIteration:
+                        break
+            except Exception as stream_err:
+                yield f"data: {json.dumps({'error': str(stream_err)})}\n\n"
+            finally:
+                loop.close()
+        return Response(stream_with_context(stream_response()), mimetype='text/event-stream')
+    else:
+        try:
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            result = loop.run_until_complete(
+                engine.chat(messages=messages, model=model, chat_id=chat_id, **params)
+            )
+            loop.close()
+            return jsonify(result)
+        except Exception as err:
+            return jsonify({"error": str(err)}), 500
+
+@models_bp.route('/v1/embeddings', methods=['POST'])
+def proxy_embeddings():
+    """
+    Exposes embeddings generation via InferenceEngine.
+    """
+    data = request.json or {}
+    inputs = data.get("input")
+    model = data.get("model")
+    chat_id = data.get("chat_id")
+    
+    if not model or inputs is None:
+        return jsonify({"error": "Missing 'model' or 'input'"}), 400
+
+    params = {k: v for k, v in data.items() if k not in ["model", "input", "chat_id"]}
+    
+    engine = InferenceEngine()
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        vectors = loop.run_until_complete(
+            engine.embed(input=inputs, model=model, chat_id=chat_id, **params)
+        )
+        loop.close()
+        
+        # Standardize return format matching OpenAI spec
+        response_data = {
+            "object": "list",
+            "data": [{"object": "embedding", "index": idx, "embedding": vec} for idx, vec in enumerate(vectors)],
+            "model": model
+        }
+        return jsonify(response_data)
+    except Exception as err:
+        return jsonify({"error": str(err)}), 500
+
+# -------------------------------------------------------------------------
+# Telemetry / Speed Test Endpoint
+# -------------------------------------------------------------------------
+
 @models_bp.route('/test-speed', methods=['POST'])
 def proxy_test_model_speed():
-    """Endpoint to test model speed by unloading all models, loading the selected one, and streaming a long generation."""
-    import time
+    """Endpoint to test model speed by unloading all models, loading the selected one, and streaming."""
     data = request.json or {}
     model = data.get("model")
     target_context_threshold = int(data.get("target_context_threshold", 128000))
@@ -104,7 +195,6 @@ def proxy_test_model_speed():
 
     def generate():
         try:
-            # 1. Unload all models
             yield f"data: {json.dumps({'test_status': 'Unloading models...'})}\n\n"
             models_resp = requests.get(f"{base_url}/v1/models", headers=headers, timeout=10)
             if models_resp.status_code == 200:
@@ -114,7 +204,6 @@ def proxy_test_model_speed():
                     if mid and m.get("status", {}).get("value", "unloaded") == "loaded":
                         requests.post(f"{base_url}/models/unload", json={"model": mid}, headers=headers, timeout=60)
             
-            # Poll until unloaded
             yield f"data: {json.dumps({'test_status': 'Confirming models unloaded...'})}\n\n"
             unloaded = False
             for _ in range(30):
@@ -129,18 +218,15 @@ def proxy_test_model_speed():
             if not unloaded:
                 yield f"data: {json.dumps({'error': 'Failed to fully unload existing models. Proceeding anyway...'})}\n\n"
 
-            # 2. Load the target model
             yield f"data: {json.dumps({'test_status': f'Loading model {model}...'})}\n\n"
-            # Some local backends might timeout on /models/load. Wait for 120s or ignore the timeout.
             try:
                 requests.post(f"{base_url}/models/load", json={"model": model}, headers=headers, timeout=120)
             except requests.exceptions.Timeout:
-                pass # Wait and poll anyway
+                pass
             
-            # Poll until loaded
             yield f"data: {json.dumps({'test_status': 'Waiting for model to load into memory...'})}\n\n"
             loaded = False
-            for _ in range(120): # Up to 120 * 2 = 240 seconds for huge models
+            for _ in range(120):
                 try:
                     resp = requests.get(f"{base_url}/v1/models", headers=headers, timeout=10)
                     if resp.status_code == 200:
@@ -160,21 +246,14 @@ def proxy_test_model_speed():
 
             yield f"data: {json.dumps({'test_status': 'Starting context accumulation test...'})}\n\n"
 
-            # 3. Dynamic Accumulation Loop
             messages = []
             total_tokens_tracked = 0
             turn_count = 1
-            
-            # Dynamically calculate tokens per turn
-            # Generate more tokens per turn for larger contexts to reduce the number of turns
             max_tokens_per_turn = min(8192, max(500, target_context_threshold // 10))
-            # Use a much larger safety cap for turns to avoid premature ending if model is short-winded
             max_turns_safety = 1000
 
             while total_tokens_tracked < target_context_threshold and turn_count <= max_turns_safety:
-                # Build simple prompt requiring a long response
                 messages.append({"role": "user", "content": f"Turn {turn_count}: Please write a very detailed and comprehensive essay on a complex topic. Write as much as you possibly can, aiming for length and depth."})
-                
                 yield f"data: {json.dumps({'test_status': f'Starting Turn {turn_count} (Current Context: {total_tokens_tracked}/{target_context_threshold} tokens)...'})}\n\n"
 
                 payload = {
@@ -190,14 +269,12 @@ def proxy_test_model_speed():
                 first_token_time = None
                 completion_tokens_count = 0
 
-                # Need a long timeout for potentially large prefill times on huge contexts
                 with requests.post(f"{base_url}/v1/chat/completions", json=payload, headers=headers, stream=True, timeout=None) as r:
                     for chunk in r.iter_lines():
                         if chunk:
                             chunk_str = chunk.decode('utf-8')
                             yield chunk_str + "\n\n"
                             
-                            # Parse chunk locally to accumulate tokens and response
                             chunk_str_stripped = chunk_str.strip()
                             if chunk_str_stripped.startswith('data: ') and chunk_str_stripped != 'data: [DONE]':
                                 try:
@@ -237,7 +314,6 @@ def proxy_test_model_speed():
                 
                 messages.append({"role": "assistant", "content": current_turn_response})
 
-                # Estimate prompt and total tokens locally as a robust fallback
                 prompt_tokens = sum(len(m["content"]) for m in messages[:-1]) // 4
                 if completion_tokens_count == 0:
                     completion_tokens_count = len(current_turn_response) // 4
@@ -246,16 +322,9 @@ def proxy_test_model_speed():
                 if total_tokens_tracked < estimated_total:
                     total_tokens_tracked = estimated_total
 
-                # Compute timings for synthetic chunk
-                ttft_ms = 0.0
-                if first_token_time:
-                    ttft_ms = (first_token_time - start_time) * 1000
-                else:
-                    ttft_ms = (time.time() - start_time) * 1000
-
+                ttft_ms = (first_token_time - start_time) * 1000 if first_token_time else (time.time() - start_time) * 1000
                 predicted_ms = (time.time() - (first_token_time or start_time)) * 1000
 
-                # Yield synthetic chunk containing usage and timings to ensure frontend telemetry always plots successfully
                 synthetic_chunk = {
                     "choices": [],
                     "usage": {

@@ -1,7 +1,7 @@
 import pytest
-from backend.inference.parsers.base import StreamInterceptor, BaseParser
-from backend.inference.parsers.models import StandardParser, GemmaParser, PassThroughParser
-from backend.inference.parsers import get_parser_for_model
+from parsers.base import StreamInterceptor, BaseParser
+from parsers.models import StandardParser, GemmaParser, PassThroughParser
+from parsers import get_parser_for_model
 
 def test_standard_parser_clean():
     parser = StandardParser()

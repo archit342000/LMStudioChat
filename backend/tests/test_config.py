@@ -18,12 +18,14 @@ def clean_env():
             os.environ[v] = val
 
 def test_get_secret_env(clean_env):
-    from backend.config import get_secret
+    with patch.dict(os.environ, {"EMBEDDING_URL": "http://mock"}):
+        from backend.config import get_secret
     with patch.dict(os.environ, {"MY_SECRET": "value123"}):
         assert get_secret("MY_SECRET") == "value123"
 
 def test_get_secret_file(clean_env):
-    from backend.config import get_secret
+    with patch.dict(os.environ, {"EMBEDDING_URL": "http://mock"}):
+        from backend.config import get_secret
     # Mocking open for /run/secrets/
     with patch("builtins.open", mock_open(read_data="secret_from_file")):
         assert get_secret("MY_FILE_SECRET") == "secret_from_file"
