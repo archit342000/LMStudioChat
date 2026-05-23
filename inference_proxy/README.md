@@ -1,4 +1,4 @@
-# external_proxy
+# inference_proxy
 **Role:** A standalone microservice proxy for the llama.cpp server, responsible for request serialization, tag-parsing, and VRAM-aware model lifecycle swaps.
 
 ## 📂 Subdirectories

@@ -52,8 +52,8 @@ def load_model_config() -> dict:
         _cached_config = response.json()
         return _cached_config
     except Exception:
-        # Load local config.json from external_proxy to eliminate redundancy
-        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "external_proxy", "config.json"))
+        # Load local config.json from inference_proxy to eliminate redundancy
+        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "inference_proxy", "config.json"))
         with open(config_path, 'r', encoding='utf-8') as f:
             _cached_config = json.load(f)
             return _cached_config

@@ -3,7 +3,7 @@ from unittest.mock import patch, mock_open
 import sys
 import os
 
-# Add external_proxy to python path for testing
+# Add inference_proxy to python path for testing
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
 from loader import (

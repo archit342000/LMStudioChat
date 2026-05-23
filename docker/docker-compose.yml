@@ -11,13 +11,13 @@ services:
     depends_on:
       - tavily_mcp
       - playwright_mcp
-      - external_proxy
+      - inference_proxy
     volumes:
       - /home/archit-anand/docker-data/shared/My-AI-data:/app/backend/data
       - ..:/app
     environment:
       - TZ=Asia/Kolkata
-      - AI_PROXY_URL=http://external_proxy:5001
+      - AI_PROXY_URL=http://inference_proxy:5001
     secrets:
       - DATA_DIR
       - APP_PASSWORD
@@ -76,11 +76,11 @@ services:
     command: ["/app/playwright_mcp/entrypoint.sh"]
     restart: unless-stopped
 
-  external_proxy:
+  inference_proxy:
     build:
       context: ..
       dockerfile: docker/Dockerfile
-    container_name: external_proxy
+    container_name: inference_proxy
     ports:
       - "5001:5001"
     networks:
@@ -96,7 +96,7 @@ services:
       - AI_API_KEY
       - EMBEDDING_URL
       - EMBEDDING_API_KEY
-    command: ["python3", "external_proxy/app.py"]
+    command: ["python3", "inference_proxy/app.py"]
     restart: unless-stopped
 
 networks:
