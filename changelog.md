@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.5.0
+* **Dedicated Workspace View Pages & Sidebar File System Synchronization**:
+    - **Dedicated Workspace Landing Pages**: Built a dedicated workspace view page (`/workspace/<workspace_id>`) displaying workspace statistics, a premium glassmorphic list of chats belonging to the workspace with rename/delete quick actions, and an empty state card with a shortcut to immediately create a chat.
+* **Version Bump**: Incremented version globally to 4.5.0.
+
 ## v4.4.0
 * **System-Wide Skill Store & Custom Trigger Executions**: Developed a fully-featured, premium Skill Store feature that allows users to create, view, update, and delete custom instructions (skills) executed natively by the LLM inference server:
     - **Interactive Settings Overlay & Fullscreen Glassmorphic Design**: Built a responsive, full-screen settings overlay modal (`max-width: 100%`) aligned with the premium look-and-feel of the User Preferences overlay. It supports complete AJAX-based CRUD flows, validation formatting (spaces automatically cleaned to hyphens in real-time), expandable instructions cards, and an intuitive layout.

@@ -47,7 +47,8 @@ def test_create_fs_file_route(client):
             path="folder/test.py",
             content="hello",
             file_system_type="custom",
-            language="python"
+            language="python",
+            workspace_id=None
         )
         
         # Error case from create_fs_file
@@ -432,3 +433,45 @@ def test_get_fs_file_diff_endpoint(): pass
 def test_scan_empty_dirs(): pass
 def test_get_file_system_versions_endpoint(): pass
 def test_export_fs_file_markdown_endpoint(): pass
+
+def test_workspace_only_operations(client):
+    # Test file creation with workspace_id and no chat_id
+    with patch('backend.file_system.create_fs_file', new_callable=AsyncMock) as mock_create:
+        mock_create.return_value = {"success": True, "file_system_id": "fs-ws-1", "path": "test.txt"}
+        response = client.post('/api/file_system/', json={"workspace_id": "ws-1", "content": "hello", "title": "test.txt"})
+        assert response.status_code == 200
+        assert response.get_json()["id"] == "fs-ws-1"
+        mock_create.assert_called_with(
+            chat_id=None,
+            path="test.txt",
+            content="hello",
+            file_system_type="custom",
+            language="markdown",
+            workspace_id="ws-1"
+        )
+
+    # Test file retrieval with workspace_id and no chat_id
+    with patch('backend.file_system.router.db') as mock_db, \
+         patch('backend.file_system.manager.get_fs_file_content', new_callable=AsyncMock) as mock_get_content:
+        mock_db.get_file_system_meta.return_value = {
+            'chat_id': None, 'workspace_id': 'ws-1', 'title': 'test.txt', 'filename': 'test.txt', 'timestamp': 12345
+        }
+        mock_get_content.return_value = "workspace content"
+        response = client.get('/api/file_system/fs-ws-1?workspace_id=ws-1')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["content"] == "workspace content"
+        assert data["workspace_id"] == "ws-1"
+
+    # Test directory creation/deletion with workspace_id and no chat_id
+    with patch('backend.file_system.manager.create_directory_tool', new_callable=AsyncMock) as mock_create_dir, \
+         patch('backend.file_system.manager.delete_directory_tool', new_callable=AsyncMock) as mock_delete_dir:
+        mock_create_dir.return_value = {"success": True}
+        response = client.post('/api/file_system/directory', json={"workspace_id": "ws-1", "path": "dir"})
+        assert response.status_code == 200
+        mock_create_dir.assert_called_with(chat_id=None, path="dir", workspace_id="ws-1")
+
+        mock_delete_dir.return_value = {"success": True}
+        response = client.delete('/api/file_system/directory?workspace_id=ws-1&path=dir')
+        assert response.status_code == 200
+        mock_delete_dir.assert_called_with(chat_id=None, path="dir", workspace_id="ws-1")

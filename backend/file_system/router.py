@@ -26,14 +26,15 @@ async def create_fs_file_route():
     from backend.file_system import create_fs_file
     data = request.json or {}
     chat_id = data.get('chat_id')
+    workspace_id = data.get('workspace_id')
     title = data.get('title', 'Untitled FileSystem')
     folder = data.get('folder', '')
     content = data.get('content')
     file_system_type = data.get('file_system_type', 'custom')
     language = data.get('language', 'markdown')
 
-    if not chat_id or content is None:
-        return jsonify({"error": "Missing chat_id or content"}), 400
+    if (not chat_id and not workspace_id) or content is None:
+        return jsonify({"error": "Missing chat_id/workspace_id or content"}), 400
 
     from backend.file_system.utils import sanitize_path
     path_parts = []
@@ -48,7 +49,8 @@ async def create_fs_file_route():
             path=computed_path,
             content=content,
             file_system_type=file_system_type,
-            language=language
+            language=language,
+            workspace_id=workspace_id
         )
         if not result.get("success"):
             return jsonify({"error": result.get("error", "Unknown error")}), 400
@@ -70,13 +72,14 @@ async def create_directory_route():
     from backend.file_system.manager import create_directory_tool
     data = request.json or {}
     chat_id = data.get('chat_id')
+    workspace_id = data.get('workspace_id')
     path = data.get('path')
 
-    if not chat_id or not path:
-        return jsonify({"error": "Missing chat_id or path"}), 400
+    if (not chat_id and not workspace_id) or not path:
+        return jsonify({"error": "Missing chat_id/workspace_id or path"}), 400
 
     try:
-        result = await create_directory_tool(chat_id=chat_id, path=path)
+        result = await create_directory_tool(chat_id=chat_id, path=path, workspace_id=workspace_id)
         return jsonify(result)
     except Exception as e:
         return jsonify({"error": str(e)}), 500
@@ -87,13 +90,14 @@ async def delete_directory_route():
     """Delete an empty directory."""
     from backend.file_system.manager import delete_directory_tool
     chat_id = request.args.get('chat_id')
+    workspace_id = request.args.get('workspace_id')
     path = request.args.get('path')
 
-    if not chat_id or not path:
-        return jsonify({"error": "Missing chat_id or path"}), 400
+    if (not chat_id and not workspace_id) or not path:
+        return jsonify({"error": "Missing chat_id/workspace_id or path"}), 400
 
     try:
-        result = await delete_directory_tool(chat_id=chat_id, path=path)
+        result = await delete_directory_tool(chat_id=chat_id, path=path, workspace_id=workspace_id)
         if not result.get("success"):
             return jsonify({"error": result.get("error", "Unknown error")}), 400
         return jsonify(result)
@@ -111,23 +115,28 @@ def _infer_language(filename: str, current_lang: str) -> str:
 
 @file_system_bp.route('', methods=['GET'])
 async def list_file_systems_endpoint():
-    """List all file_systems, optionally filtered by chat_id."""
+    """List all file_systems, optionally filtered by chat_id or workspace_id."""
     chat_id = request.args.get('chat_id')
+    workspace_id = request.args.get('workspace_id')
     from backend.file_system.manager import get_fs_file_content
     from backend.file_system.utils import get_workspace_for_chat
     
     file_systems_with_content = []
-    workspace_id = None
     
     if chat_id:
         file_systems = db.get_chat_file_systems(chat_id=chat_id)
-        workspace_id = get_workspace_for_chat(chat_id)
-        if workspace_id:
-            ws_file_systems = db.get_owner_file_systems(workspace_id=workspace_id)
+        chat_workspace_id = get_workspace_for_chat(chat_id)
+        if chat_workspace_id:
+            ws_file_systems = db.get_owner_file_systems(workspace_id=chat_workspace_id)
             for wc in ws_file_systems:
                 if not wc['filename'].startswith("workspace/"):
                     wc['filename'] = "workspace/" + wc['filename']
             file_systems.extend(ws_file_systems)
+    elif workspace_id:
+        file_systems = db.get_owner_file_systems(workspace_id=workspace_id)
+        for wc in file_systems:
+            if not wc['filename'].startswith("workspace/"):
+                wc['filename'] = "workspace/" + wc['filename']
     else:
         file_systems = db.get_all_file_systems()
         
@@ -159,7 +168,7 @@ async def list_file_systems_endpoint():
 
         file_systems_with_content.append(file_system_copy)
         
-    if chat_id:
+    if chat_id or workspace_id:
         try:
             from backend.file_system.utils import FILE_SYSTEMS_DIR, WORKSPACES_DIR, sanitize_filename
             
@@ -182,17 +191,27 @@ async def list_file_systems_endpoint():
                     
                 return empty_dirs
                 
-            base_chat_dir = os.path.join(FILE_SYSTEMS_DIR, sanitize_filename(chat_id))
-            file_systems_with_content.extend(scan_empty_dirs(base_chat_dir))
-            
-            if workspace_id:
+            if chat_id:
+                base_chat_dir = os.path.join(FILE_SYSTEMS_DIR, sanitize_filename(chat_id))
+                file_systems_with_content.extend(scan_empty_dirs(base_chat_dir))
+                
+                chat_workspace_id = get_workspace_for_chat(chat_id)
+                if chat_workspace_id:
+                    base_ws_dir = os.path.join(WORKSPACES_DIR, sanitize_filename(chat_workspace_id))
+                    ws_empty_dirs = scan_empty_dirs(base_ws_dir)
+                    for d in ws_empty_dirs:
+                        d['filename'] = "workspace/" + d['filename']
+                    file_systems_with_content.extend(ws_empty_dirs)
+                    
+                    if not any(c.get('type') == 'directory' and c.get('filename') == 'workspace' for c in file_systems_with_content):
+                         file_systems_with_content.append({"type": "directory", "filename": "workspace"})
+            elif workspace_id:
                 base_ws_dir = os.path.join(WORKSPACES_DIR, sanitize_filename(workspace_id))
                 ws_empty_dirs = scan_empty_dirs(base_ws_dir)
                 for d in ws_empty_dirs:
                     d['filename'] = "workspace/" + d['filename']
                 file_systems_with_content.extend(ws_empty_dirs)
                 
-                # Expose virtual shared root if not already added by empty scan
                 if not any(c.get('type') == 'directory' and c.get('filename') == 'workspace' for c in file_systems_with_content):
                      file_systems_with_content.append({"type": "directory", "filename": "workspace"})
                      
@@ -257,8 +276,8 @@ async def get_raw_file_by_id_endpoint(file_system_id):
     chat_id = request.args.get('chat_id')
     workspace_id = request.args.get('workspace_id')
     
-    if not chat_id:
-        return jsonify({"error": "chat_id query parameter is required"}), 400
+    if not chat_id and not workspace_id:
+        return jsonify({"error": "chat_id or workspace_id is required"}), 400
 
     if workspace_id:
         file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
@@ -288,10 +307,10 @@ async def get_raw_file_by_id_endpoint(file_system_id):
 async def get_file_system_endpoint(file_system_id):
     """Get a file_system and its content."""
     chat_id = request.args.get('chat_id')
-    if not chat_id:
-        return jsonify({"error": "chat_id query parameter is required"}), 400
-
     workspace_id = request.args.get('workspace_id')
+    if not chat_id and not workspace_id:
+        return jsonify({"error": "chat_id or workspace_id is required"}), 400
+
     if workspace_id:
         file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
     else:
@@ -348,10 +367,9 @@ async def update_file_system_endpoint(file_system_id):
     """Update file_system content or metadata (folder, title)."""
     data = request.json or {}
     chat_id = data.get('chat_id') or request.args.get('chat_id')
-    if not chat_id:
-        return jsonify({"success": False, "error": "chat_id is required"}), 400
-
     workspace_id = request.args.get('workspace_id') or data.get('workspace_id')
+    if not chat_id and not workspace_id:
+        return jsonify({"success": False, "error": "chat_id or workspace_id is required"}), 400
     if workspace_id:
         file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
     else:
@@ -429,10 +447,9 @@ async def update_file_system_endpoint(file_system_id):
 async def remove_fs_file_endpoint(file_system_id):
     """Delete a file_system."""
     chat_id = request.args.get('chat_id')
-    if not chat_id:
-        return jsonify({"error": "chat_id is required"}), 400
-        
     workspace_id = request.args.get('workspace_id')
+    if not chat_id and not workspace_id:
+        return jsonify({"error": "chat_id or workspace_id is required"}), 400
     if workspace_id:
         file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
     else:

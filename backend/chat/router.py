@@ -102,7 +102,7 @@ def save_chat_endpoint():
         vision_model=data.get('vision_model'),
         max_tokens=max_tokens,
         thinking_budget_tokens=thinking_budget_tokens,
-        workspace_id=data.get('workspace_id'),
+        workspace_id=data.get('workspace_id') or data.get('folder'),
         persona_id=data.get('persona_id'),
         research_completed=data.get('research_completed', 0),
         file_system_mode=1 if file_system_mode else 0,
@@ -127,7 +127,7 @@ def patch_chat_endpoint(chat_id):
     vision_model = data.get('vision_model')
     max_tokens = data.get('max_tokens')
     thinking_budget_tokens = data.get('thinking_budget_tokens')
-    workspace_id = data.get('workspace_id')
+    workspace_id = data.get('workspace_id') or data.get('folder')
     enable_thinking = data.get('enable_thinking')
     thinking_profile = data.get('thinking_profile')
 

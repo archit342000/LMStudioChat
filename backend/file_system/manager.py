@@ -39,13 +39,17 @@ def get_all_file_systems_for_chat(chat_id: str) -> List[Dict[str, Any]]:
         file_systems.extend(ws_file_systems)
     return file_systems
 
-def resolve_path_to_fs_file(chat_id: str, path: str) -> Dict[str, Any]:
+def resolve_path_to_fs_file(chat_id: Optional[str], path: str, workspace_id: Optional[str] = None) -> Dict[str, Any]:
     """Resolve a relative virtual path to a file_system metadata object."""
-    target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, path)
+    target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, path, workspace_id=workspace_id)
     
     safe_path = sanitize_path(path)
-    if safe_path.startswith("workspace/") or safe_path == "workspace":
-        lookup_path = safe_path[len("workspace/"):].strip("/")
+    if safe_path.startswith("workspace/") or safe_path == "workspace" or (chat_id is None and workspace_id is not None):
+        lookup_path = safe_path
+        if lookup_path.startswith("workspace/"):
+            lookup_path = lookup_path[len("workspace/"):].strip("/")
+        elif lookup_path == "workspace":
+            lookup_path = ""
     else:
         lookup_path = safe_path
         
@@ -55,22 +59,26 @@ def resolve_path_to_fs_file(chat_id: str, path: str) -> Dict[str, Any]:
     return file_system
 
 async def create_fs_file(
-    chat_id: str,
+    chat_id: Optional[str],
     path: str,
     content: str = "",
     file_system_type: str = "custom",
     tags: Optional[List[str]] = None,
     author: str = "system",
     version_comment: str = "Initial version",
-    language: str = "markdown"
+    language: str = "markdown",
+    workspace_id: Optional[str] = None
 ) -> Dict[str, Any]:
     """Create a new file_system at a specific path with automatic persistence and locking."""
-    channel = FileSystemChannelManager.get_channel(chat_id)
+    owner_id = chat_id or workspace_id
+    if not owner_id:
+        return {"success": False, "error": "Either chat_id or workspace_id must be provided."}
+    channel = FileSystemChannelManager.get_channel(owner_id)
     source = "ai" if author == "system" else "user"
 
     await channel.acquire(source)
     try:
-        target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, path)
+        target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, path, workspace_id=workspace_id)
 
         safe_path = sanitize_path(path)
         if not safe_path:
@@ -651,12 +659,13 @@ async def read_fs_file_lines(path: str, chat_id: str, action_params: dict) -> Di
 
 
 
-def update_file_system_metadata(chat_id: str, current_path: str, **kwargs) -> Dict[str, Any]:
+def update_file_system_metadata(chat_id: Optional[str], current_path: str, **kwargs) -> Dict[str, Any]:
     """
     Updates file_system metadata and physically moves the file if the path changes.
     """
+    workspace_id = kwargs.get('workspace_id')
     try:
-        file_system_meta = resolve_path_to_fs_file(chat_id, current_path)
+        file_system_meta = resolve_path_to_fs_file(chat_id, current_path, workspace_id=workspace_id)
     except FileNotFoundError as e:
         return {"success": False, "error": str(e)}
 
@@ -675,19 +684,20 @@ def update_file_system_metadata(chat_id: str, current_path: str, **kwargs) -> Di
     safe_current_path = sanitize_path(current_path)
 
     if safe_new_path and safe_new_path != safe_current_path:
-        target_chat_id, target_workspace_id, new_physical_path = resolve_owner_and_physical_path(chat_id, safe_new_path)
+        target_chat_id, target_workspace_id, new_physical_path = resolve_owner_and_physical_path(chat_id, safe_new_path, workspace_id=workspace_id)
         
-        if safe_new_path.startswith("workspace/") or safe_new_path == "workspace":
-            lookup_path = safe_new_path[len("workspace/"):].strip("/")
-        else:
-            lookup_path = safe_new_path
+        lookup_path = safe_new_path
+        if lookup_path.startswith("workspace/"):
+            lookup_path = lookup_path[len("workspace/"):].strip("/")
+        elif lookup_path == "workspace":
+            lookup_path = ""
             
         existing = db.get_file_system_meta_by_path(path=lookup_path, chat_id=target_chat_id, workspace_id=target_workspace_id)
         if existing:
             return {"success": False, "error": f"Cannot rename to '{safe_new_path}'. File already exists."}
         
         # We need the old physical path to move it
-        _, _, old_physical_path = resolve_owner_and_physical_path(chat_id, current_path)
+        _, _, old_physical_path = resolve_owner_and_physical_path(chat_id, current_path, workspace_id=workspace_id)
         
         # Check if owner changed
         actual_chat_id = file_system_meta.get('chat_id')
@@ -1099,13 +1109,14 @@ async def replace_fs_lines(chat_id: str, path: str, expected_version: int, edits
     return await _finalize_edits(actual_chat_id, id, actual_workspace_id, expected_version, original_lines, lines, edit_results)
 
 
-async def create_directory_tool(chat_id: str, path: str, **kwargs) -> Dict[str, Any]:
+async def create_directory_tool(chat_id: Optional[str], path: str, **kwargs) -> Dict[str, Any]:
     """Tool implementation to create an empty directory."""
     try:
         from .utils import sanitize_path
         safe_path = sanitize_path(path)
+        workspace_id = kwargs.get('workspace_id')
         
-        target_chat_id, target_workspace_id, physical_dir = resolve_owner_and_physical_path(chat_id, path)
+        target_chat_id, target_workspace_id, physical_dir = resolve_owner_and_physical_path(chat_id, path, workspace_id=workspace_id)
         
         if os.path.exists(physical_dir):
             return {"success": False, "error": f"Directory already exists at path: {safe_path}"}
@@ -1116,11 +1127,12 @@ async def create_directory_tool(chat_id: str, path: str, **kwargs) -> Dict[str, 
         logger.error(f"Failed to create directory {path}: {e}")
         return {"success": False, "error": str(e)}
 
-async def delete_directory_tool(chat_id: str, path: str, **kwargs) -> Dict[str, Any]:
+async def delete_directory_tool(chat_id: Optional[str], path: str, **kwargs) -> Dict[str, Any]:
     """Tool implementation to delete a directory."""
     try:
         from .utils import sanitize_path
         import shutil
+        workspace_id = kwargs.get('workspace_id')
         
         safe_path = sanitize_path(path)
         if not safe_path:
@@ -1129,7 +1141,7 @@ async def delete_directory_tool(chat_id: str, path: str, **kwargs) -> Dict[str, 
         if safe_path == "workspace" or safe_path == "workspace/":
             return {"success": False, "error": "Cannot delete the virtual 'workspace' directory root."}
             
-        target_chat_id, target_workspace_id, physical_dir = resolve_owner_and_physical_path(chat_id, path)
+        target_chat_id, target_workspace_id, physical_dir = resolve_owner_and_physical_path(chat_id, path, workspace_id=workspace_id)
         
         if not os.path.exists(physical_dir) or not os.path.isdir(physical_dir):
             return {"success": False, "error": f"Directory not found: {safe_path}"}
@@ -1137,9 +1149,14 @@ async def delete_directory_tool(chat_id: str, path: str, **kwargs) -> Dict[str, 
         # Check if there are tracked file_systems inside this path
         if target_workspace_id:
             file_systems = db.get_owner_file_systems(workspace_id=target_workspace_id)
-            lookup_prefix = safe_path[len("workspace/"):].strip("/") + '/'
-            lookup_path = safe_path[len("workspace/"):].strip("/")
+            lookup_prefix = safe_path
+            if lookup_prefix.startswith("workspace/"):
+                lookup_prefix = lookup_prefix[len("workspace/"):].strip("/")
+            lookup_path = lookup_prefix
+            lookup_prefix = lookup_prefix + '/'
         else:
+            if not chat_id:
+                return {"success": False, "error": "chat_id is required for local chat file systems."}
             file_systems = db.get_chat_file_systems(chat_id)
             lookup_prefix = safe_path + '/'
             lookup_path = safe_path

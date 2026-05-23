@@ -336,6 +336,44 @@
                 </button>
             </div>
 
+            <!-- Workspace View Page -->
+            <div id="workspace-view" class="hidden">
+                <div class="workspace-page-content">
+                    <div class="workspace-header-card glass">
+                        <div class="workspace-info">
+                            <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+                            <div>
+                                <h1 id="workspace-view-title" class="font-heading">Workspace</h1>
+                                <p id="workspace-view-stats" style="font-size: 0.85rem; color: var(--content-muted); margin-top: 4px;">0 chats</p>
+                            </div>
+                        </div>
+                        <div class="workspace-actions">
+                            <button id="workspace-new-chat-btn" class="btn-primary" title="New Chat in Workspace" style="display: flex; align-items: center; gap: 6px;">
+                                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">
+                                    <line x1="12" y1="5" x2="12" y2="19"></line>
+                                    <line x1="5" y1="12" x2="19" y2="12"></line>
+                                </svg>
+                                <span>New Chat</span>
+                            </button>
+                            <button id="workspace-rename-btn" class="btn-secondary glass" title="Rename Workspace">Rename</button>
+                            <button id="workspace-delete-btn" class="btn-secondary glass" style="color: var(--color-rose); border-color: rgba(244, 63, 94, 0.25);" title="Delete Workspace">Delete</button>
+                        </div>
+                    </div>
+
+                    <div class="workspace-chats-section">
+                        <h2 class="font-heading" style="font-size: 1.1rem; margin-bottom: 1.25rem; color: var(--content-primary);">Chats in this Workspace</h2>
+                        <div id="workspace-chats-grid" class="workspace-chats-grid">
+                            <!-- Dynamically loaded chat cards go here -->
+                        </div>
+                        <div id="workspace-empty-state" class="workspace-empty-state hidden">
+                            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" style="opacity: 0.35; margin-bottom: 12px;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+                            <p>No chats in this workspace yet.</p>
+                            <button id="workspace-empty-new-chat-btn" class="btn-primary" style="margin-top: 12px;">Create a Chat</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <!-- Floating Entry Area -->
             <div id="chat-input-area">
                 <div id="temp-chat-banner" class="temp-chat-banner hidden">

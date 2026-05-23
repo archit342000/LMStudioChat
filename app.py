@@ -149,7 +149,8 @@ except RuntimeError:
 
 @app.route('/')
 @app.route('/chat/<chat_id>')
-def index(chat_id=None):
+@app.route('/workspace/<workspace_id>')
+def index(chat_id=None, workspace_id=None):
     return send_from_directory('static', 'index.html')
 
 @app.before_request

@@ -258,6 +258,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
 
 
   let currentChatData = null;
+  let currentWorkspaceId = null;
 
   const chatDefaults = window.SettingsManager.getChatDefaults();
   const samplingParams = window.SettingsManager.getSamplingParams();
@@ -296,6 +297,8 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     showPromptModal: showPromptModal,
     showModal: showModal
   });
+
+  initWorkspaceViewEvents();
 
   // Initialize Subagent Renderers
   window.initAgentRenderers({
@@ -434,6 +437,15 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     isTemporaryChat = temporary;
     chatHistory = [];
     currentResearchPlan = null;
+    currentWorkspaceId = null;
+
+    const workspaceView = document.getElementById("workspace-view");
+    const chatInputArea = document.getElementById("chat-input-area");
+    const messages = document.getElementById("messages");
+    if (workspaceView) workspaceView.classList.add("hidden");
+    if (chatInputArea) chatInputArea.classList.remove("hidden");
+    if (messages) messages.classList.remove("hidden");
+
     messagesContainer.innerHTML = "";
     currentChatId = generateId(); // Always assign an ID for backend task routing (temporary chats are still prevented from persisting by the isTemporaryChat flag)
     currentChatData = { folder: folder }; // Set initial folder if provided
@@ -530,6 +542,14 @@ const chatTitleHeader = document.getElementById("chat-title-header");
   async function loadChat(id, pushState = true, keepInput = false) {
     resetGenerationState(keepInput);
     pendingEditIndex = null;
+    currentWorkspaceId = null;
+
+    const workspaceView = document.getElementById("workspace-view");
+    const chatInputArea = document.getElementById("chat-input-area");
+    const messages = document.getElementById("messages");
+    if (workspaceView) workspaceView.classList.add("hidden");
+    if (chatInputArea) chatInputArea.classList.remove("hidden");
+    if (messages) messages.classList.remove("hidden");
     
     isChatLoading = true;
     
@@ -973,6 +993,283 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     }
   }
 
+  async function loadWorkspace(workspaceId, pushState = true) {
+    resetGenerationState(false);
+    pendingEditIndex = null;
+    isChatLoading = false;
+    currentChatId = null;
+    currentWorkspaceId = workspaceId;
+
+    const workspaces = window.WorkspaceManager.getChatWorkspaces();
+    const workspace = workspaces.find(w => w.name === workspaceId);
+    const displayName = workspace ? (workspace.displayName || workspace.name) : workspaceId;
+
+    // View toggles: Hide chat view and show workspace view
+    const workspaceView = document.getElementById("workspace-view");
+    const chatInputArea = document.getElementById("chat-input-area");
+    const messages = document.getElementById("messages");
+    const welcomeHero = document.getElementById("welcome-hero");
+    
+    if (workspaceView) {
+      workspaceView.classList.remove("hidden");
+    }
+    if (chatInputArea) {
+      chatInputArea.classList.add("hidden");
+    }
+    if (messages) {
+      messages.classList.add("hidden");
+    }
+    if (welcomeHero) {
+      welcomeHero.classList.add("hidden");
+    }
+
+    // Update Header
+    if (chatTitleHeader) {
+      chatTitleHeader.classList.remove("hidden");
+    }
+    if (chatTitleDisplay) {
+      chatTitleDisplay.textContent = `Workspace: ${displayName}`;
+    }
+
+    // Update workspace title and stats in view
+    const viewTitle = document.getElementById("workspace-view-title");
+    const viewStats = document.getElementById("workspace-view-stats");
+    if (viewTitle) {
+      viewTitle.textContent = displayName;
+    }
+
+    // Render workspace chats grid
+    const chatsGrid = document.getElementById("workspace-chats-grid");
+    const emptyState = document.getElementById("workspace-empty-state");
+    if (chatsGrid) {
+      chatsGrid.innerHTML = "";
+      
+      const workspaceChats = savedChats.filter(c => c.workspace_id === workspaceId);
+      if (viewStats) {
+        viewStats.textContent = `${workspaceChats.length} chat${workspaceChats.length === 1 ? '' : 's'}`;
+      }
+
+      if (workspaceChats.length === 0) {
+        if (emptyState) emptyState.classList.remove("hidden");
+        chatsGrid.classList.add("hidden");
+      } else {
+        if (emptyState) emptyState.classList.add("hidden");
+        chatsGrid.classList.remove("hidden");
+
+        workspaceChats.forEach(chat => {
+          const card = document.createElement("div");
+          card.className = "workspace-chat-card glass";
+          
+          const cardTitle = document.createElement("div");
+          cardTitle.className = "workspace-chat-card-title";
+          cardTitle.textContent = chat.title || "Untitled Chat";
+          
+          const cardMeta = document.createElement("div");
+          cardMeta.className = "workspace-chat-card-meta";
+          const dateStr = new Date(chat.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+          cardMeta.textContent = dateStr;
+
+          // Quick actions row
+          const cardActions = document.createElement("div");
+          cardActions.className = "workspace-chat-card-actions";
+          
+          const renameBtn = document.createElement("button");
+          renameBtn.className = "workspace-chat-card-btn";
+          renameBtn.title = "Rename Chat";
+          renameBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
+          renameBtn.onclick = async (e) => {
+            e.stopPropagation();
+            const newTitle = await showPromptModal("Rename Chat", "Enter new title:", chat.title);
+            if (newTitle && newTitle.trim() !== "" && newTitle.trim() !== chat.title) {
+              try {
+                await fetch(`${API_MODULES.CHATS}/${chat.id}`, {
+                  method: "PATCH",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({ title: newTitle.trim() })
+                });
+                await loadChats();
+                loadWorkspace(workspaceId, false);
+              } catch (err) {
+                console.error("Failed to rename chat:", err);
+              }
+            }
+          };
+
+          const deleteBtn = document.createElement("button");
+          deleteBtn.className = "workspace-chat-card-btn";
+          deleteBtn.title = "Delete Chat";
+          deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-rose)" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>`;
+          deleteBtn.onclick = async (e) => {
+            e.stopPropagation();
+            const confirmed = await showConfirm("Delete Chat", `Are you sure you want to delete "${chat.title}"?`, true);
+            if (confirmed) {
+              try {
+                await fetch(`${API_MODULES.CHATS}/${chat.id}`, { method: "DELETE" });
+                await loadChats();
+                loadWorkspace(workspaceId, false);
+              } catch (err) {
+                console.error("Failed to delete chat:", err);
+              }
+            }
+          };
+
+          cardActions.appendChild(renameBtn);
+          cardActions.appendChild(deleteBtn);
+
+          card.appendChild(cardTitle);
+          card.appendChild(cardMeta);
+          card.appendChild(cardActions);
+
+          card.onclick = () => {
+            loadChat(chat.id);
+          };
+
+          chatsGrid.appendChild(card);
+        });
+      }
+    }
+
+    // Force highlight the workspace item in left sidebar list
+    document.querySelectorAll(".folder-item").forEach(item => {
+      const match = item.getAttribute("data-workspace-id") === workspaceId;
+      if (match) {
+        item.classList.add("active");
+      } else {
+        item.classList.remove("active");
+      }
+    });
+    // Remove active highlight from chats in left sidebar
+    document.querySelectorAll(".chat-list-item").forEach(el => el.classList.remove("active"));
+
+    // Sync URL if pushState is enabled
+    if (pushState && window.location.pathname !== `/workspace/${workspaceId}`) {
+      history.pushState({ workspaceId: workspaceId }, "", `/workspace/${workspaceId}`);
+    }
+
+    // Open Right Sidebar & load files for this workspace
+    if (rightSidebar) {
+      rightSidebar.classList.remove("collapsed");
+      await fetchFileSystems(null, workspaceId);
+    }
+  }
+
+  async function createWorkspaceChatImmediately(workspaceId) {
+    startNewChat(false, true, workspaceId);
+    try {
+      const res = await fetch(`${API_MODULES.CHATS}/save`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chat_id: currentChatId,
+          title: "New Chat",
+          workspace_id: workspaceId,
+          user_preferences: isUserPreferences,
+          research_mode: isResearchMode,
+          persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
+          ...samplingParams,
+        }),
+      });
+      if (res.ok) {
+        await loadChats();
+      } else {
+        const errorText = await res.text();
+        console.error("Failed to immediately persist new chat in workspace:", errorText);
+      }
+    } catch (err) {
+      console.error("Error during immediate chat persistence:", err);
+    }
+  }
+
+  function initWorkspaceViewEvents() {
+    const wsNewChatBtn = document.getElementById("workspace-new-chat-btn");
+    if (wsNewChatBtn) {
+      wsNewChatBtn.addEventListener("click", () => {
+        if (currentWorkspaceId) {
+          createWorkspaceChatImmediately(currentWorkspaceId);
+        }
+      });
+    }
+
+    const wsEmptyNewChatBtn = document.getElementById("workspace-empty-new-chat-btn");
+    if (wsEmptyNewChatBtn) {
+      wsEmptyNewChatBtn.addEventListener("click", () => {
+        if (currentWorkspaceId) {
+          createWorkspaceChatImmediately(currentWorkspaceId);
+        }
+      });
+    }
+
+    const wsRenameBtn = document.getElementById("workspace-rename-btn");
+    if (wsRenameBtn) {
+      wsRenameBtn.addEventListener("click", async () => {
+        if (currentWorkspaceId) {
+          const workspaces = window.WorkspaceManager.getChatWorkspaces();
+          const workspace = workspaces.find(w => w.name === currentWorkspaceId);
+          const displayName = workspace ? workspace.displayName : currentWorkspaceId;
+          const newWorkspaceName = await showPromptModal(
+            "Rename Workspace",
+            "Enter new name for workspace:",
+            displayName,
+          );
+
+          if (
+            newWorkspaceName !== null &&
+            newWorkspaceName.trim() !== "" &&
+            newWorkspaceName.trim() !== displayName
+          ) {
+            const finalWorkspaceName = newWorkspaceName.trim();
+            try {
+              const base = API_MODULES.CHATS || "/api/chats";
+              const res = await fetch(`${base}/workspaces/${currentWorkspaceId}`, {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: finalWorkspaceName }),
+              });
+              if (res.ok) {
+                await loadChats();
+                await loadWorkspace(currentWorkspaceId, false);
+              }
+            } catch (err) {
+              console.error("Error renaming workspace from page button:", err);
+            }
+          }
+        }
+      });
+    }
+
+    const wsDeleteBtn = document.getElementById("workspace-delete-btn");
+    if (wsDeleteBtn) {
+      wsDeleteBtn.addEventListener("click", async () => {
+        if (currentWorkspaceId) {
+          const workspaces = window.WorkspaceManager.getChatWorkspaces();
+          const workspace = workspaces.find(w => w.name === currentWorkspaceId);
+          const displayName = workspace ? workspace.displayName : currentWorkspaceId;
+
+          const confirmed = await showConfirm(
+            "Delete Workspace",
+            `Are you sure you want to delete the workspace "${displayName}"? The chats inside will be moved to uncategorized.`,
+            true,
+          );
+
+          if (confirmed) {
+            try {
+              const base = API_MODULES.CHATS || "/api/chats";
+              const res = await fetch(`${base}/workspaces/${currentWorkspaceId}`, {
+                method: "DELETE"
+              });
+              if (res.ok) {
+                await loadChats();
+                startNewChat();
+              }
+            } catch (err) {
+              console.error("Error deleting workspace from page button:", err);
+            }
+          }
+        }
+      });
+    }
+  }
+
   /**
    * Re-renders the chat history in the UI from the local chatHistory array.
    */
@@ -1138,6 +1435,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     workspaces.forEach((workspace) => {
       const folderDiv = document.createElement("div");
       folderDiv.className = `folder-item ${workspace.expanded ? "expanded" : ""}`;
+      folderDiv.setAttribute("data-workspace-id", workspace.name);
 
       const folderHeader = document.createElement("div");
       folderHeader.className = "folder-header";
@@ -1222,6 +1520,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
         workspace.expanded = !workspace.expanded;
         window.WorkspaceManager.setChatWorkspaces(workspaces);
         renderChatList();
+        loadWorkspace(workspace.name);
       };
 
       // Drag-and-Drop Dropzone Logic
@@ -3191,10 +3490,10 @@ ${customSkillsList}
     });
   };
 
-  async function fetchFileSystems(chatId) {
+  async function fetchFileSystems(chatId, workspaceId = null) {
     if (!file_systemListContainer) return 0;
     if (isFetchingFileSystems) return 0;
-    if (!chatId) {
+    if (!chatId && !workspaceId) {
       _allFileSystems = [];
       file_systemListContainer.innerHTML =
         '<div style="padding: 1.5rem; color: var(--content-muted); font-size: 0.85rem; text-align: center;">New chat started</div>';
@@ -3202,7 +3501,10 @@ ${customSkillsList}
     }
     isFetchingFileSystems = true;
     try {
-      const res = await fetch(`${API_MODULES.FILE_SYSTEMS}?chat_id=${chatId}`);
+      const url = chatId
+        ? `${API_MODULES.FILE_SYSTEMS}?chat_id=${chatId}`
+        : `${API_MODULES.FILE_SYSTEMS}?workspace_id=${workspaceId}`;
+      const res = await fetch(url);
       const data = await res.json();
       if (data.success) {
         _allFileSystems = data.file_systems;
@@ -3228,9 +3530,11 @@ ${customSkillsList}
 
 async function loadFileSystem(file_systemId, workspaceId = null) {
     try {
-      const wsParam = workspaceId ? `&workspace_id=${workspaceId}` : "";
+      const chatParam = currentChatId ? `chat_id=${currentChatId}` : "";
+      const wsParam = workspaceId ? `workspace_id=${workspaceId}` : "";
+      const queryParams = [chatParam, wsParam].filter(Boolean).join("&");
       const res = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}?chat_id=${currentChatId}${wsParam}`,
+        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}?${queryParams}`,
       );
       const data = await res.json();
       if (data.success) {
@@ -3256,10 +3560,12 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
 
   // Enhanced file_system preview: Export file_system to file
   async function downloadFileSystem(file_systemId, workspaceId = null) {
-    const wsParam = workspaceId ? `&workspace_id=${workspaceId}` : "";
     try {
+      const chatParam = currentChatId ? `chat_id=${currentChatId}` : "";
+      const wsParam = workspaceId ? `workspace_id=${workspaceId}` : "";
+      const queryParams = [chatParam, wsParam].filter(Boolean).join("&");
       const res = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}?chat_id=${currentChatId}${wsParam}`,
+        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}?${queryParams}`,
       );
       const data = await res.json();
       if (!data.success) {
@@ -3290,15 +3596,19 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
       );
       return;
     }
-    if (!currentChatId) return;
+    const targetChat = currentChatId;
+    const targetWs = workspaceId || currentWorkspaceId;
+    if (!targetChat && !targetWs) return;
     try {
-      const wsParam = workspaceId ? `&workspace_id=${workspaceId}` : "";
+      const chatParam = targetChat ? `chat_id=${targetChat}` : "";
+      const wsParam = targetWs ? `workspace_id=${targetWs}` : "";
+      const queryParams = [chatParam, wsParam].filter(Boolean).join("&");
       const res = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}?chat_id=${currentChatId}${wsParam}`,
+        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}?${queryParams}`,
         { method: "DELETE" },
       );
       if (res.ok) {
-        await fetchFileSystems(currentChatId);
+        await fetchFileSystems(targetChat, targetWs);
         if (currentFileSystemId === file_systemId) {
           closeFileSystemPanel();
         }
@@ -3316,7 +3626,9 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
       );
       return;
     }
-    if (!currentChatId) return;
+    const targetChat = currentChatId;
+    const targetWs = workspaceId || currentWorkspaceId;
+    if (!targetChat && !targetWs) return;
 
     // Check if path already exists
     if (_allFileSystems.some(c => c.filename === newPath && c.id !== file_systemId)) {
@@ -3325,19 +3637,22 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     }
 
     try {
+      const chatParam = targetChat ? `chat_id=${targetChat}` : "";
+      const wsParam = targetWs ? `workspace_id=${targetWs}` : "";
+      const queryParams = [chatParam, wsParam].filter(Boolean).join("&");
       const res = await fetch(
-        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}?chat_id=${currentChatId}${workspaceId ? `&workspace_id=${workspaceId}` : ''}`,
+        `${API_MODULES.FILE_SYSTEMS}/${file_systemId}?${queryParams}`,
         {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ 
             new_path: newPath,
-            workspace_id: workspaceId
+            workspace_id: targetWs
           }),
         },
       );
       if (res.ok) {
-        await fetchFileSystems(currentChatId);
+        await fetchFileSystems(targetChat, targetWs);
       }
     } catch (e) {
       console.error("Error moving/renaming file_system:", e);
@@ -3352,17 +3667,22 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
       );
       return;
     }
-    if (!currentChatId) return;
+    const targetChat = currentChatId;
+    const targetWs = currentWorkspaceId || (folderPath.startsWith("workspace/") || folderPath === "workspace" ? "default" : null);
+    if (!targetChat && !targetWs) return;
     
     if (await showConfirm("Delete Directory", `Are you sure you want to delete the empty directory '${folderPath}'?`, true)) {
       try {
+        const chatParam = targetChat ? `chat_id=${targetChat}` : "";
+        const wsParam = targetWs ? `workspace_id=${targetWs}` : "";
+        const queryParams = [chatParam, wsParam].filter(Boolean).join("&");
         const res = await fetch(
-          `${API_MODULES.FILE_SYSTEMS}/directory?chat_id=${currentChatId}&path=${encodeURIComponent(folderPath)}`,
+          `${API_MODULES.FILE_SYSTEMS}/directory?${queryParams}&path=${encodeURIComponent(folderPath)}`,
           { method: "DELETE" }
         );
         const data = await res.json();
         if (data.success) {
-          await fetchFileSystems(currentChatId);
+          await fetchFileSystems(targetChat, targetWs);
         } else {
           await showModal("Error", data.error || "Failed to delete directory", { type: "alert" });
         }
@@ -3378,8 +3698,8 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     navFilesBtn.addEventListener("click", (e) => {
       e.preventDefault();
       rightSidebar?.classList.toggle("collapsed");
-      if (!rightSidebar?.classList.contains("collapsed") && currentChatId) {
-        fetchFileSystems(currentChatId);
+      if (!rightSidebar?.classList.contains("collapsed") && (currentChatId || currentWorkspaceId)) {
+        fetchFileSystems(currentChatId, currentWorkspaceId);
       }
     });
   }
@@ -3394,10 +3714,10 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
   const newFileSystemBtn = document.getElementById("new-file-system-btn");
   if (newFileSystemBtn) {
     newFileSystemBtn.addEventListener("click", async () => {
-      if (!currentChatId) {
+      if (!currentChatId && !currentWorkspaceId) {
         await showModal(
           "Cannot Create FileSystem",
-          "Please start a chat first before creating a file_system.",
+          "Please start a chat or open a workspace first before creating a file.",
           { type: "alert" },
         );
         return;
@@ -3428,30 +3748,36 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
       }
 
       try {
+        const payload = {
+          title: finalPath, // Sending as title which backend translates to path
+          content: "",
+          language: inferredLang,
+        };
+        if (currentChatId) {
+          payload.chat_id = currentChatId;
+        } else if (currentWorkspaceId) {
+          payload.workspace_id = currentWorkspaceId;
+        }
+
         const res = await fetch(`${API_MODULES.FILE_SYSTEMS}/`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            chat_id: currentChatId,
-            title: finalPath, // Sending as title which backend translates to path
-            content: "",
-            language: inferredLang,
-          }),
+          body: JSON.stringify(payload),
         });
 
         const data = await res.json();
         if (data.success) {
-          fetchFileSystems(currentChatId);
+          fetchFileSystems(currentChatId, currentWorkspaceId);
         } else {
-          await showModal("Error", data.error || "Failed to create file_system", {
+          await showModal("Error", data.error || "Failed to create file", {
             type: "alert",
           });
         }
       } catch (e) {
-        console.error("Failed to create file_system:", e);
+        console.error("Failed to create file:", e);
         await showModal(
           "Error",
-          "An error occurred while creating the file_system.",
+          "An error occurred while creating the file.",
           { type: "alert" },
         );
       }
@@ -3461,10 +3787,10 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
   const newFileSystemFolderBtn = document.getElementById("new-file-system-folder-btn");
   if (newFileSystemFolderBtn) {
     newFileSystemFolderBtn.addEventListener("click", async () => {
-      if (!currentChatId) {
+      if (!currentChatId && !currentWorkspaceId) {
         await showModal(
           "Cannot Create Folder",
-          "Please start a chat first before creating a folder.",
+          "Please start a chat or open a workspace first before creating a folder.",
           { type: "alert" },
         );
         return;
@@ -3478,18 +3804,24 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
         }
 
         try {
+          const payload = {
+            path: finalPath
+          };
+          if (currentChatId) {
+            payload.chat_id = currentChatId;
+          } else if (currentWorkspaceId) {
+            payload.workspace_id = currentWorkspaceId;
+          }
+
           const res = await fetch(`${API_MODULES.FILE_SYSTEMS}/directory`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              chat_id: currentChatId,
-              path: finalPath
-            }),
+            body: JSON.stringify(payload),
           });
           const data = await res.json();
           if (data.success) {
             // Re-render
-            await fetchFileSystems(currentChatId);
+            await fetchFileSystems(currentChatId, currentWorkspaceId);
           } else {
             await showModal("Error", data.error || "Failed to create folder", { type: "alert" });
           }
@@ -4232,8 +4564,13 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     const urlChatId = urlPath.startsWith("/chat/")
       ? urlPath.replace("/chat/", "")
       : null;
+    const urlWorkspaceId = urlPath.startsWith("/workspace/")
+      ? urlPath.replace("/workspace/", "")
+      : null;
     if (urlChatId) {
       loadChat(urlChatId, false);
+    } else if (urlWorkspaceId) {
+      loadWorkspace(urlWorkspaceId, false);
     } else {
       startNewChat(false, false);
     }
@@ -4264,10 +4601,15 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
   const urlInitChatId = urlInitPath.startsWith("/chat/")
     ? urlInitPath.replace("/chat/", "")
     : null;
+  const urlInitWorkspaceId = urlInitPath.startsWith("/workspace/")
+    ? urlInitPath.replace("/workspace/", "")
+    : null;
 
   loadChats().then(() => {
     if (urlInitChatId) {
       loadChat(urlInitChatId, false);
+    } else if (urlInitWorkspaceId) {
+      loadWorkspace(urlInitWorkspaceId, false);
     } else {
       startNewChat();
     }

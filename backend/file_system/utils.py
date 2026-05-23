@@ -30,7 +30,7 @@ def get_workspace_for_chat(chat_id: str) -> Optional[str]:
         return chat.get('workspace_id')
     return None
 
-def resolve_owner_and_physical_path(chat_id: str, virtual_path: str, ensure_dir: bool = False) -> Tuple[Optional[str], Optional[str], str]:
+def resolve_owner_and_physical_path(chat_id: Optional[str], virtual_path: str, ensure_dir: bool = False, workspace_id: Optional[str] = None) -> Tuple[Optional[str], Optional[str], str]:
     """
     Resolves a virtual path (e.g. 'workspace/docs.md' or 'local/docs.md') into:
     (target_chat_id, target_workspace_id, physical_path)
@@ -42,25 +42,31 @@ def resolve_owner_and_physical_path(chat_id: str, virtual_path: str, ensure_dir:
     """
     safe_path = sanitize_path(virtual_path)
     
-    # Intercept 'workspace/' mount
-    if safe_path.startswith("workspace/") or safe_path == "workspace":
-        workspace_id = get_workspace_for_chat(chat_id)
-        if not workspace_id:
+    # Intercept 'workspace/' mount or workspace context
+    if safe_path.startswith("workspace/") or safe_path == "workspace" or (chat_id is None and workspace_id is not None):
+        target_ws_id = workspace_id or get_workspace_for_chat(chat_id)
+        if not target_ws_id:
             raise ValueError("The 'workspace/' directory is reserved for Workspace Folders. Please add this chat to a workspace to use workspace file_systems, or choose a different path.")
             
         # Strip 'workspace/' (or handle just 'workspace')
-        rest_of_path = safe_path[len("workspace/"):].strip("/")
+        rest_of_path = safe_path
+        if rest_of_path.startswith("workspace/"):
+            rest_of_path = rest_of_path[len("workspace/"):].strip("/")
+        elif rest_of_path == "workspace":
+            rest_of_path = ""
         
-        physical_dir = os.path.join(WORKSPACES_DIR, sanitize_filename(workspace_id))
+        physical_dir = os.path.join(WORKSPACES_DIR, sanitize_filename(target_ws_id))
         if rest_of_path:
             physical_path = os.path.join(physical_dir, rest_of_path)
         else:
             physical_path = physical_dir
             
         target_chat_id = None
-        target_workspace_id = workspace_id
+        target_workspace_id = target_ws_id
         
     else:
+        if not chat_id:
+            raise ValueError("chat_id is required for local chat file systems.")
         # Standard chat-local storage
         physical_dir = os.path.join(FILE_SYSTEMS_DIR, sanitize_filename(chat_id))
         physical_path = os.path.join(physical_dir, safe_path)
