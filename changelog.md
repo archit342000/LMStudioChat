@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v4.5.4
+* **Workspace File Sidebar Enhancements**:
+    - **Disable Auto-Open on Workspace Load**: Removed the behavior that automatically forced open/expanded the file sidebar (right sidebar) whenever a workspace page was loaded, allowing it to stay collapsed.
+    - **Persistent Sidebar Toggle on Workspace Pages**: Enabled the files toggle button (`nav-files-btn`) on the workspace page, allowing the file sidebar to be opened or closed manually regardless of the workspace's files or content.
+* **iOS / iPad Chat Sidebar Context Menu Fix**: Resolved an issue on iPads and iOS devices where right-clicking or long-pressing a chat in the sidebar triggered the default browser (Safari) context menu instead of opening the custom dropdown menu.
+* **Version Bump**: Incremented version globally to 4.5.4.
+
 ## v4.5.3
 * **Inference Proxy Modularization**: Refactored out the inference and model lifecycle management logic to reside as a modular, standalone external proxy microservice (`inference_proxy`).
 * **Optimized Messages Rendering**: Optimized the rendering of chat messages in the frontend interface.
