@@ -539,7 +539,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     }
   }
 
-  async function loadChat(id, pushState = true, keepInput = false) {
+  async function loadChat(id, pushState = true, keepInput = false, silent = false) {
     resetGenerationState(keepInput);
     pendingEditIndex = null;
     currentWorkspaceId = null;
@@ -551,54 +551,56 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     if (chatInputArea) chatInputArea.classList.remove("hidden");
     if (messages) messages.classList.remove("hidden");
     
-    isChatLoading = true;
+    isChatLoading = !silent;
     
-    // Add loading indicator to clicked chat list item
-    const allChatItems = document.querySelectorAll(".chat-list-item");
-    allChatItems.forEach(item => {
-      if (item.getAttribute("href") === `/chat/${id}`) {
-        item.classList.add("loading-active");
-      } else {
-        item.classList.remove("loading-active");
+    if (!silent) {
+      // Add loading indicator to clicked chat list item
+      const allChatItems = document.querySelectorAll(".chat-list-item");
+      allChatItems.forEach(item => {
+        if (item.getAttribute("href") === `/chat/${id}`) {
+          item.classList.add("loading-active");
+        } else {
+          item.classList.remove("loading-active");
+        }
+      });
+
+      // Show top progress bar
+      let topLoader = document.querySelector(".slim-top-loader");
+      if (!topLoader) {
+        topLoader = document.createElement("div");
+        topLoader.className = "slim-top-loader";
+        const mainEl = document.querySelector("main");
+        if (mainEl) mainEl.appendChild(topLoader);
       }
-    });
+      if (topLoader) {
+        // Force a reflow
+        topLoader.getBoundingClientRect();
+        topLoader.classList.add("active");
+      }
 
-    // Show top progress bar
-    let topLoader = document.querySelector(".slim-top-loader");
-    if (!topLoader) {
-      topLoader = document.createElement("div");
-      topLoader.className = "slim-top-loader";
-      const mainEl = document.querySelector("main");
-      if (mainEl) mainEl.appendChild(topLoader);
-    }
-    if (topLoader) {
-      // Force a reflow
-      topLoader.getBoundingClientRect();
-      topLoader.classList.add("active");
-    }
-
-    // Inject shimmering skeletons
-    if (welcomeHero) welcomeHero.classList.add("hidden");
-    if (messagesContainer) {
-      messagesContainer.innerHTML = `
-        <div class="skeleton-wrapper">
-          <div class="skeleton-turn user-turn">
-            <div class="skeleton-avatar"></div>
-            <div class="skeleton-bubble user-bubble">
-              <div class="skeleton-line width-80"></div>
-              <div class="skeleton-line width-60"></div>
+      // Inject shimmering skeletons
+      if (welcomeHero) welcomeHero.classList.add("hidden");
+      if (messagesContainer) {
+        messagesContainer.innerHTML = `
+          <div class="skeleton-wrapper">
+            <div class="skeleton-turn user-turn">
+              <div class="skeleton-avatar"></div>
+              <div class="skeleton-bubble user-bubble">
+                <div class="skeleton-line width-80"></div>
+                <div class="skeleton-line width-60"></div>
+              </div>
+            </div>
+            <div class="skeleton-turn assistant-turn">
+              <div class="skeleton-avatar"></div>
+              <div class="skeleton-bubble assistant-bubble">
+                <div class="skeleton-line width-90"></div>
+                <div class="skeleton-line width-75"></div>
+                <div class="skeleton-line width-50"></div>
+              </div>
             </div>
           </div>
-          <div class="skeleton-turn assistant-turn">
-            <div class="skeleton-avatar"></div>
-            <div class="skeleton-bubble assistant-bubble">
-              <div class="skeleton-line width-90"></div>
-              <div class="skeleton-line width-75"></div>
-              <div class="skeleton-line width-50"></div>
-            </div>
-          </div>
-        </div>
-      `;
+        `;
+      }
     }
 
     try {
@@ -915,40 +917,89 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       });
       if (currentTurn) turns.push(currentTurn);
 
-      turns.forEach((turn, idx) => {
-        chatHistory.push(turn);
+      // Attempt silent update if requested
+      let updatedSilently = false;
+      if (silent && messagesContainer) {
+        const rows = Array.from(messagesContainer.querySelectorAll(".message-row"));
+        if (rows.length === turns.length) {
+          let canUpdateSilently = true;
+          for (let i = 0; i < turns.length; i++) {
+            const turnRole = turns[i].role;
+            const isUserRow = rows[i].classList.contains("user-message");
+            const isBotRow = rows[i].classList.contains("bot-message");
 
-        let text = turn.content || "";
-        let images = [];
-        if (Array.isArray(turn.content)) {
-          text = turn.content.find((c) => c.type === "text")?.text || "";
-          images = turn.content
-            .filter((c) => c.type === "image_url")
-            .map((c) => c.image_url?.url)
-            .filter(Boolean);
+            if (turnRole === "user" && !isUserRow) {
+              canUpdateSilently = false;
+              break;
+            }
+            if (turnRole.includes("assistant") && !isBotRow) {
+              canUpdateSilently = false;
+              break;
+            }
+          }
+
+          if (canUpdateSilently) {
+            turns.forEach((turn, idx) => {
+              chatHistory.push(turn);
+              const row = rows[idx];
+              row.dataset.messageId = turn.id;
+              row.dataset.historyIndex = idx;
+
+              // Ensure correct model label display on Assistant responses
+              if (turn.role.includes("assistant") && turn.model) {
+                const modelLabel = row.querySelector(".bot-model-label");
+                if (modelLabel) {
+                  modelLabel.textContent = window.ModelManager.resolveModelDisplayName(turn.model);
+                  const footer = row.querySelector(".bot-message-footer");
+                  if (footer) footer.style.display = "flex";
+                }
+              }
+            });
+            updatedSilently = true;
+          }
         }
+      }
 
-        const row = createMessageBubble({
-          role: turn.role,
-          text: text,
-          modelName: turn.role.includes("assistant") ? window.ModelManager.resolveModelDisplayName(turn.model) : "",
-          messageId: turn.id,
-          historyIndex: idx,
-          images: images,
-          files: turn.uploadedFiles,
-          interleaved: turn.interleaved,
-          collections: turn.collections,
-          sub_agent_history: turn.sub_agent_history,
-          reasoningContent: "", // Now handled via interleaved
+      if (!updatedSilently) {
+        if (silent && messagesContainer) {
+          // If silent failed or wasn't applicable, clear message container before rebuilding
+          messagesContainer.innerHTML = "";
+        }
+        turns.forEach((turn, idx) => {
+          chatHistory.push(turn);
+
+          let text = turn.content || "";
+          let images = [];
+          if (Array.isArray(turn.content)) {
+            text = turn.content.find((c) => c.type === "text")?.text || "";
+            images = turn.content
+              .filter((c) => c.type === "image_url")
+              .map((c) => c.image_url?.url)
+              .filter(Boolean);
+          }
+
+          const row = createMessageBubble({
+            role: turn.role,
+            text: text,
+            modelName: turn.role.includes("assistant") ? window.ModelManager.resolveModelDisplayName(turn.model) : "",
+            messageId: turn.id,
+            historyIndex: idx,
+            images: images,
+            files: turn.uploadedFiles,
+            interleaved: turn.interleaved,
+            collections: turn.collections,
+            sub_agent_history: turn.sub_agent_history,
+            reasoningContent: "", // Now handled via interleaved
+          });
+
+          messagesContainer.appendChild(row);
+
+          if (turn.role === "assistant_active") {
+            isGenerating = true;
+            updateUIState(true);
+          }
         });
-
-        messagesContainer.appendChild(row);
-
-        if (turn.role === "assistant_active") {
-          isGenerating = true;
-          updateUIState(true);
-        }
-      });
+      }
 
       if (preferencesToggleSwitch)
         preferencesToggleSwitch.classList.toggle("active", isUserPreferences);
@@ -3126,7 +3177,7 @@ ${customSkillsList}
 
       // Sync the full chat state natively with the DB now that the turn is complete
       if (currentChatId) {
-        await loadChat(currentChatId, false, true);
+        await loadChat(currentChatId, false, true, true);
       }
     } catch (error) {
       if (error.name === "AbortError") {
