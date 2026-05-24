@@ -83,5 +83,79 @@ class TestRouter(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["data"][0]["embedding"], [0.1, 0.2])
 
+    @patch("router.InferenceEngine")
+    def test_proxy_chat_completions_streaming(self, MockEngine):
+        mock_engine = MagicMock()
+        
+        async def fake_stream(*args, **kwargs):
+            yield "data: chunk1"
+            yield "data: chunk2"
+            
+        mock_engine.stream = fake_stream
+        MockEngine.return_value = mock_engine
+
+        response = self.client.post(
+            "/api/models/v1/chat/completions",
+            json={
+                "model": "qwen",
+                "messages": [{"role": "user", "content": "Hi"}],
+                "stream": True
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        chunks = response.data.decode().split("\n\n")
+        self.assertIn("data: chunk1", chunks)
+        self.assertIn("data: chunk2", chunks)
+
+    @patch("router.InferenceEngine")
+    def test_proxy_chat_completions_streaming_interrupted(self, MockEngine):
+        mock_engine = MagicMock()
+        
+        class TrackedAsyncGen:
+            def __init__(self):
+                self.aclose_called = False
+                self.index = 0
+            def __aiter__(self):
+                return self
+            async def __anext__(self):
+                self.index += 1
+                if self.index > 5:
+                    raise StopAsyncIteration
+                return f"data: chunk{self.index}"
+            async def aclose(self):
+                self.aclose_called = True
+
+        tracked_gen = TrackedAsyncGen()
+        
+        def fake_stream(*args, **kwargs):
+            return tracked_gen
+            
+        mock_engine.stream = fake_stream
+        MockEngine.return_value = mock_engine
+
+        response = self.client.post(
+            "/api/models/v1/chat/completions",
+            json={
+                "model": "qwen",
+                "messages": [{"role": "user", "content": "Hi"}],
+                "stream": True
+            }
+        )
+        self.assertEqual(response.status_code, 200)
+        
+        # Get the generator iterator from the Flask Response
+        gen_iter = response.response
+        
+        # Consume the first chunk
+        first_chunk = next(gen_iter)
+        self.assertIn("data: chunk1", first_chunk.decode())
+        self.assertFalse(tracked_gen.aclose_called)
+        
+        # Close the generator iterator abruptly to simulate client abort / GeneratorExit
+        gen_iter.close()
+        
+        # Verify that aclose was called on the underlying InferenceEngine stream generator
+        self.assertTrue(tracked_gen.aclose_called)
+
 if __name__ == "__main__":
     unittest.main()

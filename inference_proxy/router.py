@@ -114,17 +114,27 @@ def proxy_chat_completions():
             # Run the async generator inside an event loop for Flask streaming compatibility
             loop = asyncio.new_event_loop()
             asyncio.set_event_loop(loop)
+            gen = engine.stream(messages=messages, model=model, chat_id=chat_id, **params)
             try:
-                gen = engine.stream(messages=messages, model=model, chat_id=chat_id, **params)
                 while True:
                     try:
                         chunk = loop.run_until_complete(gen.__anext__())
                         yield chunk + "\n\n"
                     except StopAsyncIteration:
                         break
+            except GeneratorExit:
+                try:
+                    loop.run_until_complete(gen.aclose())
+                except Exception:
+                    pass
+                raise
             except Exception as stream_err:
                 yield f"data: {json.dumps({'error': str(stream_err)})}\n\n"
             finally:
+                try:
+                    loop.run_until_complete(gen.aclose())
+                except Exception:
+                    pass
                 loop.close()
         return Response(stream_with_context(stream_response()), mimetype='text/event-stream')
     else:

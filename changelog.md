@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.5.5
+* **Inference Proxy – Stream Interruption Semaphore Leak Fix**: Resolved a bug where interrupting an active streaming turn (e.g., closing the browser tab or clicking "Stop") caused the `AsyncMPSemaphore` concurrency lock inside the `inference_proxy` to be permanently leaked. The `stream_response` generator in `inference_proxy/router.py` was not explicitly calling `gen.aclose()` on the async generator before closing the event loop upon client disconnection (`GeneratorExit`). Because `GeneratorExit` is a `BaseException` and not caught by the original `except Exception` handler, the semaphore's `__aexit__` was never reached, causing all subsequent inference requests to hang indefinitely. Fixed by explicitly catching `GeneratorExit` and calling `loop.run_until_complete(gen.aclose())` before re-raising, and mirrored in the `finally` block to guarantee cleanup under all exit paths.
+* **Docker Hostname RFC 1123 Compliance Fix**: Renamed the `inference_proxy` Docker Compose service and container to `inference-proxy` (hyphen instead of underscore). Hostnames with underscores are technically invalid per RFC 1123 and are rejected by strict async DNS resolvers (including `anyio`/`httpcore` used by `httpx`). This caused `httpx.ConnectError: [Errno -3] Temporary failure in name resolution` for all inference calls from the `app` container. Updated the service name, `container_name`, `depends_on` reference, and `AI_PROXY_URL` environment variable in `docker/docker-compose.yml`.
+* **Version Bump**: Incremented version globally to 4.5.5.
+
 ## v4.5.4
 * **Workspace File Sidebar Enhancements**:
     - **Disable Auto-Open on Workspace Load**: Removed the behavior that automatically forced open/expanded the file sidebar (right sidebar) whenever a workspace page was loaded, allowing it to stay collapsed.
