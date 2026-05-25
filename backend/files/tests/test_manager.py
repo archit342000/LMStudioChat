@@ -404,3 +404,55 @@ def test_get_chat_files(file_manager, mock_db):
     assert len(files) == 2
     assert files[0].file_id == "f1"
     assert files[1].file_id == "f2"
+
+def test_upload_file_media_skip_rag(file_manager, mock_db):
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.getsize', return_value=100), \
+         patch('shutil.copy2'), \
+         patch('backend.files.manager.FILE_RAG_ENABLED', True), \
+         patch('mimetypes.guess_type', return_value=("image/png", None)), \
+         patch.object(file_manager, 'extract_file_content', return_value=json.dumps({"format": "text", "text": "image placeholder"})), \
+         patch.object(file_manager, 'file_rag') as mock_file_rag:
+        
+        mock_file_rag.store_file = AsyncMock()
+        file_manager.file_rag = mock_file_rag
+        
+        metadata = file_manager.upload_file("local.png", "chat1", "original.png")
+        
+        assert metadata is not None
+        assert metadata.mime_type == "image/png"
+        mock_db.save_file.assert_called_once()
+        mock_file_rag.store_file.assert_not_called()
+
+@pytest.mark.anyio
+async def test_upload_file_async_media_skip_rag(file_manager, mock_db):
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.getsize', return_value=100), \
+         patch('shutil.copy2'), \
+         patch('backend.files.manager.FILE_RAG_ENABLED', True), \
+         patch('mimetypes.guess_type', return_value=("image/png", None)), \
+         patch.object(file_manager, 'extract_file_content', return_value="image placeholder"), \
+         patch.object(file_manager, 'file_rag') as mock_file_rag:
+        
+        mock_file_rag.store_file = AsyncMock()
+        file_manager.file_rag = mock_file_rag
+        
+        metadata = await file_manager.upload_file_async("local.png", "chat1", "original.png")
+        
+        assert metadata is not None
+        mock_db.save_file.assert_called_once()
+        mock_file_rag.store_file.assert_not_called()
+
+@pytest.mark.anyio
+async def test_process_file_background_media_skip_rag(file_manager, mock_db):
+    mock_db.get_file.return_value = {"content_text": ""}
+    with patch.object(file_manager, 'extract_file_content', return_value="image placeholder"), \
+         patch.object(file_manager, 'file_rag') as mock_file_rag:
+        mock_file_rag.store_file = AsyncMock()
+        file_manager.file_rag = mock_file_rag
+        
+        await file_manager._process_file_background("f2", "c2", "path", "image/png", "orig.png")
+        
+        mock_db.update_file_processing_status.assert_any_call("f2", "processing")
+        mock_file_rag.store_file.assert_not_called()
+        mock_db.update_file_processing_status.assert_any_call("f2", "completed")

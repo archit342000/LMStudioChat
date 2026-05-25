@@ -392,7 +392,8 @@ class FileManager:
             )
 
             # Store in FileRAG for chunked embeddings
-            if self.file_rag and content_text and len(content_text.strip()) > 50:
+            is_media = mime_type.startswith(('image/', 'video/', 'audio/')) if mime_type else False
+            if self.file_rag and not is_media and content_text and len(content_text.strip()) > 50:
                 try:
                     # In sync upload, we still run this synchronously to ensure immediate availability
                     import asyncio
@@ -510,7 +511,8 @@ class FileManager:
                 self.update_file_content(file_id, content_text)
 
                 # Store in FileRAG (synchronous - for current chat immediate availability)
-                if self.file_rag and content_text and len(content_text.strip()) > 50:
+                is_media = mime_type.startswith(('image/', 'video/', 'audio/')) if mime_type else False
+                if self.file_rag and not is_media and content_text and len(content_text.strip()) > 50:
                     logger.info(f"[UPLOAD_ASYNC] Storing in FileRAG")
                     stored_ids = await self.file_rag.store_file(file_id, chat_id, content_text, original_filename)
                     if not stored_ids:
@@ -588,7 +590,8 @@ class FileManager:
             logger.info(f"[BG_PROCESS] File content updated")
 
             # Store in FileRAG
-            if self.file_rag and content_text and len(content_text.strip()) > 50:
+            is_media = mime_type.startswith(('image/', 'video/', 'audio/')) if mime_type else False
+            if self.file_rag and not is_media and content_text and len(content_text.strip()) > 50:
                 try:
                     logger.info(f"[BG_PROCESS] About to store in FileRAG")
                     await self.file_rag.store_file(file_id, chat_id, content_text, original_filename)
