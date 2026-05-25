@@ -160,5 +160,47 @@ class TestRAGManager(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(len(res), 1)
         self.mock_embedding_fn.assert_called_with(["hello"])
 
+    def test_zero_embedding_function(self):
+        from backend.rag.manager import ZeroEmbeddingFunction
+        ef = ZeroEmbeddingFunction(dimension=5)
+        self.assertEqual(ef.dimension, 5)
+        self.assertEqual(ef.name(), "zero")
+        self.assertEqual(ef.get_config(), {"dimension": 5})
+        
+        # Test list input
+        res = ef(["doc1", "doc2"])
+        res_list = [list(x) for x in res]
+        self.assertEqual(res_list, [[0.0, 0.0, 0.0, 0.0, 0.0], [0.0, 0.0, 0.0, 0.0, 0.0]])
+        
+        # Test string input
+        res = ef("doc1")
+        res_list = [list(x) for x in res]
+        self.assertEqual(res_list, [[0.0, 0.0, 0.0, 0.0, 0.0]])
+
+    async def test_ensure_l2_collection_disable_embeddings(self):
+        manager = RAGManager()
+        mock_coll = MagicMock()
+        mock_coll.metadata = {"embedding_model": "none"}
+        self.mock_client.get_collection.return_value = mock_coll
+        
+        from backend.rag.manager import ZeroEmbeddingFunction
+        res = manager._ensure_l2_collection("test_disabled", disable_embeddings=True)
+        self.assertEqual(res, mock_coll)
+        self.mock_client.get_collection.assert_any_call(name="test_disabled", embedding_function=unittest.mock.ANY)
+        # Verify it passed a ZeroEmbeddingFunction
+        first_call = self.mock_client.get_collection.call_args_list[0]
+        args, kwargs = first_call
+        self.assertIsInstance(kwargs["embedding_function"], ZeroEmbeddingFunction)
+
+    async def test_ensure_l2_collection_conflict_self_healing(self):
+        manager = RAGManager()
+        self.mock_client.get_collection.side_effect = ValueError("Embedding function conflict")
+        self.mock_client.get_or_create_collection.return_value = MagicMock()
+        
+        res = manager._ensure_l2_collection("test_conflict", disable_embeddings=True)
+        # Verify it deleted the collection and then called get_or_create
+        self.mock_client.delete_collection.assert_called_with(name="test_conflict")
+        self.mock_client.get_or_create_collection.assert_called()
+
 if __name__ == '__main__':
     unittest.main()

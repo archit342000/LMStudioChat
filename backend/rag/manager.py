@@ -12,6 +12,23 @@ from .token_counter import count_tokens
 
 logger = logging.getLogger(__name__)
 
+class ZeroEmbeddingFunction(chromadb.utils.embedding_functions.EmbeddingFunction):
+    """A lightweight, zero-latency embedding function that returns zero vectors."""
+    def __init__(self, dimension: int = 1):
+        self.dimension = dimension
+
+    def __call__(self, input: Union[str, list]) -> list:
+        if isinstance(input, str):
+            return [[0.0] * self.dimension]
+        return [[0.0] * self.dimension] * len(input)
+
+    @staticmethod
+    def name() -> str:
+        return "zero"
+
+    def get_config(self) -> dict:
+        return {"dimension": self.dimension}
+
 class RAGManager:
     """Singleton to manage ChromaDB collections and embeddings."""
     _instance = None
@@ -110,25 +127,28 @@ class RAGManager:
 
     def _ensure_l2_collection(self, name: str, disable_embeddings: bool = False) -> chromadb.Collection:
         try:
-            embedding_function = None if disable_embeddings else self.embedding_fn
+            embedding_function = ZeroEmbeddingFunction() if disable_embeddings else self.embedding_fn
             existing = self.client.get_collection(name=name, embedding_function=embedding_function)
             coll_meta = existing.metadata or {}
             stored_model = coll_meta.get("embedding_model")
-            if stored_model and stored_model != self.embedding_model:
+            expected_model = "none" if disable_embeddings else self.embedding_model
+            if stored_model and stored_model != expected_model:
                 self._drop_collection(name)
                 existing = None
         except (ValueError, Exception):
+            # Drop the collection if it exists but has a conflicting embedding function schema
+            self._drop_collection(name)
             existing = None
 
         if existing is None:
-            embedding_function = None if disable_embeddings else self.embedding_fn
+            embedding_function = ZeroEmbeddingFunction() if disable_embeddings else self.embedding_fn
             return self.client.get_or_create_collection(
                 name=name,
                 embedding_function=embedding_function,
                 metadata={
                     "hnsw:space": "l2",
                     "embedding_model": self.embedding_model if not disable_embeddings else "none",
-                    "embedding_dimension": self.embedding_dimension if not disable_embeddings else 0
+                    "embedding_dimension": self.embedding_dimension if not disable_embeddings else 1
                 }
             )
 
