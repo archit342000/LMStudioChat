@@ -326,6 +326,10 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       if (currentChatData && !isResearchMode) {
         currentChatData.last_model = name;
         if (currentChatId) {
+          const isSaved = savedChats && savedChats.some(c => c.id === currentChatId);
+          const hasFolder = currentChatData && currentChatData.folder;
+          if (!isSaved && !hasFolder) return;
+
           fetch(`${API_MODULES.CHATS}/${currentChatId}`, {
             method: "PATCH",
             headers: { "Content-Type": "application/json" },
@@ -392,6 +396,10 @@ const chatTitleHeader = document.getElementById("chat-title-header");
 
   async function patchChat(updates) {
     if (!currentChatId || isTemporaryChat) return;
+    const isSaved = savedChats && savedChats.some(c => c.id === currentChatId);
+    const hasFolder = currentChatData && currentChatData.folder;
+    if (!isSaved && !hasFolder) return;
+
     try {
       const response = await fetch(`${API_MODULES.CHATS}/${currentChatId}`, {
         method: "PATCH",
