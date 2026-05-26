@@ -1355,6 +1355,15 @@ class ResearchAgent:
                 active_tools = [MANAGE_TASK_LIST_TOOL]
             else:
                 active_tools = [READ_FS_FILE_TOOL, REPLACE_FS_TEXT_TOOL, REPLACE_FS_LINES_TOOL, MANAGE_TASK_LIST_TOOL]
+                
+                # Run safety and progress audit
+                from backend.tools.safety import run_safety_audit
+                safety_alert = run_safety_audit(auditor_history, task_list)
+                if safety_alert:
+                    messages.append({
+                        "role": "user",
+                        "content": safety_alert
+                    })
 
             async for chunk in agent.run_inference_step(
                 agent_name=self.AGENT_NAME,
@@ -1439,6 +1448,15 @@ class ResearchAgent:
                 active_tools = [MANAGE_TASK_LIST_TOOL]
             else:
                 active_tools = [READ_FS_FILE_TOOL, REPLACE_FS_TEXT_TOOL, REPLACE_FS_LINES_TOOL, MANAGE_TASK_LIST_TOOL]
+                
+                # Run safety and progress audit
+                from backend.tools.safety import run_safety_audit
+                safety_alert = run_safety_audit(synthesis_history, task_list)
+                if safety_alert:
+                    messages.append({
+                        "role": "user",
+                        "content": safety_alert
+                    })
 
             async for chunk in agent.run_inference_step(
                 agent_name=self.AGENT_NAME,
@@ -1498,13 +1516,34 @@ async def flow_fn(agent: Any, agent_name: str, topic: str, **kwargs):
     """
     Unified entry point for the Research Agent.
     """
-    research_agent = ResearchAgent(
-        chat_id=agent.chat_id,
-        parent_message_id=agent.parent_message_id,
-        enable_thinking=kwargs.get("enable_thinking", True),
-        model=kwargs.get("model", agent.model)
-    )
-    
-    # Capturing the final summary/result from the agent run
-    async for chunk in research_agent.run(topic, agent):
-        yield chunk
+    try:
+        research_agent = ResearchAgent(
+            chat_id=agent.chat_id,
+            parent_message_id=agent.parent_message_id,
+            enable_thinking=kwargs.get("enable_thinking", True),
+            model=kwargs.get("model", agent.model)
+        )
+        
+        # Capturing the final summary/result from the agent run
+        async for chunk in research_agent.run(topic, agent):
+            yield chunk
+    except Exception as e:
+        logger.error(f"ResearchAgent failed: {e}", exc_info=True)
+        try:
+            db.add_message(
+                chat_id=agent.chat_id,
+                role='event',
+                content=f'Research Agent failed: {str(e)}',
+                parent_id=agent.parent_message_id,
+                parent_type='research'
+            )
+        except Exception as db_err:
+            logger.error(f"Failed to log research agent failure event: {db_err}")
+            
+        try:
+            db.update_chat(agent.chat_id, research_state='failed')
+        except Exception as db_err:
+            logger.error(f"Failed to update chat state: {db_err}")
+            
+        agent.result = f"Research agent failed: {str(e)}"
+        yield f"Error: Research agent failed: {str(e)}"

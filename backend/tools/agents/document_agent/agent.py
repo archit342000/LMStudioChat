@@ -47,24 +47,24 @@ async def flow_fn(
     chat_id = agent.chat_id
     parent_message_id = agent.parent_message_id
 
-    existing_history = db.get_messages(
-        chat_id, parent_message_id=parent_message_id,
-        parent_type="document_agent"
-    )
-    is_resume = len(existing_history) > 0
-
-    if not is_resume:
-        db.add_message(
-            chat_id=chat_id,
-            role='event',
-            content='Document Agent Started.',
-            parent_id=parent_message_id,
-            parent_type='document_agent'
-        )
-    else:
-        logger.info(f"DocumentAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
-
     try:
+        existing_history = db.get_messages(
+            chat_id, parent_message_id=parent_message_id,
+            parent_type="document_agent"
+        )
+        is_resume = len(existing_history) > 0
+
+        if not is_resume:
+            db.add_message(
+                chat_id=chat_id,
+                role='event',
+                content='Document Agent Started.',
+                parent_id=parent_message_id,
+                parent_type='document_agent'
+            )
+        else:
+            logger.info(f"DocumentAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
+
         file_meta = db.get_file(file_id)
         if not file_meta:
             error_msg = f"Error: File with ID {file_id} not found."
@@ -95,8 +95,6 @@ async def flow_fn(
             embedding_model = get_embedding_model()
             rag_manager = RAGProvider.get_manager(
                 persist_path=config.CHROMA_PATH,
-                api_url=config.EMBEDDING_URL,
-                api_key=config.EMBEDDING_API_KEY,
                 embedding_model=embedding_model
             )
             file_manager = FileManager(rag_manager=rag_manager)
@@ -215,6 +213,15 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
                         current_tools = [MANAGE_TASK_LIST_TOOL]
                     else:
                         current_tools = document_agent_tools
+                        
+                        # Run safety and progress audit
+                        from backend.tools.safety import run_safety_audit
+                        safety_alert = run_safety_audit(db_history, task_list)
+                        if safety_alert:
+                            messages.append({
+                                "role": "user",
+                                "content": safety_alert
+                            })
 
                 async for chunk in agent.run_inference_step(
                     agent_name="document_agent",
@@ -295,6 +302,19 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
         error_msg = f"Document agent failed: {str(e)}"
         logger.error(error_msg, exc_info=True)
         agent.result = error_msg
+        
+        # Log failure event to database
+        try:
+            db.add_message(
+                chat_id=chat_id,
+                role='event',
+                content=f'Document Agent failed: {str(e)}',
+                parent_id=parent_message_id,
+                parent_type='document_agent'
+            )
+        except Exception as db_err:
+            logger.error(f"Failed to log document agent failure event: {db_err}")
+
         log_tool_call(
             tool_name="document_agent",
             payload={"file_id": file_id, "query": query},

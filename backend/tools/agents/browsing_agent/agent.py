@@ -28,38 +28,56 @@ async def flow_fn(agent: Any, agent_name: str, query: str, **kwargs) -> AsyncGen
     )
     is_resume = len(existing_history) > 0
 
-    if not is_resume:
-        # First run — emit start event and initialize session
-        db.add_message(
-            chat_id=chat_id,
-            role='event',
-            content='Browsing Agent Started. Initializing browser session.',
-            parent_id=parent_message_id,
-            parent_type='browsing_agent'
-        )
-        
-        # Start browser session
-        session_id = f"sess_{chat_id}_{uuid.uuid4().hex[:8]}"
-        db.update_chat(chat_id, browsing_session_id=session_id)
-        
-        await playwright_client.connect()
-        await playwright_client.execute_tool("browser_start_session", {
-            "session_id": session_id,
-            "stealth_level": config.BROWSER_STEALTH_LEVEL,
-            "scope": kwargs.get("scope")
-        })
-    else:
-        logger.info(f"BrowsingAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
-        chat_meta = db.get_chat(chat_id)
-        session_id = chat_meta.get("browsing_session_id")
-        if session_id:
+    try:
+        if not is_resume:
+            # First run — emit start event and initialize session
+            db.add_message(
+                chat_id=chat_id,
+                role='event',
+                content='Browsing Agent Started. Initializing browser session.',
+                parent_id=parent_message_id,
+                parent_type='browsing_agent'
+            )
+            
+            # Start browser session
+            session_id = f"sess_{chat_id}_{uuid.uuid4().hex[:8]}"
+            db.update_chat(chat_id, browsing_session_id=session_id)
+            
+            await playwright_client.connect()
+            await playwright_client.execute_tool("browser_start_session", {
+                "session_id": session_id,
+                "stealth_level": config.BROWSER_STEALTH_LEVEL,
+                "scope": kwargs.get("scope")
+            })
+        else:
+            logger.info(f"BrowsingAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
+            chat_meta = db.get_chat(chat_id)
+            session_id = chat_meta.get("browsing_session_id") if chat_meta else None
+            
+            if not session_id:
+                session_id = f"sess_{chat_id}_{uuid.uuid4().hex[:8]}"
+                db.update_chat(chat_id, browsing_session_id=session_id)
+                logger.info(f"Resuming but session_id was missing. Initialized new session: {session_id}")
+                
             # Ensure the session still exists on the MCP server
             await playwright_client.connect()
-            res = await playwright_client.execute_tool("browser_start_session", {
+            await playwright_client.execute_tool("browser_start_session", {
                 "session_id": session_id,
                 "stealth_level": config.BROWSER_STEALTH_LEVEL
             })
-            # if it was 'created', it means it had expired and we started a fresh one. That's fine.
+    except Exception as e:
+        logger.error(f"BrowsingAgent connection/initialization failed: {e}", exc_info=True)
+        db.add_message(
+            chat_id=chat_id,
+            role='event',
+            content=f'Error initializing browser session: {str(e)}',
+            parent_id=parent_message_id,
+            parent_type='browsing_agent'
+        )
+        yield f"Error: Failed to connect to browser session. Please ensure the Playwright MCP server is running."
+        # Clear the database session reference to prevent future stale connections
+        db.update_chat(chat_id, browsing_session_id=None)
+        return
 
     try:
         # Determine if vision mode is enabled based on the model
@@ -187,6 +205,15 @@ async def flow_fn(agent: Any, agent_name: str, query: str, **kwargs) -> AsyncGen
                     current_tools = [MANAGE_TASK_LIST_TOOL]
                 else:
                     current_tools = active_tools
+                    
+                    # Run safety and progress audit
+                    from backend.tools.safety import run_safety_audit
+                    safety_alert = run_safety_audit(db_history, task_list)
+                    if safety_alert:
+                        messages.append({
+                            "role": "user",
+                            "content": safety_alert
+                        })
 
             async for chunk in agent.run_inference_step(
                 agent_name="browsing_agent",
@@ -230,7 +257,6 @@ async def flow_fn(agent: Any, agent_name: str, query: str, **kwargs) -> AsyncGen
                 agent.result = last_msg.get("content", "Browsing operation completed.")
                 return
             
-            # Absolute safety break to prevent infinite loops in case the agent gets stuck after the limit
             if iteration >= config.BROWSING_AGENT_MAX_TURNS + config.BROWSING_AGENT_FAILSAFE_TURNS:
                 logger.warning(f"BrowsingAgent reached absolute iteration limit ({iteration}). Force ending.")
                 db.add_message(
@@ -242,7 +268,16 @@ async def flow_fn(agent: Any, agent_name: str, query: str, **kwargs) -> AsyncGen
                 )
                 agent.result = "Operation forcibly terminated due to infinite loop."
                 return
-
+    except Exception as e:
+        logger.error(f"BrowsingAgent error during execution: {e}", exc_info=True)
+        db.add_message(
+            chat_id=chat_id,
+            role='event',
+            content=f'Browsing Agent execution failed: {str(e)}',
+            parent_id=parent_message_id,
+            parent_type='browsing_agent'
+        )
+        yield f"Error: Browsing agent failed during execution: {str(e)}"
     finally:
         # Always clean up the session
         chat_meta = db.get_chat(chat_id)

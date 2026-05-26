@@ -21,18 +21,8 @@ APP_PASSWORD = get_secret("APP_PASSWORD", None)
 # =============================================================================
 # AI INFERENCE & INFRASTRUCTURE
 # =============================================================================
-AI_URL = get_secret("AI_URL")
-AI_API_KEY = get_secret("AI_API_KEY", "")
-EMBEDDING_URL = get_secret("EMBEDDING_URL", None)
-EMBEDDING_API_KEY = get_secret("EMBEDDING_API_KEY", None)
 AI_PROXY_URL = get_secret("AI_PROXY_URL", "http://localhost:5001")
 
-# Strict Validation: Fail if EMBEDDING_URL is missing
-if not EMBEDDING_URL:
-    raise ValueError(
-        "FATAL: EMBEDDING_URL is missing from secrets. "
-        "Falling back to AI_URL is deprecated and strictly forbidden for security and isolation."
-    )
 
 PLAYWRIGHT_HEADLESS = os.getenv("PLAYWRIGHT_HEADLESS", "True").lower() == "true"
 CHROMA_PATH = get_secret("CHROMA_PATH", os.path.abspath(os.path.join(DATA_DIR, "chroma_db")))
@@ -86,6 +76,8 @@ RESEARCH_CONTENT_CHUNK_LIMIT = 15000
 try:
     from backend.models import get_embedding_model
     EMBEDDING_MODEL = get_embedding_model()
+    if not isinstance(EMBEDDING_MODEL, str):
+        EMBEDDING_MODEL = "embeddinggemma/embeddinggemma-300M-Q8_0"
 except Exception:
     EMBEDDING_MODEL = "embeddinggemma/embeddinggemma-300M-Q8_0"
 
@@ -346,3 +338,11 @@ DOCUMENT_AGENT_THINKING_BUDGET = int(os.getenv("DOCUMENT_AGENT_THINKING_BUDGET",
 FILE_SYSTEM_AGENT_THINKING_BUDGET = int(os.getenv("FILE_SYSTEM_AGENT_THINKING_BUDGET", 1024))
 BROWSING_AGENT_THINKING_BUDGET = int(os.getenv("BROWSING_AGENT_THINKING_BUDGET", 1024))
 VISIT_PAGE_AGENT_THINKING_BUDGET = int(os.getenv("VISIT_PAGE_AGENT_THINKING_BUDGET", 1024))
+
+# =============================================================================
+# AGENT SAFETY & PROGRESS MONITORING
+# =============================================================================
+AGENT_SAFETY_ERROR_LOOP_THRESHOLD = int(os.getenv("AGENT_SAFETY_ERROR_LOOP_THRESHOLD", 2))
+AGENT_SAFETY_TOOL_LOOP_THRESHOLD = int(os.getenv("AGENT_SAFETY_TOOL_LOOP_THRESHOLD", 3))
+AGENT_SAFETY_STAGNATION_THRESHOLD = int(os.getenv("AGENT_SAFETY_STAGNATION_THRESHOLD", 3))
+
