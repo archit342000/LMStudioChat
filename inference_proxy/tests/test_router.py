@@ -24,21 +24,24 @@ class TestRouter(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.json["general"]["text"], "model_1")
 
-    @patch("router.requests.post")
+    @patch("router.ensure_model_loaded", new_callable=AsyncMock)
+    @patch("router.load_model_config")
     @patch("router.config")
-    def test_proxy_load_model(self, mock_config, mock_post):
+    def test_proxy_load_model(self, mock_config, mock_load_config, mock_ensure_loaded):
         mock_config.AI_URL = "http://localhost:8080/v1"
         mock_config.AI_API_KEY = "test-key"
+        mock_load_config.return_value = {"embedding": "embedding-1"}
         
-        mock_resp = MagicMock()
-        mock_resp.status_code = 200
-        mock_resp.content = b'{"status": "ok"}'
-        mock_resp.headers = {"content-type": "application/json"}
-        mock_post.return_value = mock_resp
-
         response = self.client.post("/api/models/load", json={"model": "model_1"})
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json["status"], "ok")
+        self.assertEqual(response.json["status"], "success")
+        mock_ensure_loaded.assert_called_once_with(
+            model_name="model_1",
+            base_url="http://localhost:8080",
+            api_key="test-key",
+            category="llm",
+            timeout=60.0
+        )
 
     @patch("router.InferenceEngine")
     def test_proxy_chat_completions_blocking(self, MockEngine):

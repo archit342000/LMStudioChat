@@ -7,6 +7,7 @@ import httpx
 import config
 from loader import load_model_config
 from engine import InferenceEngine
+from lifecycle import ensure_model_loaded
 
 models_bp = Blueprint('models', __name__)
 
@@ -43,23 +44,35 @@ def get_model_config():
 
 @models_bp.route('/load', methods=['POST'])
 def proxy_load_model():
-    """Proxy POST to llama.cpp /models/load."""
+    """Proxy POST to llama.cpp /models/load, ensuring previous models are unloaded first."""
     data = request.json or {}
+    model_name = data.get("model")
+    if not model_name:
+        return jsonify({"error": "Missing 'model' parameter"}), 400
+
     api_url = config.AI_URL.rstrip("/")
     base_url = api_url[:-3] if api_url.endswith('/v1') else api_url
-    endpoint = f"{base_url}/models/load"
-        
-    headers = {"Content-Type": "application/json"}
-    if config.AI_API_KEY:
-        headers["Authorization"] = f"Bearer {config.AI_API_KEY}"
-        
+
     try:
-        response = requests.post(endpoint, json=data, headers=headers, timeout=60)
-        return Response(
-            response.content, 
-            status=response.status_code, 
-            content_type=response.headers.get('content-type', 'application/json')
-        )
+        model_config = load_model_config()
+        embedding_models = {model_config.get("embedding")}
+        category = "embedding" if model_name in embedding_models else "llm"
+
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            loop.run_until_complete(
+                ensure_model_loaded(
+                    model_name=model_name,
+                    base_url=base_url,
+                    api_key=config.AI_API_KEY,
+                    category=category,
+                    timeout=60.0
+                )
+            )
+            return jsonify({"status": "success", "message": f"Model {model_name} loaded successfully"})
+        finally:
+            loop.close()
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

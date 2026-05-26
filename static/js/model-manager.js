@@ -39,12 +39,13 @@
 
       // Bind drop-down change handler
       if (elements.modelSelectDropdown) {
-        elements.modelSelectDropdown.addEventListener("change", (e) => {
+        elements.modelSelectDropdown.addEventListener("change", async (e) => {
           const modelId = e.target.value;
           const model = availableModels.find((m) => m.key === modelId);
           if (model) {
             const shortName = model.display_name || modelId.split("/").pop();
             this.selectModel(modelId, shortName);
+            await this.loadModel(modelId);
           }
         });
       }
@@ -312,7 +313,12 @@
      * Requests a specific model load, blocking until readiness reports show loaded status.
      */
     async loadModel(modelKey) {
+      const overlay = document.getElementById("model-switch-overlay");
       try {
+        if (overlay) {
+          overlay.style.display = "flex";
+          overlay.classList.add("open");
+        }
         console.log(`Loading model: ${modelKey}`);
         const overlayText = document.getElementById("model-switch-text");
         if (overlayText) overlayText.textContent = "Loading Model to VRAM...";
@@ -333,6 +339,10 @@
           } else {
             alert(`Model Load Failed: ${errorText}`);
           }
+          if (overlay) {
+            overlay.classList.remove("open");
+            overlay.style.display = "none";
+          }
           return false;
         }
 
@@ -347,6 +357,10 @@
             );
             if (targetModel?.status?.value === "loaded") {
               console.log(`Model ${modelKey} is now fully loaded in VRAM.`);
+              if (overlay) {
+                overlay.classList.remove("open");
+                overlay.style.display = "none";
+              }
               return true;
             }
           }
@@ -357,6 +371,10 @@
           await showAlert("Error", `Error loading model: ${err.message}`);
         } else {
           alert(`Error loading model: ${err.message}`);
+        }
+        if (overlay) {
+          overlay.classList.remove("open");
+          overlay.style.display = "none";
         }
         return false;
       }

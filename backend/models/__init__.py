@@ -50,6 +50,7 @@ DEFAULT_HARDCODED_CONFIG = {
 }
 
 @models_bp.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
+@models_bp.route('/', defaults={'path': ''}, endpoint='pass_through_slash', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 @models_bp.route('', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 def pass_through(path):
     """Stateless pass-through forwarding all /api/models requests directly to the proxy microservice."""
