@@ -456,3 +456,59 @@ async def test_process_file_background_media_skip_rag(file_manager, mock_db):
         mock_db.update_file_processing_status.assert_any_call("f2", "processing")
         mock_file_rag.store_file.assert_not_called()
         mock_db.update_file_processing_status.assert_any_call("f2", "completed")
+
+@pytest.mark.anyio
+async def test_upload_file_async_rag_failure_resilience(file_manager, mock_db):
+    with patch('os.path.exists', return_value=True), \
+         patch('os.path.getsize', return_value=100), \
+         patch('shutil.copy2'), \
+         patch('backend.files.manager.FILE_RAG_ENABLED', True), \
+         patch.object(file_manager, 'extract_file_content', return_value="content that is long enough to be indexed in RAG system"), \
+         patch.object(file_manager, 'file_rag') as mock_file_rag:
+        
+        mock_file_rag.store_file.side_effect = RuntimeError("RAG store failed")
+        file_manager.file_rag = mock_file_rag
+        
+        metadata = await file_manager.upload_file_async("local.txt", "chat1", "original.txt")
+        
+        assert metadata is not None
+        assert metadata.original_filename == "original.txt"
+        mock_db.save_file.assert_called_once()
+        mock_db.update_file_content.assert_called_once()
+        mock_db.update_file_processing_status.assert_called_with(metadata.file_id, 'completed')
+
+def test_grep_file_json_parsing_edge_case(file_manager, mock_db):
+    content = "line 1\nline 2 with target\nline 3"
+    mock_db.get_file.return_value = {
+        'id': 'f1', 'chat_id': 'c1', 'original_filename': 'o.txt',
+        'stored_filename': 's.txt', 'mime_type': 'text/plain',
+        'file_size': 10, 'content_text': content, 'created_at': 123
+    }
+    
+    result = file_manager.grep_file("f1", "target")
+    assert result["success"] is True
+    assert len(result["matches"]) == 1
+    assert result["matches"][0]["line_number"] == 2
+    assert result["matches"][0]["text"] == "line 2 with target"
+
+def test_read_file_range_invalid_arguments(file_manager, mock_db):
+    content_text = json.dumps({"format": "text", "text": "line 1\nline 2"})
+    mock_db.get_file.return_value = {
+        'id': 'f1', 'chat_id': 'c1', 'original_filename': 'o.txt',
+        'stored_filename': 's.txt', 'mime_type': 'text/plain',
+        'file_size': 10, 'content_text': content_text, 'created_at': 123
+    }
+    res = file_manager.read_file_range("f1", page=2)
+    assert res["success"] is False
+    assert "This is a line-based document" in res["error"]
+
+    content_page = json.dumps({"format": "pages", "pages": ["page 1", "page 2"]})
+    mock_db.get_file.return_value = {
+        'id': 'f1', 'chat_id': 'c1', 'original_filename': 'o.pdf',
+        'stored_filename': 's.pdf', 'mime_type': 'application/pdf',
+        'file_size': 10, 'content_text': content_page, 'created_at': 123
+    }
+    res = file_manager.read_file_range("f1", start_line=1, end_line=2)
+    assert res["success"] is False
+    assert "This is a page-based document" in res["error"]
+

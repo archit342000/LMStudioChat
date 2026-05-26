@@ -20,7 +20,7 @@ def mock_agent():
 
 @pytest.fixture
 def mock_config():
-    with patch('backend.config') as mock_conf:
+    with patch('backend.tools.agents.file_system_agent.agent.config') as mock_conf:
         mock_conf.FILE_SYSTEM_AGENT_MAX_TURNS = 3
         mock_conf.FILE_SYSTEM_AGENT_FAILSAFE_TURNS = 2
         mock_conf.FILE_SYSTEM_AGENT_MAX_TOKENS = 1000
@@ -142,3 +142,20 @@ async def test_flow_fn_empty_history_break(mock_agent, mock_config, mock_db):
     mock_db.get_task_list.return_value = [{"id": "t1"}]
     chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
     assert chunks == ["chunk1", "chunk2"]
+
+@pytest.mark.anyio
+async def test_flow_fn_exception_caught(mock_agent, mock_config, mock_db):
+    mock_db.get_messages.side_effect = Exception("DB error")
+    chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
+    
+    assert len(chunks) == 1
+    assert "FileSystem agent failed during execution" in chunks[0]
+    assert mock_agent.result == "FileSystem agent failed: DB error"
+    
+    mock_db.add_message.assert_any_call(
+        chat_id="test_chat",
+        role='event',
+        content='FileSystem Agent failed: DB error',
+        parent_id="test_parent",
+        parent_type='file_system_agent'
+    )

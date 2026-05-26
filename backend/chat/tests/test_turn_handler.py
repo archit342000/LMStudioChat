@@ -67,3 +67,24 @@ def test_persist_final_state_error(mock_db, mock_log_event, caplog):
         "chat_id": "chat_123", 
         "error": "DB error"
     })
+
+@pytest.mark.anyio
+async def test_turn_handler_cancellation_resilience(mock_db, mock_log_event):
+    import asyncio
+    chat_id = "test_chat"
+    parent_id = 1
+    
+    # Mock generator that simulates a task cancellation
+    async def mock_run_fn_cancelled():
+        yield "chunk1"
+        raise asyncio.CancelledError("Turn cancelled")
+        
+    with pytest.raises(asyncio.CancelledError):
+        async for chunk in TurnHandler.handle_turn(chat_id, parent_id, mock_run_fn_cancelled):
+            assert chunk == "chunk1"
+            
+    # Verify that turn_handler_end is still executed in the finally block
+    assert any(call.args[0] == "turn_handler_end" for call in mock_log_event.call_args_list)
+    # Ensure update_chat (which is post-stream persistence) is NOT called because of the cancellation
+    mock_db.update_chat.assert_not_called()
+

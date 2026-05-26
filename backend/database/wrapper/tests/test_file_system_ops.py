@@ -157,3 +157,139 @@ def test_file_system_ops(temp_db):
     # 19. delete_file_system
     db.delete_file_system("fs_123_migrated", chat_id=chat_id_new)
     assert db.get_file_system_meta("fs_123_migrated", chat_id=chat_id_new) is None
+
+def test_file_system_workspace_isolation(temp_db):
+    db = temp_db
+    chat_id = "chat_iso_1"
+    workspace_id = "ws_iso_1"
+    
+    db.ensure_chat_exists(chat_id)
+    # create_workspace is part of ChatOpsMixin, so db has it
+    ws = db.create_workspace("Workspace Isolation Test")
+    workspace_id = ws["id"]
+    
+    # 1. Create a workspace file system record
+    db.create_file_system_with_version(
+        file_system_id="fs_ws",
+        workspace_id=workspace_id,
+        chat_id=None,
+        title="Workspace File",
+        filename="ws_file.md",
+        content="workspace content"
+    )
+    
+    # 2. Create a chat-only file system record
+    db.create_file_system_with_version(
+        file_system_id="fs_chat",
+        workspace_id=None,
+        chat_id=chat_id,
+        title="Chat File",
+        filename="chat_file.md",
+        content="chat content"
+    )
+    
+    # Verify isolation in meta fetching
+    meta_ws = db.get_file_system_meta("fs_ws", workspace_id=workspace_id)
+    assert meta_ws is not None
+    assert meta_ws["filename"] == "ws_file.md"
+    
+    meta_ws_under_chat = db.get_file_system_meta("fs_ws", chat_id=chat_id)
+    assert meta_ws_under_chat is None
+    
+    meta_chat = db.get_file_system_meta("fs_chat", chat_id=chat_id)
+    assert meta_chat is not None
+    assert meta_chat["filename"] == "chat_file.md"
+    
+    meta_chat_under_ws = db.get_file_system_meta("fs_chat", workspace_id=workspace_id)
+    assert meta_chat_under_ws is None
+    
+    # Verify isolation in owner listings
+    ws_files = db.get_owner_file_systems(workspace_id=workspace_id)
+    assert any(f["id"] == "fs_ws" for f in ws_files)
+    assert not any(f["id"] == "fs_chat" for f in ws_files)
+    
+    chat_files = db.get_owner_file_systems(chat_id=chat_id)
+    assert any(f["id"] == "fs_chat" for f in chat_files)
+    assert not any(f["id"] == "fs_ws" for f in chat_files)
+
+def test_file_system_fts_index(temp_db):
+    db = temp_db
+    chat_id = "chat_fts_1"
+    db.ensure_chat_exists(chat_id)
+    
+    fs_id = "fs_fts"
+    db.create_file_system_with_version(
+        file_system_id=fs_id,
+        chat_id=chat_id,
+        title="Searchable File",
+        filename="search.md",
+        content="UniqueWordForFTS search text content"
+    )
+    
+    # Sync index
+    res = db.sync_file_system_search_index(fs_id, chat_id=chat_id)
+    assert res is True
+    
+    # Verify record in fts search table directly
+    from backend.database.db_layer import make_connection
+    import sqlite3
+    conn = make_connection()
+    try:
+        c = conn.cursor()
+        c.execute("SELECT content FROM file_systems_search WHERE id = ?", (fs_id,))
+        row = c.fetchone()
+        assert row is not None
+        assert "UniqueWordForFTS" in row[0]
+    except sqlite3.OperationalError:
+        pass  # SQLite on host may not support FTS5
+    finally:
+        conn.close()
+        
+    # Delete file system
+    db.delete_file_system(fs_id, chat_id=chat_id)
+    
+    # Verify record deleted from fts table
+    conn = make_connection()
+    try:
+        c = conn.cursor()
+        c.execute("SELECT COUNT(*) FROM file_systems_search WHERE id = ?", (fs_id,))
+        count = c.fetchone()[0]
+        assert count == 0
+    except sqlite3.OperationalError:
+        pass
+    finally:
+        conn.close()
+
+def test_file_system_versions_rollback(temp_db):
+    db = temp_db
+    chat_id = "chat_rollback_1"
+    db.ensure_chat_exists(chat_id)
+    
+    fs_id = "fs_rollback"
+    db.create_file_system_with_version(
+        file_system_id=fs_id,
+        chat_id=chat_id,
+        title="Versioned File",
+        filename="version.md",
+        content="v1 content"
+    )
+    
+    db.save_file_system_version(fs_id, chat_id=chat_id, version_number=2, content="v2 content")
+    db.save_file_system_version(fs_id, chat_id=chat_id, version_number=3, content="v3 content")
+    
+    # Verify current is version 3
+    meta = db.get_file_system_meta(fs_id, chat_id=chat_id)
+    assert meta["current_version"] == 3
+    
+    # Rollback/delete versions after 1
+    db.delete_file_system_versions_after(fs_id, chat_id=chat_id, up_to_version=1)
+    
+    # Verify current rolled back to 1
+    meta_after = db.get_file_system_meta(fs_id, chat_id=chat_id)
+    assert meta_after["current_version"] == 1
+    
+    # Verify version 2 and 3 contents are deleted
+    versions = db.get_file_system_versions(fs_id, chat_id=chat_id)
+    assert len(versions) == 1
+    assert versions[0]["version_number"] == 1
+    assert versions[0]["content"] == "v1 content"

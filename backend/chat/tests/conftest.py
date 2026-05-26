@@ -113,9 +113,7 @@ def mock_server():
     url = f"http://127.0.0.1:{server.server_port}"
 
     # Patch global config URLs
-    with patch("backend.config.AI_URL", url), patch(
-        "backend.config.EMBEDDING_URL", url
-    ), patch("backend.config.AI_PROXY_URL", url), \
+    with patch("backend.config.AI_PROXY_URL", url), \
        patch.dict("os.environ", {"AI_PROXY_URL": url}):
         yield url
 

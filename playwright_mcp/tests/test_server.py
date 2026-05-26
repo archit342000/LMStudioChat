@@ -155,3 +155,75 @@ async def test_fetch_and_encode_image():
         res_json = await fetch_and_encode_image("https://example.com/img.png")
         res = json.loads(res_json)
         assert "error" in res
+
+@pytest.mark.asyncio
+async def test_get_session_crashed_cleanup():
+    _sessions.clear()
+    
+    # Mock page that is closed
+    mock_page = MagicMock()
+    mock_page.is_closed.return_value = True
+    mock_context = AsyncMock()
+    
+    _sessions["crashed-session"] = {
+        "context": mock_context,
+        "page": mock_page,
+        "last_used": time.time()
+    }
+    
+    with pytest.raises(ValueError, match="Session is no longer active"):
+        await _get_session("crashed-session")
+        
+    assert "crashed-session" not in _sessions
+    mock_context.close.assert_called_once()
+
+@pytest.mark.asyncio
+async def test_fetch_and_encode_image_redirect_limit():
+    with patch("httpx.AsyncClient.get") as mock_get:
+        # Mock responses that keep redirecting
+        mock_response = MagicMock()
+        mock_response.status_code = 302
+        mock_response.headers = {"Location": "https://example.com/redirect"}
+        mock_get.return_value = mock_response
+        
+        res_json = await fetch_and_encode_image("https://example.com/img.png")
+        res = json.loads(res_json)
+        assert "error" in res
+        assert "redirect loop" in res["error"]
+
+@pytest.mark.asyncio
+async def test_shutdown_event_cleanup():
+    import playwright_mcp.server as server
+    
+    # Setup mocks for active sessions and portal process and playwright instance
+    mock_process = MagicMock()
+    mock_process.poll.return_value = None  # process is running
+    server._portal_process = mock_process
+    
+    mock_context = AsyncMock()
+    mock_browser = AsyncMock()
+    
+    server._sessions = {
+        "sess-1": {"context": mock_context},
+        "sess-2": {"browser_cdp": mock_browser}
+    }
+    
+    mock_manager = AsyncMock()
+    server._playwright_manager = mock_manager
+    server._playwright_instance = MagicMock()
+    
+    # Call shutdown
+    await server.shutdown_event()
+    
+    # Verify portal terminated/killed
+    mock_process.terminate.assert_called_once()
+    
+    # Verify sessions closed
+    mock_context.close.assert_called_once()
+    mock_browser.close.assert_called_once()
+    assert len(server._sessions) == 0
+    
+    # Verify playwright manager stopped
+    mock_manager.stop.assert_called_once()
+    assert server._playwright_instance is None
+    assert server._playwright_manager is None

@@ -236,11 +236,36 @@ async def test_flow_fn_absolute_limit(mock_agent):
 async def test_flow_fn_exception(mock_agent):
     with patch('backend.tools.agents.document_agent.agent.db') as mock_db, \
          patch('backend.tools.agents.document_agent.agent.log_tool_call'):
+        mock_db.get_messages.return_value = []
         mock_db.get_file.side_effect = Exception("DB error")
         gen = flow_fn(mock_agent, "document_agent", "file_id", "query")
         res = [chunk async for chunk in gen]
         
         assert "Document agent failed: DB error" in mock_agent.result
+        mock_db.add_message.assert_any_call(
+            chat_id="test_chat",
+            role='event',
+            content='Document Agent failed: DB error',
+            parent_id="test_parent",
+            parent_type='document_agent'
+        )
+
+@pytest.mark.anyio
+async def test_flow_fn_get_messages_exception(mock_agent):
+    with patch('backend.tools.agents.document_agent.agent.db') as mock_db, \
+         patch('backend.tools.agents.document_agent.agent.log_tool_call'):
+        mock_db.get_messages.side_effect = Exception("DB fetch error")
+        gen = flow_fn(mock_agent, "document_agent", "file_id", "query")
+        res = [chunk async for chunk in gen]
+        
+        assert "Document agent failed: DB fetch error" in mock_agent.result
+        mock_db.add_message.assert_any_call(
+            chat_id="test_chat",
+            role='event',
+            content='Document Agent failed: DB fetch error',
+            parent_id="test_parent",
+            parent_type='document_agent'
+        )
 
 @pytest.mark.anyio
 async def test_flow_fn_pdf_hint(mock_agent):

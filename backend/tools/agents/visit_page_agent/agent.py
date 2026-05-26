@@ -21,24 +21,24 @@ async def flow_fn(
     chat_id = agent.chat_id
     parent_message_id = agent.parent_message_id
 
-    existing_history = db.get_messages(
-        chat_id, parent_message_id=parent_message_id,
-        parent_type="visit_page"
-    )
-    is_resume = len(existing_history) > 0
-
-    if not is_resume:
-        db.add_message(
-            chat_id=chat_id,
-            role='event',
-            content='Visit Page Agent Started.',
-            parent_id=parent_message_id,
-            parent_type='visit_page'
-        )
-    else:
-        logger.info(f"VisitPageAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
-
     try:
+        existing_history = db.get_messages(
+            chat_id, parent_message_id=parent_message_id,
+            parent_type="visit_page"
+        )
+        is_resume = len(existing_history) > 0
+
+        if not is_resume:
+            db.add_message(
+                chat_id=chat_id,
+                role='event',
+                content='Visit Page Agent Started.',
+                parent_id=parent_message_id,
+                parent_type='visit_page'
+            )
+        else:
+            logger.info(f"VisitPageAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
+
         await playwright_client.connect()
         arguments = {
             "url": url,
@@ -127,11 +127,14 @@ async def flow_fn(
         error_msg = f"Visit page failed: {str(e)}"
         logger.error(error_msg)
         agent.result = error_msg
-        db.add_message(
-            chat_id=chat_id,
-            role='event',
-            content='Visit Page Agent Failed.',
-            parent_id=parent_message_id,
-            parent_type='visit_page'
-        )
+        try:
+            db.add_message(
+                chat_id=chat_id,
+                role='event',
+                content='Visit Page Agent Failed.',
+                parent_id=parent_message_id,
+                parent_type='visit_page'
+            )
+        except Exception as db_err:
+            logger.error(f"Failed to log error event to database: {db_err}")
         yield error_msg

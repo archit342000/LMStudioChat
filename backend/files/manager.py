@@ -23,9 +23,7 @@ from backend.config import (
     PDF_OCR_LANGUAGES,
     PDF_EXTRACTION_MIN_CONTENT,
     FILE_RAG_ENABLED,
-    CHROMA_PATH,
-    EMBEDDING_API_KEY,
-    EMBEDDING_URL
+    CHROMA_PATH
 )
 from backend.models import get_embedding_model
 from backend.database import db
@@ -513,11 +511,14 @@ class FileManager:
                 # Store in FileRAG (synchronous - for current chat immediate availability)
                 is_media = mime_type.startswith(('image/', 'video/', 'audio/')) if mime_type else False
                 if self.file_rag and not is_media and content_text and len(content_text.strip()) > 50:
-                    logger.info(f"[UPLOAD_ASYNC] Storing in FileRAG")
-                    stored_ids = await self.file_rag.store_file(file_id, chat_id, content_text, original_filename)
-                    if not stored_ids:
-                        raise RuntimeError(f"FileRAG storage returned no IDs for file {file_id}")
-                    logger.info(f"[UPLOAD_ASYNC] Successfully stored {len(stored_ids)} chunks in FileRAG")
+                    try:
+                        logger.info(f"[UPLOAD_ASYNC] Storing in FileRAG")
+                        stored_ids = await self.file_rag.store_file(file_id, chat_id, content_text, original_filename)
+                        if not stored_ids:
+                            raise RuntimeError(f"FileRAG storage returned no IDs for file {file_id}")
+                        logger.info(f"[UPLOAD_ASYNC] Successfully stored {len(stored_ids)} chunks in FileRAG")
+                    except Exception as e:
+                        logger.warning(f"Failed to add file to FileRAG in async upload: {e}")
                 else:
                     logger.info(f"[UPLOAD_ASYNC] Skipping FileRAG storage - content too short or RAG disabled")
 

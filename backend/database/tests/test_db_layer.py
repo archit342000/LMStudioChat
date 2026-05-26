@@ -120,3 +120,26 @@ def test_flush_wal_error():
         mock_make.return_value = mock_conn
         with pytest.raises(sqlite3.OperationalError):
             db_layer.flush_wal("test_table")
+
+def test_row_write_lock_rollback_integrity(temp_db_path):
+    # Initialize the DB and a test table
+    conn = db_layer.make_connection()
+    conn.execute("CREATE TABLE test_rollback (id INTEGER PRIMARY KEY, value TEXT)")
+    conn.commit()
+    conn.close()
+
+    # Attempt to write inside row_write_lock but raise an exception
+    with pytest.raises(ValueError, match="Force Rollback"):
+        with db_layer.row_write_lock("test_rollback", "1") as lock_conn:
+            lock_conn.execute("INSERT INTO test_rollback (id, value) VALUES (1, 'should_rollback')")
+            # Force an exception to trigger a rollback
+            raise ValueError("Force Rollback")
+
+    # Verify that the inserted mock data is successfully rolled back and does not persist
+    conn = db_layer.make_connection()
+    cursor = conn.cursor()
+    cursor.execute("SELECT * FROM test_rollback WHERE id = 1")
+    row = cursor.fetchone()
+    assert row is None
+    conn.close()
+

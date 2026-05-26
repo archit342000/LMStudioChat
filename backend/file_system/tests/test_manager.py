@@ -428,3 +428,40 @@ async def test_delete_file_system_tool():
         
         res = await manager.delete_file_system_tool("c1", "path")
         assert res["success"] is True
+
+@pytest.mark.anyio
+async def test_create_fs_file_nonexistent_workspace(mock_db, mock_channel, mock_utils, mock_aiofiles):
+    # Mock resolve_owner_and_physical_path to return a workspace target_workspace_id
+    mock_utils["resolve_owner_and_physical_path"].return_value = (None, "nonexistent_ws", "/physical/path")
+    mock_db.get_file_system_meta_by_path.return_value = None
+
+    # Patch make_connection to return a mock connection where fetchone returns None (workspace not found)
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.fetchone.return_value = None
+    mock_conn.cursor.return_value = mock_cursor
+
+    with patch('backend.database.db_layer.make_connection', return_value=mock_conn):
+        with pytest.raises(ValueError) as exc_info:
+            await manager.create_fs_file(None, "workspace/test.txt", "content", workspace_id="nonexistent_ws")
+        
+        assert "does not exist in the database" in str(exc_info.value)
+        mock_cursor.execute.assert_called_with("SELECT id FROM workspaces WHERE id = ?", ("nonexistent_ws",))
+
+@pytest.mark.anyio
+async def test_create_fs_file_existent_workspace(mock_db, mock_channel, mock_utils, mock_aiofiles):
+    # Mock resolve_owner_and_physical_path to return a workspace target_workspace_id
+    mock_utils["resolve_owner_and_physical_path"].return_value = (None, "existent_ws", "/physical/path")
+    mock_db.get_file_system_meta_by_path.return_value = None
+
+    # Patch make_connection to return a mock connection where fetchone returns a workspace ID
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_cursor.fetchone.return_value = ("existent_ws",)
+    mock_conn.cursor.return_value = mock_cursor
+
+    with patch('backend.database.db_layer.make_connection', return_value=mock_conn):
+        res = await manager.create_fs_file(None, "workspace/test.txt", "content", workspace_id="existent_ws")
+        assert res["success"] is True
+        mock_cursor.execute.assert_called_with("SELECT id FROM workspaces WHERE id = ?", ("existent_ws",))
+

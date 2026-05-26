@@ -112,3 +112,53 @@ def test_message_ops(temp_db):
     # Test clear_messages
     db.clear_messages(chat_id)
     assert len(db.get_messages(chat_id)) == 0
+
+def test_message_delete_pointers_cascade(temp_db):
+    db = temp_db
+    chat_id = "test_msg_pointers"
+    db.ensure_chat_exists(chat_id)
+    
+    msg1_u = db.add_message(chat_id, "user", "User 1")
+    msg2_a = db.add_message(chat_id, "assistant", "Asst 1")
+    msg3_u = db.add_message(chat_id, "user", "User 2")
+    msg4_a = db.add_message(chat_id, "assistant", "Asst 2")
+    
+    # 1. Assert initial pointer state
+    chat = db.get_chat(chat_id)
+    assert chat["last_user_id"] == msg3_u
+    assert chat["last_assistant_id"] == msg4_a
+    
+    # 2. Delete msg4_a (latest assistant message)
+    db.delete_message(chat_id, msg4_a)
+    
+    # 3. Assert pointers rolled back correctly
+    chat_after = db.get_chat(chat_id)
+    assert chat_after["last_user_id"] == msg3_u
+    assert chat_after["last_assistant_id"] == msg2_a
+    
+    # Assert order map updated to exclude deleted message
+    order_map = db.get_message_order_map(chat_id)
+    assert not any(e.get('id') == msg4_a for e in order_map if e.get('type') == 'message')
+
+def test_message_delete_history_compression_invalidation(temp_db):
+    db = temp_db
+    chat_id = "test_msg_compression"
+    db.ensure_chat_exists(chat_id)
+    
+    msg1 = db.add_message(chat_id, "user", "msg 1")
+    msg2 = db.add_message(chat_id, "assistant", "msg 2")
+    
+    # Set history_compression metadata manually
+    comp_data = {"boundary_message_id": msg2, "summary": "Old summary"}
+    db.update_chat(chat_id, history_compression=json.dumps(comp_data))
+    
+    # Assert history_compression set
+    chat = db.get_chat(chat_id)
+    assert chat["history_compression"] is not None
+    
+    # Delete message at/before the boundary
+    db.delete_message(chat_id, msg2)
+    
+    # Assert history_compression is now None (invalidated)
+    chat_after = db.get_chat(chat_id)
+    assert chat_after.get("history_compression") is None

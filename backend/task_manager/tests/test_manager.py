@@ -157,3 +157,22 @@ def test_recover_tasks_ignore_non_json():
         with patch("builtins.open") as mock_open:
             mgr.recover_tasks()
             mock_open.assert_not_called()
+
+def test_recover_tasks_filesystem_error_resilience():
+    with patch("threading.Thread"), \
+         patch("os.path.exists", side_effect=PermissionError("Permission denied")), \
+         patch("backend.task_manager.manager.logger.error") as mock_logger:
+        
+        mgr = TaskManager()
+        mgr.recover_tasks()
+        mock_logger.assert_called_with("Failed to check task persistence directory: Permission denied")
+
+def test_recover_tasks_listdir_error_resilience():
+    with patch("threading.Thread"), \
+         patch("os.path.exists", return_value=True), \
+         patch("os.listdir", side_effect=PermissionError("Listdir failed")), \
+         patch("backend.task_manager.manager.logger.error") as mock_logger:
+        
+        mgr = TaskManager()
+        mgr.recover_tasks()
+        mock_logger.assert_called_with("Failed to list tasks persistence directory: Listdir failed")

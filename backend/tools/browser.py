@@ -2,11 +2,20 @@ from backend.mcp_client import playwright_client
 from backend.database import db
 
 async def _get_session_id(chat_id: str) -> str:
-    chat_meta = db.get_chat(chat_id)
-    session_id = chat_meta.get("browsing_session_id")
-    if not session_id:
+    try:
+        chat_meta = db.get_chat(chat_id)
+        if not chat_meta:
+            raise ValueError("No active browsing session found for this chat.")
+        session_id = chat_meta.get("browsing_session_id")
+        if not session_id:
+            raise ValueError("No active browsing session found for this chat.")
+        return session_id
+    except Exception as e:
+        if isinstance(e, ValueError):
+            raise e
+        import logging
+        logging.getLogger(__name__).error(f"Database error in _get_session_id: {e}")
         raise ValueError("No active browsing session found for this chat.")
-    return session_id
 
 async def browser_navigate(url: str, chat_id: str, **kwargs) -> str:
     session_id = await _get_session_id(chat_id)

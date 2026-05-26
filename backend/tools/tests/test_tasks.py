@@ -73,3 +73,9 @@ def test_manage_task_list_anchor_fallback(mock_db):
     mock_db.get_task_list.return_value = []
     manage_task_list(action="view", chat_id="c", parent_message_id="p", turn_anchor_id="anchor")
     mock_db.get_task_list.assert_called_with("c", parent_id="anchor", parent_type="main")
+
+def test_manage_task_list_db_error(mock_db):
+    mock_db.get_task_list.side_effect = Exception("DB Connection Lost")
+    res = manage_task_list(action="view", chat_id="c", parent_message_id="p")
+    data = json.loads(res)
+    assert "Failed to manage task list: DB Connection Lost" in data["error"]

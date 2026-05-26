@@ -119,3 +119,10 @@ async def test_get_session_id_fail(mock_db):
     from backend.tools.browser import browser_back
     with pytest.raises(ValueError, match="No active browsing session found"):
         await browser_back(chat_id="chat1")
+
+@pytest.mark.anyio
+async def test_get_session_id_db_error(mock_db):
+    mock_db.get_chat.side_effect = Exception("DB Locked")
+    from backend.tools.browser import browser_back
+    with pytest.raises(ValueError, match="No active browsing session found"):
+        await browser_back(chat_id="chat1")

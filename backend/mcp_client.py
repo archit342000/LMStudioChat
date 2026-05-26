@@ -42,6 +42,19 @@ class MCPClient:
         self.read_stream = None
         self.write_stream = None
 
+    async def _close_and_reset_state(self):
+        """Attempts to close the current exit stack before resetting state,
+        protecting against hanging if the event loop is closed.
+        """
+        if self.exit_stack:
+            try:
+                loop = asyncio.get_running_loop()
+                if loop.is_running():
+                    await asyncio.wait_for(self.exit_stack.aclose(), timeout=5.0)
+            except Exception:
+                pass
+        self._reset_state()
+
     async def connect(self):
         """Connect to the MCP server via SSE with retries."""
         try:
@@ -72,12 +85,12 @@ class MCPClient:
                 return
             except asyncio.TimeoutError:
                 logger.warning(f"MCP connect timed out after {_CONNECT_TIMEOUT}s for {self.server_url} (attempt {attempt+1}/{max_retries})")
-                self._reset_state()
+                await self._close_and_reset_state()
                 if attempt >= max_retries - 1:
                     raise ConnectionError(f"Failed to connect to MCP server {self.server_url}: connection timed out")
             except Exception as e:
                 logger.warning(f"Failed to connect to MCP server {self.server_url} (attempt {attempt+1}/{max_retries}): {e}")
-                self._reset_state()
+                await self._close_and_reset_state()
                 if attempt < max_retries - 1:
                     await asyncio.sleep(retry_delay)
                     retry_delay *= 1.5
@@ -125,13 +138,13 @@ class MCPClient:
                     logger.warning(f"MCP tool '{tool_name}' timed out on {self.server_url} (attempt {attempt+1})")
                     if attempt == 0:
                         # Force fresh connection before retry
-                        self._reset_state()
+                        await self._close_and_reset_state()
                         await self.connect()
                 except Exception as e:
                     last_err = e
                     if attempt == 0:
                         logger.warning(f"MCP tool '{tool_name}' failed, retrying with fresh connection: {e}")
-                        self._reset_state()
+                        await self._close_and_reset_state()
                         await self.connect()
                         if not self.session:
                             raise

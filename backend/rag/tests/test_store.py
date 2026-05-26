@@ -152,3 +152,39 @@ def test_cleanup_exception(mock_rag_manager):
     store = RAGStore(mock_rag_manager, "test_collection")
     store.vector_collection.delete.side_effect = Exception("error")
     assert store.cleanup(where={"id": "1"}) is False
+
+@pytest.mark.anyio
+async def test_store_embedding_failure_lexical_fallback(mock_rag_manager):
+    store = RAGStore(mock_rag_manager, "test_collection")
+    
+    # Mock embed_texts to raise an exception
+    mock_rag_manager.embed_texts.side_effect = Exception("Embed generation failed")
+    
+    docs = ["doc1", "doc2"]
+    metas = [{"m": 1}, {"m": 2}]
+    ids = ["id1", "id2"]
+    
+    res = await store.store(docs, metas, ids)
+    assert res == ids
+    store.vector_collection.upsert.assert_not_called()
+    store.bm25_collection.upsert.assert_called_once()
+
+@pytest.mark.anyio
+async def test_retrieve_embedding_failure_lexical_fallback(mock_rag_manager):
+    store = RAGStore(mock_rag_manager, "test_collection")
+    
+    # Mock embed_texts to raise an exception
+    mock_rag_manager.embed_texts.side_effect = Exception("Embed generation failed")
+    
+    store.bm25_collection.get.return_value = {
+        'ids': ['id1', 'id2'],
+        'documents': ['doc1 search matching text', 'doc2 not matching'],
+        'metadatas': [{'m':1}, {'m':2}]
+    }
+    
+    res = await store.retrieve_by_query("search matching", n_results=1)
+    
+    assert len(res) == 1
+    assert res[0]['id'] == 'id1'
+    assert res[0]['text'] == 'doc1 search matching text'
+    assert 'score' in res[0]

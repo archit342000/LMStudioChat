@@ -190,3 +190,22 @@ async def test_search_web_synthesis_failure(mock_agent, mock_tavily, mock_db, mo
     chunks = [c async for c in gen]
     
     assert "Search failed: Synthesis failed" in chunks[0]
+
+@pytest.mark.anyio
+async def test_search_web_initialization_failure(mock_agent, mock_tavily, mock_db, mock_config):
+    mock_db.get_messages.side_effect = Exception("DB connection down")
+    
+    gen = flow_fn(mock_agent, "search_web", "query")
+    chunks = [c async for c in gen]
+    
+    assert len(chunks) == 1
+    assert "Search failed: DB connection down" in chunks[0]
+    assert mock_agent.result == "Search failed: DB connection down"
+    
+    mock_db.add_message.assert_any_call(
+        chat_id="test_chat",
+        role='event',
+        content='Search Web Agent Failed.',
+        parent_id=123,
+        parent_type='search_web'
+    )

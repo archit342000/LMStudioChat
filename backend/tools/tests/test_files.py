@@ -48,3 +48,8 @@ def test_read_file_rag(mock_db, mock_rag):
         
         assert "Found 1 relevant sections" in res
         assert "Relevant part" in res
+
+def test_read_file_db_error(mock_db):
+    mock_db.get_file.side_effect = Exception("DB Lock Error")
+    res = read_file("file1")
+    assert "Error: Failed to access database: DB Lock Error" in res

@@ -131,3 +131,35 @@ async def test_compression_metadata_failure_graceful(mock_db, mock_get_meta):
         chat_id="chat_1", messages=messages, model="test-model"
     )
     assert result == messages
+
+@pytest.mark.anyio
+@patch("backend.inference.compression.get_model_metadata")
+@patch("backend.inference.compression.db")
+@patch("backend.inference.compression.count_chat_tokens")
+@patch("backend.inference.engine.InferenceEngine.chat")
+async def test_compression_summarizer_failure_graceful(
+    mock_engine_chat, mock_count_tokens, mock_db, mock_get_meta
+):
+    # Set context window very small to force compression trigger
+    mock_get_meta.return_value = {"context_window": 100}
+    mock_db.get_chat.return_value = {"id": "chat_1", "history_compression": None}
+    mock_db.get_chat_files.return_value = []
+
+    # Force count_chat_tokens to return large numbers so we exceed 80% of 100
+    mock_count_tokens.side_effect = lambda msgs, model: 100 if len(msgs) > 1 else 10
+
+    # Mock summarizer response to throw an exception
+    mock_engine_chat.side_effect = Exception("Summarizer connection timeout")
+
+    messages = [
+        {"role": "system", "content": "System prompt"},
+        {"role": "user", "content": "User msg 1", "id": 1},
+        {"role": "assistant", "content": "Assistant msg 2", "id": 2},
+    ]
+
+    result = await check_and_trigger_compression(
+        chat_id="chat_1", messages=messages, model="test-model", max_tokens=10
+    )
+
+    assert result == messages
+    mock_db.update_chat.assert_not_called()

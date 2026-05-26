@@ -28,17 +28,13 @@ class RAGProvider:
     def get_manager(
         cls,
         persist_path,
-        api_url,
-        embedding_model,
-        api_key
+        embedding_model
     ) -> RAGManager:
         """Get the RAGManager singleton instance.
 
         Args:
             persist_path: Path to ChromaDB data directory (only used on first call)
-            api_url: URL for embedding API (only used on first call)
             embedding_model: Model name for embeddings (only used on first call)
-            api_key: API key for embedding service (only used on first call)
 
         Returns:
             The RAGManager singleton instance
@@ -63,17 +59,13 @@ class RAGProvider:
 
             rag_manager.__init__(
                 persist_path=persist_path,
-                api_url=api_url,
-                embedding_model=embedding_model,
-                api_key=api_key
+                embedding_model=embedding_model
             )
             cls._rag_manager = rag_manager
             cls._initialized = True
             cls._config = {
                 'persist_path': persist_path,
-                'api_url': api_url,
-                'embedding_model': embedding_model,
-                'api_key': api_key
+                'embedding_model': embedding_model
             }
             return cls._rag_manager
         except Exception as e:

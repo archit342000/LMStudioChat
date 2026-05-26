@@ -31,6 +31,7 @@ class PDFExtractor:
 
     def extract_with_pymupdf(self, file_path: str) -> Optional[str]:
         """Extract text using pymupdf (fitz) - most robust method."""
+        doc = None
         try:
             import fitz  # pymupdf
             import json
@@ -42,7 +43,6 @@ class PDFExtractor:
                     pages.append(page_text.strip())
                 else:
                     pages.append("") # Keep index aligned with page numbers
-            doc.close()
             if any(p.strip() for p in pages):
                 return json.dumps({
                     "format": "pages",
@@ -50,10 +50,17 @@ class PDFExtractor:
                 })
         except Exception as e:
             logger.debug(f"pymupdf extraction failed: {e}")
+        finally:
+            if doc:
+                try:
+                    doc.close()
+                except Exception:
+                    pass
         return None
 
     def extract_with_ocr(self, file_path: str) -> Optional[str]:
         """Extract text using OCR (easyocr) for scanned/image PDFs."""
+        doc = None
         try:
             self.initialize_ocr()
             import fitz  # pymupdf for PDF-to-image conversion
@@ -76,8 +83,6 @@ class PDFExtractor:
                 else:
                     pages.append("")
 
-            doc.close()
-
             if any(p.strip() for p in pages):
                 return json.dumps({
                     "format": "pages",
@@ -86,6 +91,12 @@ class PDFExtractor:
 
         except Exception as e:
             logger.error(f"OCR extraction failed: {e}")
+        finally:
+            if doc:
+                try:
+                    doc.close()
+                except Exception:
+                    pass
         return None
 
     def extract(self, file_path: str, use_ocr: bool = None) -> Tuple[Optional[str], str]:

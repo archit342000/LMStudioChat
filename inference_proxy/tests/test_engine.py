@@ -7,7 +7,7 @@ import os
 # Add inference_proxy to python path for testing
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from engine import InferenceEngine
+from engine import InferenceEngine, AsyncMPSemaphore
 
 class TestEngine(unittest.IsolatedAsyncioTestCase):
 
@@ -140,6 +140,46 @@ class TestEngine(unittest.IsolatedAsyncioTestCase):
                 
         self.assertEqual(reasoning_emitted, "Thinking...")
         self.assertEqual(content_emitted, "Hello World")
+
+    async def test_async_mp_semaphore_acquire_release(self):
+        import multiprocessing
+        sem = multiprocessing.Semaphore(1)
+        async_sem = AsyncMPSemaphore(sem)
+        
+        # Test acquisition
+        async with async_sem:
+            # Under the hood, semaphore counter should be 0 (acquired)
+            # A non-blocking acquire should return False
+            self.assertFalse(sem.acquire(block=False))
+            
+        # Test release (exited block)
+        # Non-blocking acquire should now return True (since it was released)
+        self.assertTrue(sem.acquire(block=False))
+        # Release again to clean up
+        sem.release()
+
+    async def test_async_mp_semaphore_concurrency(self):
+        import multiprocessing
+        import asyncio
+        sem = multiprocessing.Semaphore(1)
+        async_sem = AsyncMPSemaphore(sem)
+        
+        order = []
+        
+        async def worker(name, delay):
+            async with async_sem:
+                order.append(f"{name}_start")
+                await asyncio.sleep(delay)
+                order.append(f"{name}_end")
+                
+        # Run two concurrent tasks
+        # Task 1 starts first, Task 2 should wait until Task 1 finishes because semaphore count is 1
+        await asyncio.gather(
+            worker("task1", 0.05),
+            worker("task2", 0.01)
+        )
+        
+        self.assertEqual(order, ["task1_start", "task1_end", "task2_start", "task2_end"])
 
 if __name__ == "__main__":
     unittest.main()

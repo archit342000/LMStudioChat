@@ -10,7 +10,7 @@ def test_rag_provider_get_manager():
     
     # Mock __init__ to avoid ChromaDB interactions
     with patch.object(RAGManager, "__init__", return_value=None) as mock_init:
-        manager1 = RAGProvider.get_manager("path", "url", "model", "key")
+        manager1 = RAGProvider.get_manager("path", "model")
         
         assert RAGProvider._initialized == True
         assert RAGProvider._rag_manager is not None
@@ -18,23 +18,21 @@ def test_rag_provider_get_manager():
         
         mock_init.assert_called_once_with(
             persist_path="path",
-            api_url="url",
-            embedding_model="model",
-            api_key="key"
+            embedding_model="model"
         )
         
         config = RAGProvider.get_config()
         assert config['persist_path'] == "path"
         
         # Second call returns same instance
-        manager2 = RAGProvider.get_manager("path2", "url2", "model2", "key2")
+        manager2 = RAGProvider.get_manager("path2", "model2")
         assert manager1 is manager2
         mock_init.assert_called_once() # Should not be called again
 
 def test_rag_provider_reset():
     RAGProvider.reset()
     with patch.object(RAGManager, "__init__", return_value=None):
-        RAGProvider.get_manager("path", "url", "model", "key")
+        RAGProvider.get_manager("path", "model")
     
     assert RAGProvider._initialized == True
     
@@ -49,4 +47,4 @@ def test_rag_provider_get_manager_exception():
     RAGProvider.reset()
     with patch.object(RAGManager, "__init__", side_effect=Exception("Test Error")):
         with pytest.raises(RuntimeError, match="Failed to initialize RAGManager via RAGProvider: Test Error"):
-            RAGProvider.get_manager("path", "url", "model", "key")
+            RAGProvider.get_manager("path", "model")

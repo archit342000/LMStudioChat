@@ -14,15 +14,13 @@ def _cosine_similarity(v1, v2):
     return dot_product / (norm_a * norm_b)
 
 class AIEmbeddingFunction(embedding_functions.EmbeddingFunction):
-    def __init__(self, api_url=None, model_name=None, default_task="document", api_key=None):
-        self.api_url = api_url or config.EMBEDDING_URL
-        log_event("ai_embedding_fn_init", {"api_url": self.api_url, "model_name": model_name})
+    def __init__(self, model_name=None, default_task="document"):
+        log_event("ai_embedding_fn_init", {"model_name": model_name})
         # Model name must be provided - no fallbacks
         if model_name is None:
             raise ValueError("embedding_model must be explicitly provided")
         self.model_name = model_name
         self.default_task = default_task
-        self.api_key = api_key
 
     async def embed_async(self, input: list, task: str = None, chat_id: str = None) -> list:
         """Asynchronous version of embedding call."""

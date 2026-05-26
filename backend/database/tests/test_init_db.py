@@ -112,3 +112,75 @@ def test_init_db_error():
         
         with pytest.raises(Exception, match="Mock DB Init Error"):
             init_db()
+
+def test_db_schema_cascade_integrity(temp_db_path):
+    init_db()
+    conn = make_connection()
+    c = conn.cursor()
+
+    # 1. Insert Workspace
+    c.execute("INSERT INTO workspaces (id, name, timestamp) VALUES ('w1', 'Test Workspace', 123.45)")
+
+    # 2. Insert Chat referencing w1
+    c.execute("""
+        INSERT INTO chats (id, title, timestamp, workspace_id)
+        VALUES ('c1', 'Test Chat', 123.45, 'w1')
+    """)
+
+    # 3. Insert Message referencing c1
+    c.execute("""
+        INSERT INTO messages (chat_id, role, content, timestamp)
+        VALUES ('c1', 'user', 'hello', 123.45)
+    """)
+
+    # 4. Insert File System referencing c1 (workspace_id must be NULL)
+    c.execute("""
+        INSERT INTO file_systems (id, chat_id, workspace_id, title, filename, timestamp, current_version)
+        VALUES ('fs1', 'c1', NULL, 'Test FS', 'test.md', 123.45, 1)
+    """)
+
+    # 5. Insert File System Version referencing fs1
+    c.execute("""
+        INSERT INTO file_system_versions (file_system_id, chat_id, workspace_id, version_number, content, timestamp)
+        VALUES ('fs1', 'c1', NULL, 1, 'File content', 123.45)
+    """)
+
+    conn.commit()
+
+    # Verify everything exists initially
+    c.execute("SELECT workspace_id FROM chats WHERE id = 'c1'")
+    assert c.fetchone()[0] == 'w1'
+
+    c.execute("SELECT count(*) FROM messages WHERE chat_id = 'c1'")
+    assert c.fetchone()[0] == 1
+
+    c.execute("SELECT count(*) FROM file_systems WHERE id = 'fs1' AND chat_id = 'c1'")
+    assert c.fetchone()[0] == 1
+
+    c.execute("SELECT count(*) FROM file_system_versions WHERE file_system_id = 'fs1' AND chat_id = 'c1'")
+    assert c.fetchone()[0] == 1
+
+    # 6. Delete Workspace w1 -> chats.workspace_id should become NULL (ON DELETE SET NULL)
+    c.execute("DELETE FROM workspaces WHERE id = 'w1'")
+    conn.commit()
+
+    c.execute("SELECT workspace_id FROM chats WHERE id = 'c1'")
+    assert c.fetchone()[0] is None
+
+    # 7. Delete Chat c1 -> should cascade delete messages and file_systems.
+    # Note: file_system_versions uses a composite FK (file_system_id, chat_id, workspace_id)
+    # where workspace_id is NULL. Under SQLite's MATCH SIMPLE rule, composite foreign keys containing NULLs
+    # do not trigger cascading deletes on the child table. This is why delete_chat handles the cleanup
+    # of file_system_versions and file_system_permissions explicitly in a transaction.
+    # Here, we verify the native cascading deletions for messages and file_systems.
+    c.execute("DELETE FROM chats WHERE id = 'c1'")
+    conn.commit()
+
+    c.execute("SELECT count(*) FROM messages WHERE chat_id = 'c1'")
+    assert c.fetchone()[0] == 0
+
+    c.execute("SELECT count(*) FROM file_systems WHERE id = 'fs1' AND chat_id = 'c1'")
+    assert c.fetchone()[0] == 0
+
+    conn.close()
+

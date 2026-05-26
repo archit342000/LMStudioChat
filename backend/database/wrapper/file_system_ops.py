@@ -535,6 +535,7 @@ class FileSystemOpsMixin(BaseMixin):
         
         result = _write()
         owner_key = f"ws:{workspace_id}" if workspace_id else f"chat:{chat_id}"
+        cache_layer.invalidate("file_systems", f"{owner_key}:{file_system_id}")
         cache_layer.invalidate("file_systems", f"{owner_key}:{file_system_id}:versions")
         cache_layer.invalidate("file_systems", f"{owner_key}:{file_system_id}:current_version")
         return result

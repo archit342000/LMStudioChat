@@ -7,13 +7,53 @@ from backend import config
 
 models_bp = Blueprint('models', __name__)
 
-PROXY_URL = config.AI_PROXY_URL.rstrip("/")
+def __getattr__(name: str):
+    if name == 'PROXY_URL':
+        return config.AI_PROXY_URL.rstrip("/")
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+DEFAULT_HARDCODED_CONFIG = {
+    "research": {
+        "main": "NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL"
+    },
+    "general": {
+        "text": "NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL",
+        "vision": "Qwen/Qwen3.6-35B-A3B-UD-Q4_K_XL",
+        "vision2": "Qwen/Qwen3.5-122B-A10B-UD-Q2_K_XL",
+        "vision_small": "Google/Gemma4-26B-A4B-it",
+        "coder": "Qwen/Qwen3-Coder-Next-UD-Q4_K_XL"
+    },
+    "embedding": "embeddinggemma/embeddinggemma-300M-Q8_0",
+    "embedding_tokenizer": "google/embeddinggemma-300m",
+    "model_metadata": {
+        "NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL": {
+            "context_window": 1048576,
+            "tokenizer": "nvidia/NVIDIA-Nemotron-3-Nano-30B-A3B-BF16"
+        },
+        "Qwen/Qwen3.6-35B-A3B-UD-Q4_K_XL": {
+            "context_window": 262144,
+            "tokenizer": "Qwen/Qwen3.6-35B-A3B"
+        },
+        "Qwen/Qwen3.5-122B-A10B-UD-Q2_K_XL": {
+            "context_window": 262144,
+            "tokenizer": "Qwen/Qwen3.5-122B-A10B"
+        },
+        "Google/Gemma4-26B-A4B-it": {
+            "context_window": 150000,
+            "tokenizer": "google/gemma-4-26B-A4B-it"
+        },
+        "Qwen/Qwen3-Coder-Next-UD-Q4_K_XL": {
+            "context_window": 262144,
+            "tokenizer": "Qwen/Qwen3-Coder-Next"
+        }
+    }
+}
 
 @models_bp.route('/<path:path>', methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 @models_bp.route('', defaults={'path': ''}, methods=['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'])
 def pass_through(path):
     """Stateless pass-through forwarding all /api/models requests directly to the proxy microservice."""
-    url = f"{PROXY_URL}/api/models/{path}"
+    url = f"{config.AI_PROXY_URL.rstrip('/')}/api/models/{path}"
     headers = {key: value for key, value in request.headers if key.lower() != 'host'}
     response = requests.request(
         method=request.method,
@@ -45,17 +85,26 @@ def load_model_config() -> dict:
     global _cached_config
     if _cached_config is not None:
         return _cached_config
+    
+    proxy_url = config.AI_PROXY_URL.rstrip("/")
     try:
-        url = f"{PROXY_URL}/api/models/config"
+        url = f"{proxy_url}/api/models/config"
         response = requests.get(url, timeout=5)
         response.raise_for_status()
         _cached_config = response.json()
         return _cached_config
-    except Exception:
-        # Load local config.json from inference_proxy to eliminate redundancy
-        config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "inference_proxy", "config.json"))
-        with open(config_path, 'r', encoding='utf-8') as f:
-            _cached_config = json.load(f)
+    except Exception as e:
+        import logging
+        logging.warning(f"Failed to fetch model config from proxy: {e}. Trying local fallback.")
+        
+        try:
+            config_path = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "inference_proxy", "config.json"))
+            with open(config_path, 'r', encoding='utf-8') as f:
+                _cached_config = json.load(f)
+                return _cached_config
+        except Exception as fe:
+            logging.error(f"Failed to load local config.json fallback: {fe}. Falling back to default hardcoded config.")
+            _cached_config = DEFAULT_HARDCODED_CONFIG
             return _cached_config
 
 def get_embedding_model() -> str:

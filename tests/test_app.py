@@ -5,18 +5,20 @@ from werkzeug.exceptions import RequestEntityTooLarge
 import base64
 
 # Mock heavy initialization before importing app
-patch('backend.database.init_db.init_db').start()
-patch('backend.models.get_embedding_model').start()
-rag_manager_mock = MagicMock()
-rag_manager_mock._ensure_l2_collections.return_value = (MagicMock(), MagicMock())
-patch('backend.rag.RAGProvider.get_manager', return_value=rag_manager_mock).start()
-patch('backend.task_manager.task_manager.recover_tasks').start()
-patch('backend.file_system.FileSystemChannelManager.initialize').start()
-patch('backend.inference.InferenceEngine.start').start()
-patch('flask_sock.Sock.route', return_value=lambda f: f).start()
+with patch('backend.database.init_db.init_db'), \
+     patch('backend.models.get_embedding_model'), \
+     patch('backend.rag.RAGProvider.get_manager') as mock_get_manager, \
+     patch('backend.task_manager.task_manager.recover_tasks'), \
+     patch('backend.file_system.FileSystemChannelManager.initialize'), \
+     patch('backend.inference.InferenceEngine.start'), \
+     patch('flask_sock.Sock.route', return_value=lambda f: f):
 
-import app as flask_app
-from backend import config
+    rag_manager_mock = MagicMock()
+    rag_manager_mock._ensure_l2_collections.return_value = (MagicMock(), MagicMock())
+    mock_get_manager.return_value = rag_manager_mock
+
+    import app as flask_app
+    from backend import config
 
 @pytest.fixture
 def app():
@@ -142,3 +144,16 @@ def test_portal_ws_proxy(mock_create_connection, mock_logger_error):
     mock_upstream.send_binary.assert_called_with(b"test_data")
     mock_upstream.send.assert_called_with("string_data")
     mock_upstream.close.assert_called_once()
+
+@patch('app.logger.error')
+@patch('app.ws_client.create_connection')
+def test_portal_ws_proxy_connection_failure(mock_create_connection, mock_logger_error):
+    """Test that connection failures in the WebSocket proxy are caught and logged."""
+    mock_create_connection.side_effect = Exception("Connection refused")
+    
+    mock_ws = MagicMock()
+    flask_app.portal_ws_proxy(mock_ws)
+    
+    # Check that error was logged
+    mock_logger_error.assert_called_once()
+    assert "Portal WS proxy error: Connection refused" in mock_logger_error.call_args[0][0]

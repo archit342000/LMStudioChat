@@ -86,9 +86,7 @@ def engine(mock_server):
     # Reset singleton before test
     InferenceEngine._instance = None
     
-    with patch('backend.config.AI_API_KEY', "test_key"), \
-         patch('backend.config.EMBEDDING_API_KEY', "test_key"), \
-         patch('backend.config.AI_PROXY_URL', mock_server), \
+    with patch('backend.config.AI_PROXY_URL', mock_server), \
          patch.dict('os.environ', {"AI_PROXY_URL": mock_server}):
          
          eng = InferenceEngine()
@@ -174,26 +172,22 @@ def test_engine_embed_sync(engine):
 @pytest.mark.anyio
 async def test_ensure_model_loaded(engine):
     # This will hit MockLlamaCppHandler's /api/models/load endpoint successfully
-    await engine.ensure_model_loaded("test-model", engine.ai_api_key)
+    await engine.ensure_model_loaded("test-model")
         
     # Error handling
     with patch('httpx.AsyncClient.request', side_effect=Exception("Load Error")), \
          patch('backend.inference.engine.log_event') as mock_log:
-        await engine.ensure_model_loaded("test-model", engine.ai_api_key)
+        await engine.ensure_model_loaded("test-model")
         mock_log.assert_called_with("ensure_model_loaded_error", {"error": "Load Error", "model": "test-model"})
 
 @pytest.mark.anyio
 async def test_request(engine):
-    res = await engine._request("POST", f"{engine.proxy_url}/v1/chat/completions", "test_key", {"stream": False}, 10.0)
+    res = await engine._request("POST", f"{engine.proxy_url}/v1/chat/completions", {"stream": False}, 10.0)
     assert res.status_code == 200
 
 def test_get_headers(engine):
-    h = engine._get_headers("key123")
-    assert h["Authorization"] == "Bearer key123"
+    h = engine._get_headers()
     assert h["Content-Type"] == "application/json"
-    
-    h2 = engine._get_headers("")
-    assert "Authorization" not in h2
 
 def test_normalize_messages(engine):
     messages = [
@@ -416,3 +410,21 @@ async def test_engine_stream_proxy_mode(engine):
             assert len(chunks) == 2
             assert "reasoning_content" in chunks[0]
             assert "content" in chunks[1]
+
+def test_log_llm_call_exception_resilience(engine):
+    # Mock log_llm_call to raise an exception
+    with patch('backend.inference.engine.log_llm_call', side_effect=Exception("Database lock error")), \
+         patch('backend.inference.engine.logger.warning') as mock_warn:
+         
+         # Call _log_llm_call: it should handle exception and log warning
+         engine._log_llm_call(
+             payload={},
+             response_text="Hello",
+             model="test",
+             chat_id="chat_1",
+             duration=1.0,
+             call_type="test"
+         )
+         
+         mock_warn.assert_called_once()
+         assert "Failed to log LLM call" in mock_warn.call_args[0][0]

@@ -103,3 +103,34 @@ def test_extract_no_ocr_requested(pdf_extractor):
             assert text is None
             assert strategy == "none"
             mock_ocr.assert_not_called()
+
+def test_extract_with_ocr_lazy_initialization(pdf_extractor):
+    with patch('easyocr.Reader') as mock_reader:
+        # First call initializes easyocr.Reader
+        pdf_extractor.initialize_ocr()
+        mock_reader.assert_called_once_with(['en'], gpu=False)
+        
+        # Second call does not initialize it again (uses cache)
+        pdf_extractor.initialize_ocr()
+        mock_reader.assert_called_once()
+
+def test_extract_with_ocr_image_conversion_error(pdf_extractor):
+    mock_doc = MagicMock()
+    mock_doc.__len__.return_value = 1
+    
+    # Mock page get_pixmap to raise an exception
+    mock_page = MagicMock()
+    mock_page.get_pixmap.side_effect = Exception("Pixmap generation failed")
+    mock_doc.__getitem__.return_value = mock_page
+    
+    pdf_extractor._easyocr_initialized = True
+    pdf_extractor._ocr_reader = MagicMock()
+    
+    with patch('fitz.open', return_value=mock_doc), \
+         patch('fitz.Matrix', return_value=MagicMock()):
+        result = pdf_extractor.extract_with_ocr("test.pdf")
+        
+        # Assert it returns None and closes the handle
+        assert result is None
+        mock_doc.close.assert_called_once()
+

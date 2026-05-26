@@ -12,7 +12,11 @@ logger = logging.getLogger(__name__)
 
 # Directory paths for task persistence
 TASKS_DIR = os.path.join(config.DATA_DIR, "tasks")
-os.makedirs(TASKS_DIR, exist_ok=True)
+try:
+    os.makedirs(TASKS_DIR, exist_ok=True)
+except Exception as e:
+    import sys
+    sys.stderr.write(f"WARNING: Failed to create task manager directories: {e}\n")
 
 class TaskManager:
     """
@@ -110,12 +114,23 @@ class TaskManager:
         frontend shows a resume banner.
         """
         from backend.database import db
-        if not os.path.exists(TASKS_DIR):
+        try:
+            if not os.path.exists(TASKS_DIR):
+                return
+        except Exception as e:
+            logger.error(f"Failed to check task persistence directory: {e}")
             return
 
         logger.info("Task recovery initiated.")
         recovered_count = 0
-        for filename in os.listdir(TASKS_DIR):
+        
+        try:
+            filenames = os.listdir(TASKS_DIR)
+        except Exception as e:
+            logger.error(f"Failed to list tasks persistence directory: {e}")
+            return
+
+        for filename in filenames:
             if filename.endswith(".json"):
                 filepath = os.path.join(TASKS_DIR, filename)
                 try:

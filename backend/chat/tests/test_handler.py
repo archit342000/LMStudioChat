@@ -294,3 +294,60 @@ def test_chat_handler_cleanup(mock_response_cache):
     handler = ChatHandler("test")
     handler.cleanup()
     mock_response_cache.cleanup_chat.assert_called_once_with("test")
+
+@pytest.mark.anyio
+async def test_run_orchestrated_stream_tool_loop_limit(mock_db, mock_task_manager):
+    handler = ChatHandler("test")
+    mock_task_manager.is_interrupted.return_value = False
+
+    # Mock engine.stream to yield a simple content delta
+    async def mock_stream(*args, **kwargs):
+        yield 'data: {"choices": [{"delta": {"content": "."}}]}'
+
+    # Mock database to always simulate having pending tool calls
+    mock_db.get_last_assistant_message.return_value = {
+        "id": 2,
+        "tool_calls": [{"id": "tc1", "function": {"name": "test_tool", "arguments": "{}"}}]
+    }
+    mock_db.get_chat.return_value = {"last_assistant_id": 2}
+    mock_db.get_messages.return_value = []
+    mock_db.flush_sse_chunks.return_value = True
+
+    # Mock _handle_tool_execution to yield a tool chunk
+    async def mock_handle_tools(*args, **kwargs):
+        yield "tool_execution_chunk"
+
+    # Set hard_limit low for the test by patching config
+    with patch("backend.config.MAX_TOOL_ROUNDS", 2), \
+         patch("backend.config.MAX_TOOL_CALLS_BUFFER", 1):
+        with patch.object(handler.engine, "stream", side_effect=mock_stream):
+            with patch.object(handler, "_handle_tool_execution", side_effect=mock_handle_tools):
+                gen = handler._run_orchestrated_stream(user_message={"id": 1}, model_name="test-model")
+                chunks = []
+                async for chunk in gen:
+                    chunks.append(chunk)
+
+                # Assert that the maximum tool loop error was yielded
+                assert any("The agent exceeded the maximum number of internal steps" in c for c in chunks)
+
+
+@pytest.mark.anyio
+async def test_initiate_chat_standalone_file_upload(mock_db):
+    handler = ChatHandler("test_chat_files")
+    
+    # Standalone upload: no user_message
+    gen = handler.initiate_chat(files=[{"name": "doc.pdf", "size": 100}], user_message=None, model="test-model")
+    chunks = []
+    async for chunk in gen:
+        chunks.append(chunk)
+        
+    assert len(chunks) == 0  # No generation triggered
+    mock_db.ensure_chat_exists.assert_called_once()
+    mock_db.add_collection.assert_called_once_with(
+        chat_id="test_chat_files",
+        parent_message_id=-1,
+        parent_type="standalone",
+        collection_type="file_uploads",
+        items=[{"name": "doc.pdf", "size": 100}]
+    )
+

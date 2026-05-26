@@ -78,12 +78,19 @@ async def _get_playwright():
             try:
                 import subprocess
                 logger.info("Verifying browser binaries...")
-                subprocess.run(["playwright", "install", "chromium"], check=True, capture_output=True)
+                def _install():
+                    subprocess.run(["playwright", "install", "chromium"], check=True, capture_output=True)
+                await asyncio.to_thread(_install)
             except Exception as e:
                 logger.warning(f"Could not automatically update browser binaries: {e}")
 
-            _playwright_manager = async_playwright()
-            _playwright_instance = await _playwright_manager.start()
+            manager = async_playwright()
+            try:
+                _playwright_instance = await manager.start()
+                _playwright_manager = manager
+            except Exception:
+                logger.error("Failed to start Playwright manager")
+                raise
     return _playwright_instance
 
 _sessions: Dict[str, dict] = {}
@@ -106,8 +113,25 @@ async def _get_session(session_id: str):
     await _cleanup_expired_sessions()
     if session_id not in _sessions:
         raise ValueError("Session not found or expired")
-    _sessions[session_id]["last_used"] = time.time()
-    return _sessions[session_id]
+    
+    session = _sessions[session_id]
+    page = session.get("page")
+    browser_cdp = session.get("browser_cdp")
+    
+    if (page and page.is_closed()) or (browser_cdp and not browser_cdp.is_connected()):
+        logger.warning(f"Session {session_id} is dead (page closed or browser disconnected). Cleaning up...")
+        try:
+            if "browser_cdp" in session:
+                await session["browser_cdp"].close()
+            else:
+                await session["context"].close()
+        except Exception:
+            pass
+        del _sessions[session_id]
+        raise ValueError("Session is no longer active (browser closed or disconnected)")
+        
+    session["last_used"] = time.time()
+    return session
 
 # =====================================================================
 # SSRF / Security and Utility Functions
@@ -406,8 +430,8 @@ async def fetch_and_encode_image(url: str):
                 else:
                     break
 
-            if not resp:
-                return json.dumps({"error": "Failed to fetch image"})
+            if not resp or resp.status_code in (301, 302, 303, 307, 308):
+                return json.dumps({"error": "Failed to fetch image (redirect loop or no image found)"})
             resp.raise_for_status()
             mime = resp.headers.get('content-type', 'image/jpeg').split(';')[0].strip()
             b64 = base64.b64encode(resp.content).decode('utf-8')
@@ -822,6 +846,54 @@ async def portal_init(request: Request):
 
 app = mcp.sse_app()
 app.add_middleware(AuthMiddleware)
+
+@app.on_event("shutdown")
+async def shutdown_event():
+    logger.info("Shutting down Playwright MCP server...")
+    
+    # 1. Terminate portal process if running
+    global _portal_process
+    if _portal_process:
+        try:
+            logger.info("Terminating portal process...")
+            _portal_process.terminate()
+            # Wait up to 5 seconds, then kill if not dead
+            for _ in range(50):
+                if _portal_process.poll() is not None:
+                    break
+                await asyncio.sleep(0.1)
+            else:
+                logger.warning("Portal process did not terminate, killing...")
+                _portal_process.kill()
+        except Exception as e:
+            logger.error(f"Error terminating portal process: {e}")
+        _portal_process = None
+
+    # 2. Close all active sessions
+    global _sessions
+    for sid in list(_sessions.keys()):
+        try:
+            session = _sessions[sid]
+            logger.info(f"Closing active session {sid}...")
+            if "browser_cdp" in session:
+                await session["browser_cdp"].close()
+            else:
+                await session["context"].close()
+        except Exception as e:
+            logger.error(f"Error closing session {sid} during shutdown: {e}")
+    _sessions.clear()
+
+    # 3. Stop playwright instance
+    global _playwright_instance, _playwright_manager
+    async with _playwright_lock:
+        if _playwright_instance:
+            try:
+                logger.info("Stopping Playwright manager...")
+                await _playwright_manager.stop()
+            except Exception as e:
+                logger.error(f"Error stopping Playwright manager: {e}")
+            _playwright_instance = None
+            _playwright_manager = None
 
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8001)

@@ -85,15 +85,17 @@ class CircuitBreaker:
 
     def on_success(self):
         """Called when the protected function succeeds."""
-        self.failure_count = 0
-        self.state = 'closed'
+        with self._lock:
+            self.failure_count = 0
+            self.state = 'closed'
 
     def on_failure(self):
         """Called when the protected function fails."""
-        self.failure_count += 1
-        self.last_failure_time = time.time()
-        if self.failure_count >= self.failure_threshold:
-            self.state = 'open'
+        with self._lock:
+            self.failure_count += 1
+            self.last_failure_time = time.time()
+            if self.failure_count >= self.failure_threshold:
+                self.state = 'open'
 
     def get_status(self) -> Dict[str, Any]:
         """Get current circuit breaker status."""

@@ -223,4 +223,68 @@ async def test_execute_pure_tool_sync_exception(mock_registry, tool_handler):
     result = await tool_handler._execute_pure_tool("tool1", {})
     assert "Error: sync error" in result
 
-    assert "Error: sync error" in result
+@pytest.mark.anyio
+@patch('backend.database.db')
+async def test_handle_tool_calls_scoped_anchoring_validation(mock_db_instance, mock_registry, tool_handler):
+    mock_db_instance.get_messages.return_value = []
+    mock_registry.get_tool.return_value = {"type": "agent"}
+    
+    async def mock_agent_flow(agent, agent_name, **kwargs):
+        yield "agent_stream_chunk"
+    
+    mock_registry.resolve_implementation.return_value = mock_agent_flow
+    tool_handler.agent_handler = MagicMock()
+    
+    async def execute_agent_mock(*args, **kwargs):
+        yield "streamed_chunk"
+        
+    tool_handler.agent_handler.execute_agent.side_effect = execute_agent_mock
+    # Mock returning structured dict data
+    tool_handler.agent_handler.result = {"summary": "done", "status": "success"}
+    
+    tool_calls = [{"id": "tc_agent_123", "function": {"name": "test_agent", "arguments": '{"param": 1}'}}]
+    
+    chunks = []
+    async for chunk in tool_handler.handle_tool_calls(tool_calls):
+        chunks.append(chunk)
+        
+    # Verify scoped anchoring: the parent message ID was shifted to the tool call's ID!
+    assert tool_handler.agent_handler.parent_message_id == "tc_agent_123"
+    
+    # Assert JSON-serialized structured summary was saved in the DB
+    mock_db_instance.add_tool_result.assert_called_once()
+    saved_content = mock_db_instance.add_tool_result.call_args.kwargs['content']
+    assert json.loads(saved_content) == {"summary": "done", "status": "success"}
+    
+    # Verify synthetic result chunk is yielded for frontend rendering
+    assert any("streamed_chunk" in c for c in chunks)
+    assert any("summary" in c and "status" in c for c in chunks)
+
+@pytest.mark.anyio
+@patch('backend.database.db')
+async def test_handle_tool_calls_unregistered_tool_recovery(mock_db_instance, mock_registry, tool_handler):
+    mock_db_instance.get_messages.return_value = []
+    # Tool not found in registry
+    mock_registry.get_tool.return_value = None
+    mock_registry._registry = {"real_tool": {}}
+    
+    tool_calls = [{"id": "call_unknown", "function": {"name": "non_existent_tool", "arguments": "{}"}}]
+    
+    chunks = []
+    async for chunk in tool_handler.handle_tool_calls(tool_calls):
+        chunks.append(chunk)
+        
+    # Verify synthetic result chunk is yielded with error details
+    assert len(chunks) == 1
+    assert "choices" in chunks[0]
+    
+    # Verify that the DB was called with the error content
+    mock_db_instance.add_tool_result.assert_called_once_with(
+        chat_id="chat_123",
+        tool_call_id="call_unknown",
+        name="non_existent_tool",
+        content="Error: Tool 'non_existent_tool' not found in registry. Available: ['real_tool']",
+        parent_id=100,
+        parent_type="main"
+    )
+

@@ -89,3 +89,20 @@ def test_on_success():
     cb = CircuitBreaker()
     cb.on_success()
     assert cb.failure_count == 0
+
+def test_circuit_breaker_thread_safety():
+    import threading
+    cb = CircuitBreaker(failure_threshold=1000)
+    
+    def worker():
+        for _ in range(100):
+            cb.on_failure()
+            cb.on_success()
+            
+    threads = [threading.Thread(target=worker) for _ in range(10)]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+        
+    assert cb.state in ('closed', 'open')

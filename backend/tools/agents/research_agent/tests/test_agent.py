@@ -250,3 +250,37 @@ async def test_execute_internal_searches_partial_success(research_agent):
                 [{"query": "q1"}, {"query": "q2"}]
             )
             assert "example.com" in result
+
+@pytest.mark.anyio
+async def test_flow_fn_success(mock_agent_context):
+    async def mock_run(*args, **kwargs):
+        yield "chunk1"
+        yield "chunk2"
+        
+    with patch.object(ResearchAgent, 'run', side_effect=mock_run) as mock_agent_run:
+        chunks = [c async for c in flow_fn(mock_agent_context, "research", "topic")]
+        assert chunks == ["chunk1", "chunk2"]
+        mock_agent_run.assert_called_once_with("topic", mock_agent_context)
+
+@pytest.mark.anyio
+async def test_flow_fn_exception_handling(mock_agent_context):
+    with patch.object(ResearchAgent, 'run', side_effect=Exception("Initialization error")) as mock_agent_run, \
+         patch.object(agent_mod, 'db') as mock_db:
+        
+        chunks = [c async for c in flow_fn(mock_agent_context, "research", "topic")]
+        
+        assert len(chunks) == 1
+        assert "Research agent failed" in chunks[0]
+        assert mock_agent_context.result == "Research agent failed: Initialization error"
+        
+        # Verify event logged to DB
+        mock_db.add_message.assert_any_call(
+            chat_id="test_chat",
+            role='event',
+            content='Research Agent failed: Initialization error',
+            parent_id=123,
+            parent_type='research'
+        )
+        
+        # Verify chat state updated to failed
+        mock_db.update_chat.assert_any_call("test_chat", research_state='failed')

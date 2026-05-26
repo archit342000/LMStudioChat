@@ -48,3 +48,15 @@ async def test_mcp_client_execute_tool_retry(mock_sse, mock_session):
         res = await client.execute_tool("my_tool", {})
         assert res == "success"
         assert mock_session.call_tool.call_count == 2
+
+@pytest.mark.anyio
+async def test_mcp_client_connect_retry_cleanup(mock_sse, mock_session):
+    client = MCPClient(server_url="http://mock-server")
+    # Force sse_client context manager entry to fail first, then succeed
+    mock_sse.side_effect = [Exception("network down"), mock_sse.return_value]
+    
+    with patch('backend.mcp_client.get_secret', return_value="test-key"), \
+         patch.object(client, '_close_and_reset_state', wraps=client._close_and_reset_state) as mock_cleanup:
+        await client.connect()
+        assert client.session is not None
+        mock_cleanup.assert_called()

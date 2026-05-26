@@ -125,3 +125,22 @@ async def test_visit_page_synthesis_failure(mock_agent, mock_playwright, mock_db
     chunks = [c async for c in gen]
     
     assert "Visit page failed: Synthesis failed" in chunks[0]
+
+@pytest.mark.anyio
+async def test_visit_page_startup_exception(mock_agent, mock_playwright, mock_db, mock_config):
+    mock_db.get_messages.side_effect = Exception("DB Connection Error")
+    
+    gen = flow_fn(mock_agent, "visit_page", "http://example.com")
+    chunks = [c async for c in gen]
+    
+    assert "Visit page failed: DB Connection Error" in chunks[0]
+    assert mock_agent.result == "Visit page failed: DB Connection Error"
+    
+    # Check that it tried to log the failure event to the database
+    mock_db.add_message.assert_called_once_with(
+        chat_id=mock_agent.chat_id,
+        role='event',
+        content='Visit Page Agent Failed.',
+        parent_id=mock_agent.parent_message_id,
+        parent_type='visit_page'
+    )

@@ -130,3 +130,71 @@ def test_manager_cleanup_stale_channels_error(mock_get_all_chats):
     FileSystemChannelManager.cleanup_stale_channels()
     # Should not raise exception
     assert "active1" in FileSystemChannelManager._channels
+
+@pytest.mark.anyio
+async def test_channel_multi_lock_contention():
+    channel = FileSystemPersistenceChannel("test_chat_concurrency")
+    
+    # 1. Acquire initial lock (blocks all others)
+    assert await channel.acquire("ai") is True
+    assert channel.state == ChannelState.LOCKED_AI
+
+    execution_order = []
+    
+    # Define tasks to acquire and release
+    async def worker(worker_id: str, op_type: str):
+        # This will block until the lock is released
+        assert await channel.acquire(op_type) is True
+        execution_order.append(f"{worker_id}_start")
+        await asyncio.sleep(0.01) # Simulate minor operation
+        await channel.release()
+        execution_order.append(f"{worker_id}_end")
+
+    # Spawn 3 concurrent acquire tasks
+    t1 = asyncio.create_task(worker("w1", "user"))
+    t2 = asyncio.create_task(worker("w2", "ai"))
+    t3 = asyncio.create_task(worker("w3", "user"))
+
+    # Let them register in the condition waiting queue
+    await asyncio.sleep(0.02)
+    assert len(execution_order) == 0  # Still blocked by initial lock
+
+    # 2. Release initial lock -> lets the next one acquire
+    await channel.release()
+    
+    # Wait for all workers to complete
+    await asyncio.gather(t1, t2, t3)
+    
+    # Assert all completed
+    assert len(execution_order) == 6
+    
+    # Verify strict serialization: each start must have its end before next start
+    for i in range(0, 6, 2):
+        start = execution_order[i]
+        end = execution_order[i+1]
+        assert start.split("_")[0] == end.split("_")[0]
+        assert start.endswith("_start")
+        assert end.endswith("_end")
+
+def test_manager_lru_eviction_stats_validation():
+    FileSystemChannelManager._max_channels = 3
+    
+    c1 = FileSystemChannelManager.get_channel("c1")
+    c2 = FileSystemChannelManager.get_channel("c2")
+    c3 = FileSystemChannelManager.get_channel("c3")
+    
+    assert "c1" in FileSystemChannelManager._channels
+    assert "c2" in FileSystemChannelManager._channels
+    assert "c3" in FileSystemChannelManager._channels
+    
+    # Get c4 -> c1 (oldest inserted) should be evicted
+    c4 = FileSystemChannelManager.get_channel("c4")
+    
+    assert "c4" in FileSystemChannelManager._channels
+    assert "c3" in FileSystemChannelManager._channels
+    assert "c2" in FileSystemChannelManager._channels
+    assert "c1" not in FileSystemChannelManager._channels
+    
+    # Restore defaults
+    FileSystemChannelManager._max_channels = 100
+

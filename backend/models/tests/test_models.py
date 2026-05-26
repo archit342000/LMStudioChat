@@ -208,3 +208,29 @@ def test_pass_through_streaming_proxy(mock_req, client):
     mock_req.assert_called_once()
     args, kwargs = mock_req.call_args
     assert kwargs["stream"] is True
+
+def test_proxy_url_dynamic_resolution():
+    """Test that accessing PROXY_URL dynamically reflects changes in config.AI_PROXY_URL."""
+    from backend import config
+    import backend.models
+
+    original_url = config.AI_PROXY_URL
+    try:
+        config.AI_PROXY_URL = "http://temp-proxy-1"
+        assert backend.models.PROXY_URL == "http://temp-proxy-1"
+
+        config.AI_PROXY_URL = "http://temp-proxy-2/"
+        assert backend.models.PROXY_URL == "http://temp-proxy-2"
+    finally:
+        config.AI_PROXY_URL = original_url
+
+@patch("backend.models.requests.get")
+@patch("builtins.open")
+def test_load_model_config_ultimate_fallback(mock_file, mock_get):
+    """Test that load_model_config returns the hardcoded default config when proxy and file open both fail."""
+    mock_get.side_effect = Exception("Proxy error")
+    mock_file.side_effect = FileNotFoundError("File not found")
+
+    config_data = load_model_config()
+    assert config_data == backend.models.DEFAULT_HARDCODED_CONFIG
+    assert config_data["embedding"] == "embeddinggemma/embeddinggemma-300M-Q8_0"

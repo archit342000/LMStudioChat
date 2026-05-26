@@ -28,69 +28,69 @@ async def flow_fn(
     chat_id = agent.chat_id
     parent_message_id = agent.parent_message_id
 
-    existing_history = db.get_messages(
-        chat_id, parent_message_id=parent_message_id,
-        parent_type="search_web"
-    )
-    is_resume = len(existing_history) > 0
-
-    if not is_resume:
-        db.add_message(
-            chat_id=chat_id,
-            role='event',
-            content='Search Web Agent Started.',
-            parent_id=parent_message_id,
-            parent_type='search_web'
-        )
-    else:
-        logger.info(f"SearchWebAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
-
-    max_retries = 2
-    last_error = None
-    
-    for attempt in range(max_retries + 1):
-        try:
-            # Step 1: Execute the raw search via MCP
-            await tavily_client.connect()
-
-            arguments = {
-                "query": query, 
-                "max_results": config.MAX_SEARCH_RESULTS,
-                "depth": depth
-            }
-            if topic == "news":
-                arguments["topic"] = "news"
-            if time_range:
-                arguments["time_range"] = time_range
-
-            result = await asyncio.wait_for(
-                tavily_client.execute_tool("async_tavily_search_tool", arguments),
-                timeout=config.TIMEOUT_TAVILY_SEARCH_ASYNC
-            )
-            # Success — break out of retry loop
-            last_error = None
-            break
-            
-        except Exception as e:
-            last_error = e
-            logger.warning(f"search_web attempt {attempt+1}/{max_retries+1} failed: {e}")
-            if attempt < max_retries:
-                await asyncio.sleep((attempt + 1) * 1.0)
-    
-    if last_error:
-        error_msg = f"Search failed after {max_retries+1} attempts: {str(last_error)}"
-        agent.result = error_msg
-        db.add_message(
-            chat_id=chat_id,
-            role='event',
-            content='Search Web Agent Failed.',
-            parent_id=parent_message_id,
-            parent_type='search_web'
-        )
-        yield error_msg
-        return
-
     try:
+        existing_history = db.get_messages(
+            chat_id, parent_message_id=parent_message_id,
+            parent_type="search_web"
+        )
+        is_resume = len(existing_history) > 0
+
+        if not is_resume:
+            db.add_message(
+                chat_id=chat_id,
+                role='event',
+                content='Search Web Agent Started.',
+                parent_id=parent_message_id,
+                parent_type='search_web'
+            )
+        else:
+            logger.info(f"SearchWebAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
+
+        max_retries = 2
+        last_error = None
+        
+        for attempt in range(max_retries + 1):
+            try:
+                # Step 1: Execute the raw search via MCP
+                await tavily_client.connect()
+
+                arguments = {
+                    "query": query, 
+                    "max_results": config.MAX_SEARCH_RESULTS,
+                    "depth": depth
+                }
+                if topic == "news":
+                    arguments["topic"] = "news"
+                if time_range:
+                    arguments["time_range"] = time_range
+
+                result = await asyncio.wait_for(
+                    tavily_client.execute_tool("async_tavily_search_tool", arguments),
+                    timeout=config.TIMEOUT_TAVILY_SEARCH_ASYNC
+                )
+                # Success — break out of retry loop
+                last_error = None
+                break
+                
+            except Exception as e:
+                last_error = e
+                logger.warning(f"search_web attempt {attempt+1}/{max_retries+1} failed: {e}")
+                if attempt < max_retries:
+                    await asyncio.sleep((attempt + 1) * 1.0)
+        
+        if last_error:
+            error_msg = f"Search failed after {max_retries+1} attempts: {str(last_error)}"
+            agent.result = error_msg
+            db.add_message(
+                chat_id=chat_id,
+                role='event',
+                content='Search Web Agent Failed.',
+                parent_id=parent_message_id,
+                parent_type='search_web'
+            )
+            yield error_msg
+            return
+
         content = result.content[0].text
         res_json = json.loads(content)
         answer = res_json.get("answer", "")
@@ -219,14 +219,17 @@ async def flow_fn(
         logger.info(f"SearchWebAgent synthesis complete.")
 
     except Exception as e:
-        logger.error(f"search_web agent failed: {e}")
+        logger.error(f"SearchWebAgent failed: {e}", exc_info=True)
         error_msg = f"Search failed: {str(e)}"
         agent.result = error_msg
-        db.add_message(
-            chat_id=chat_id,
-            role='event',
-            content='Search Web Agent Failed.',
-            parent_id=parent_message_id,
-            parent_type='search_web'
-        )
+        try:
+            db.add_message(
+                chat_id=chat_id,
+                role='event',
+                content='Search Web Agent Failed.',
+                parent_id=parent_message_id,
+                parent_type='search_web'
+            )
+        except Exception as db_err:
+            logger.error(f"Failed to log search agent failure event: {db_err}")
         yield error_msg

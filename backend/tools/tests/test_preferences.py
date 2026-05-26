@@ -38,3 +38,8 @@ def test_manage_user_preferences_not_found(mock_db):
     
     res = manage_user_preferences(edits=[{"id": "missing", "content": "X", "tag": "other"}])
     assert "Updated preference [missing]: NOT FOUND" in res
+
+def test_manage_user_preferences_db_error(mock_db):
+    mock_db.add_preference.side_effect = Exception("DB Disk Image Malformed")
+    res = manage_user_preferences(additions=[{"content": "Likes cats", "tag": "personal_info"}])
+    assert "Error: Failed to manage user preferences: DB Disk Image Malformed" in res

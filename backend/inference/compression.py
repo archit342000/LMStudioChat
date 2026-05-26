@@ -219,22 +219,29 @@ async def check_and_trigger_compression(
 
     summary_max_tokens = min(int(0.1 * context_window), 16384)
 
-    summary_response = await engine.chat(
-        messages=summarizer_messages,
-        model=model,
-        chat_id=chat_id,
-        enable_thinking=False,
-        max_tokens=summary_max_tokens,
-        temperature=0.0,
-        skip_compression=True,
-    )
+    try:
+        summary_response = await engine.chat(
+            messages=summarizer_messages,
+            model=model,
+            chat_id=chat_id,
+            enable_thinking=False,
+            max_tokens=summary_max_tokens,
+            temperature=0.0,
+            skip_compression=True,
+        )
 
-    summary_text = (
-        summary_response.get("choices", [{}])[0]
-        .get("message", {})
-        .get("content", "")
-        .strip()
-    )
+        summary_text = (
+            summary_response.get("choices", [{}])[0]
+            .get("message", {})
+            .get("content", "")
+            .strip()
+        )
+    except Exception as e:
+        logger.warning(
+            f"Failed to generate conversation summary for chat {chat_id}: {e}. "
+            "Falling back to uncompressed or previously compressed conversation history."
+        )
+        return sliced_messages
     if not summary_text:
         summary_text = (
             f"Summary of past conversation up to message ID {target_boundary_id}."

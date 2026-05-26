@@ -22,11 +22,6 @@ class InferenceEngine:
         if cls._instance is None:
             cls._instance = super(InferenceEngine, cls).__new__(cls)
             
-            # Read proxy URL from central configuration
-            cls._instance.proxy_url = config.AI_PROXY_URL.rstrip("/")
-            cls._instance.ai_api_key = config.AI_API_KEY
-            cls._instance.embedding_api_key = config.EMBEDDING_API_KEY
-            
             cls._instance.timeout_llm = config.TIMEOUT_LLM_ASYNC or 120.0
             cls._instance.timeout_embedding = config.TIMEOUT_EMBEDDING
             
@@ -35,6 +30,21 @@ class InferenceEngine:
                 "mode": "proxy"
             })
         return cls._instance
+
+    @property
+    def proxy_url(self) -> str:
+        if hasattr(self, "_proxy_url_override"):
+            return self._proxy_url_override
+        return config.AI_PROXY_URL.rstrip("/")
+
+    @proxy_url.setter
+    def proxy_url(self, value: str):
+        self._proxy_url_override = value
+
+    @proxy_url.deleter
+    def proxy_url(self):
+        if hasattr(self, "_proxy_url_override"):
+            del self._proxy_url_override
 
     def __init__(self):
         pass
@@ -82,7 +92,6 @@ class InferenceEngine:
             start_time = time.time()
             
             endpoint = f"{self.proxy_url}/api/models/v1/chat/completions"
-            api_key = self.ai_api_key
 
             payload = {
                 "model": model,
@@ -95,7 +104,7 @@ class InferenceEngine:
                 payload["chat_template_kwargs"] = chat_template_kwargs
 
             try:
-                response = await self._request("POST", endpoint, api_key, payload, self.timeout_llm)
+                response = await self._request("POST", endpoint, payload, self.timeout_llm)
                 data = response.json()
                 msg = data.get("choices", [{}])[0].get("message", {})
                 
@@ -186,7 +195,6 @@ class InferenceEngine:
             start_time = time.time()
             
             endpoint = f"{self.proxy_url}/api/models/v1/chat/completions"
-            api_key = self.ai_api_key
 
             payload = {
                 "model": model,
@@ -199,7 +207,7 @@ class InferenceEngine:
                 payload["chat_template_kwargs"] = chat_template_kwargs
 
             try:
-                headers = self._get_headers(api_key)
+                headers = self._get_headers()
                 timeout = httpx.Timeout(self.timeout_llm, read=config.TIMEOUT_LLM_STREAM_READ)
                 
                 async with httpx.AsyncClient(timeout=timeout) as client:
@@ -278,7 +286,6 @@ class InferenceEngine:
         Forwards embedding generation requests to the proxy.
         """
         endpoint = f"{self.proxy_url}/api/models/v1/embeddings"
-        api_key = self.embedding_api_key
 
         payload = {
             "model": model,
@@ -289,7 +296,7 @@ class InferenceEngine:
 
         start_time = time.time()
         try:
-            response = await self._request("POST", endpoint, api_key, payload, self.timeout_embedding)
+            response = await self._request("POST", endpoint, payload, self.timeout_embedding)
             data = response.json()
             embeddings = [item["embedding"] for item in data.get("data", [])]
             
@@ -327,32 +334,30 @@ class InferenceEngine:
             
         return loop.run_until_complete(self.embed(*args, **kwargs))
 
-    async def ensure_model_loaded(self, model_name: str, api_key: str):
+    async def ensure_model_loaded(self, model_name: str):
         """
         Forwards the model load check to the proxy.
         """
         endpoint = f"{self.proxy_url}/api/models/load"
         payload = {"model": model_name}
         try:
-            await self._request("POST", endpoint, api_key, payload, self.timeout_llm)
+            await self._request("POST", endpoint, payload, self.timeout_llm)
         except Exception as e:
             log_event("ensure_model_loaded_error", {
                 "error": str(e), 
                 "model": model_name
             })
 
-    async def _request(self, method: str, url: str, api_key: str, payload: dict, timeout: float) -> httpx.Response:
-        headers = self._get_headers(api_key)
+    async def _request(self, method: str, url: str, payload: dict, timeout: float) -> httpx.Response:
+        headers = self._get_headers()
         async with httpx.AsyncClient(timeout=timeout) as client:
             kwargs = {"json": payload} if payload is not None else {}
             response = await client.request(method, url, headers=headers, **kwargs)
             response.raise_for_status()
             return response
 
-    def _get_headers(self, api_key: str) -> Dict[str, str]:
+    def _get_headers(self) -> Dict[str, str]:
         headers = {"Content-Type": "application/json"}
-        if api_key:
-            headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
     def _is_generation_valid(self, content: str, tool_calls: Optional[List[Dict[str, Any]]]) -> bool:
@@ -460,4 +465,7 @@ class InferenceEngine:
         return normalized
 
     def _log_llm_call(self, payload: dict, response_text: str, model: str, chat_id: str, duration: float, call_type: str, timings: Optional[dict] = None, tool_calls: Optional[list] = None):
-        log_llm_call(payload=payload, response_text=response_text, model=model, chat_id=chat_id, duration_s=duration, call_type=call_type, timings=timings, tool_calls=tool_calls)
+        try:
+            log_llm_call(payload=payload, response_text=response_text, model=model, chat_id=chat_id, duration_s=duration, call_type=call_type, timings=timings, tool_calls=tool_calls)
+        except Exception as e:
+            logger.warning(f"Failed to log LLM call: {e}")

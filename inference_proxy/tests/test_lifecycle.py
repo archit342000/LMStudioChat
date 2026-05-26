@@ -1,4 +1,5 @@
 import unittest
+import httpx
 from unittest.mock import patch, AsyncMock, MagicMock
 import sys
 import os
@@ -50,6 +51,35 @@ class TestLifecycle(unittest.IsolatedAsyncioTestCase):
         await ensure_model_loaded("gen_text_model", "http://localhost", "key", "llm")
         mock_unload.assert_called_once()
         mock_load.assert_called_once()
+
+    @patch("lifecycle.httpx.AsyncClient.get")
+    async def test_get_active_models_http_error(self, mock_get):
+        mock_get.side_effect = httpx.HTTPError("Connection failed")
+        
+        from lifecycle import get_active_models
+        with self.assertRaises(httpx.HTTPError):
+            await get_active_models("http://localhost", "key")
+
+    @patch("lifecycle.load_model_config")
+    @patch("lifecycle.get_active_models", new_callable=AsyncMock)
+    @patch("lifecycle.log_event")
+    async def test_ensure_model_loaded_exception_logging(self, mock_log, mock_active, mock_config):
+        mock_config.return_value = {
+            "embedding": "embed_model",
+            "research": {"main": "research_model"},
+            "general": {"text": "research_model"}
+        }
+        mock_active.side_effect = httpx.ConnectError("Server unreachable")
+        
+        with self.assertRaises(httpx.ConnectError):
+            await ensure_model_loaded("research_model", "http://localhost", "key", "llm")
+            
+        mock_log.assert_called_with("ensure_model_loaded_error", {
+            "error": "Server unreachable",
+            "model": "research_model",
+            "category": "llm",
+            "server": "http://localhost"
+        })
 
 if __name__ == "__main__":
     unittest.main()

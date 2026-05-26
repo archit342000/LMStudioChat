@@ -201,3 +201,46 @@ def test_get_stats():
     assert stats["total_rows"] == 1
     assert stats["rows_with_pending_writes"] == 1
     assert stats["tables_with_pending_writes"] == ["t2"]
+
+def test_concurrent_reader_writer_blocking():
+    db = CachedDatabase()
+    row = db._get_row("t1", "r1")
+    
+    # 1. Simulate active/pending write
+    row.pending_write = 1
+    
+    reader_result = []
+    def reader_thread():
+        val = db.get("t1", "r1", lambda: "fetched_val")
+        reader_result.append(val)
+        
+    t = threading.Thread(target=reader_thread)
+    t.start()
+    
+    # Allow thread to start and block
+    time.sleep(0.05)
+    assert len(reader_result) == 0  # Should be blocked
+    
+    # 2. Release write lock
+    with row.write_condition:
+        row.pending_write = 0
+        row.write_condition.notify_all()
+        
+    t.join(timeout=1.0)
+    assert len(reader_result) == 1
+    assert reader_result[0] == "fetched_val"
+
+def test_reader_timeout():
+    db = CachedDatabase()
+    row = db._get_row("t1", "r1")
+    
+    # Simulate a write that never completes
+    row.pending_write = 1
+    
+    start_time = time.time()
+    val = db.get("t1", "r1", lambda: "val_timeout", max_wait=0.05)
+    duration = time.time() - start_time
+    
+    # Verify that the reader timed out and fell back to fetch
+    assert val == "val_timeout"
+    assert duration >= 0.05

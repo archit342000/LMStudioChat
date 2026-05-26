@@ -139,3 +139,51 @@ def test_log_event(mock_ts, temp_logs):
     event_data = json.loads(lines[0])
     assert event_data["type"] == "TEST_EVENT"
     assert event_data["data"] == {"info": "data"}
+
+@patch('backend.logging.logger.logging.error')
+@patch('builtins.open')
+def test_log_functions_resilience(mock_open, mock_log_error, temp_logs):
+    mock_open.side_effect = IOError("Simulated disk full or write failure")
+    
+    # 1. log_llm_call should not raise
+    logger.log_llm_call(
+        payload={"msg": "hello"},
+        response_text="world",
+        model="gpt-4",
+        chat_id="chat_1",
+        duration_s=1.234
+    )
+    assert mock_log_error.called
+    mock_log_error.reset_mock()
+    
+    # 2. log_tool_call should not raise
+    logger.log_tool_call(
+        tool_name="my_tool",
+        payload={"arg": 1},
+        response_data="result",
+        duration_s=2.0
+    )
+    assert mock_log_error.called
+    mock_log_error.reset_mock()
+    
+    # 3. log_embedding_call should not raise
+    logger.log_embedding_call(
+        payload="text to embed",
+        response_data={"count": 1},
+        model="embed-model"
+    )
+    assert mock_log_error.called
+    mock_log_error.reset_mock()
+    
+    # 4. log_event should not raise
+    logger.log_event("TEST_EVENT", {"info": "data"})
+    assert mock_log_error.called
+
+@patch('backend.logging.logger.logging.error')
+@patch('builtins.open')
+def test_save_log_resilience(mock_open, mock_log_error, temp_logs):
+    mock_open.side_effect = IOError("Simulated write failure")
+    
+    res = logger._save_log(str(temp_logs / "general"), {"key": "val"})
+    assert res is None
+    assert mock_log_error.called

@@ -50,4 +50,28 @@ def test_get_fuzzy_hint_fallback():
     hint = _get_fuzzy_hint(doc, "1 2 3")
     assert "Target text not found" in hint
     assert "1 | a b c" in hint
-def test__find_exact_match(): pass
+
+def test_find_exact_match_extreme_whitespace_normalization():
+    # Document with mixed spacing, tabs, and carriage returns (\r\n)
+    doc = "first line\r\nsecond\t\tline\r\n\r\nthird   line\n"
+    
+    # 1. Match with tabs and carriage returns
+    target1 = "second  line"
+    assert _find_exact_match(doc, target1) == "second\t\tline"
+    
+    # 2. Match with multiple blank lines and spaces
+    target2 = "third line"
+    assert _find_exact_match(doc, target2) == "third   line"
+
+def test_find_exact_match_exact_bounds_slicing():
+    doc = "line 1\nline 2\nline 3"
+    
+    # Slice first line exactly
+    assert _find_exact_match(doc, "line 1", start_line=1, end_line=1) == "line 1"
+    
+    # Slice last line exactly
+    assert _find_exact_match(doc, "line 3", start_line=3, end_line=3) == "line 3"
+    
+    # Slice middle exactly
+    assert _find_exact_match(doc, "line 2", start_line=2, end_line=2) == "line 2"
+

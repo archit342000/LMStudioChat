@@ -157,5 +157,35 @@ class TestRouter(unittest.TestCase):
         # Verify that aclose was called on the underlying InferenceEngine stream generator
         self.assertTrue(tracked_gen.aclose_called)
 
+    def test_proxy_chat_completions_missing_params(self):
+        response = self.client.post(
+            "/api/models/v1/chat/completions",
+            json={"messages": [{"role": "user", "content": "Hi"}]}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Missing 'model' or 'messages'", response.json["error"])
+
+        response = self.client.post(
+            "/api/models/v1/chat/completions",
+            json={"model": "qwen"}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Missing 'model' or 'messages'", response.json["error"])
+
+    def test_proxy_embeddings_missing_params(self):
+        response = self.client.post(
+            "/api/models/v1/embeddings",
+            json={"input": "hello"}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Missing 'model' or 'input'", response.json["error"])
+
+        response = self.client.post(
+            "/api/models/v1/embeddings",
+            json={"model": "gemma"}
+        )
+        self.assertEqual(response.status_code, 400)
+        self.assertIn("Missing 'model' or 'input'", response.json["error"])
+
 if __name__ == "__main__":
     unittest.main()

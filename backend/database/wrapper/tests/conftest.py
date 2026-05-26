@@ -12,9 +12,4 @@ Run tests with:
 The value is a dummy — these tests use isolated temp DBs and never reach
 any inference or embedding endpoint.
 """
-import os
-
-# Best-effort default for shells that already have EMBEDDING_URL set to something.
-# This does NOT help if the variable is absent before pytest starts — see above.
-os.environ.setdefault("EMBEDDING_URL", "http://localhost:11434")
-os.environ.setdefault("AI_URL", "http://localhost:8080")
+# No environment setup needed for inference URLs as they are decoupled.

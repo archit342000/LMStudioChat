@@ -245,3 +245,53 @@ async def append_later_wal(cache, chat_id):
     await asyncio.sleep(0.1)
     cache.append_chunk(chat_id, "[[DONE]]")
 
+@pytest.mark.asyncio
+async def test_subscribe_generator_multi_subscriber(cache):
+    # Ensure task_manager is mocked to allow subscribers to poll
+    import sys
+    from unittest.mock import MagicMock
+    task_manager_mock = MagicMock()
+    task_manager_mock.is_task_running.return_value = True
+    if "backend.task_manager" not in sys.modules:
+        backend_mock = MagicMock()
+        backend_mock.task_manager = task_manager_mock
+        sys.modules["backend.task_manager"] = backend_mock
+    else:
+        sys.modules["backend.task_manager"].task_manager = task_manager_mock
+
+    chat_id = "chat_multi"
+    cache.initialize_chat(chat_id)
+    cache.append_chunk(chat_id, "chunk1")
+    cache.append_chunk(chat_id, "chunk2")
+
+    async def run_subscriber(sub_id):
+        received = []
+        async for chunk in cache.subscribe(chat_id):
+            received.append(chunk)
+        return received
+
+    async def append_later_multi():
+        await asyncio.sleep(0.1)
+        cache.append_chunk(chat_id, "chunk3")
+        await asyncio.sleep(0.1)
+        cache.append_chunk(chat_id, "[[DONE]]")
+
+    # Start 3 subscribers concurrently
+    sub_tasks = [
+        asyncio.create_task(run_subscriber(1)),
+        asyncio.create_task(run_subscriber(2)),
+        asyncio.create_task(run_subscriber(3))
+    ]
+
+    # Let them connect and start catch-up replay, then stream more chunks
+    await asyncio.sleep(0.05)
+    asyncio.create_task(append_later_multi())
+
+    # Wait for all subscribers to finish
+    results = await asyncio.gather(*sub_tasks)
+
+    expected = ["chunk1", "chunk2", "chunk3", "data: [DONE]\n\n"]
+    for i, res in enumerate(results):
+        assert res == expected, f"Subscriber {i+1} received {res} instead of {expected}"
+
+

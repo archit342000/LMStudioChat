@@ -238,3 +238,32 @@ def test_upload_file_exception(mock_exists, mock_remove, mock_makedirs, mock_get
 
 # --- Dummy tests to satisfy AST coverage parser ---
 def test_get_file_endpoint(): pass
+
+@patch('backend.files.router.get_file_manager')
+@patch('backend.files.router.os.makedirs')
+@patch('backend.files.router.os.remove')
+@patch('backend.files.router.os.path.exists', return_value=True)
+def test_upload_file_endpoint_obscure_extension(mock_exists, mock_remove, mock_makedirs, mock_get_file_manager, client, mock_db):
+    mock_file_manager = MagicMock()
+    mock_file_manager.upload_file_async = AsyncMock(return_value=MagicMock(
+        file_id="test_rust_file",
+        original_filename="code.rs",
+        mime_type="text/plain",
+        file_size=150
+    ))
+    mock_get_file_manager.return_value = mock_file_manager
+    
+    with patch('builtins.open', mock_open()):
+        data = {
+            'chat_id': 'test_chat',
+            'file': (io.BytesIO(b"fn main() {}"), 'code.rs')
+        }
+        response = client.post('/files/upload', data=data, content_type='multipart/form-data')
+        
+        assert response.status_code == 200
+        res_data = response.get_json()
+        assert res_data['success'] is True
+        assert res_data['file_id'] == "test_rust_file"
+        mock_db.ensure_chat_exists.assert_called_once_with('test_chat')
+        mock_file_manager.upload_file_async.assert_called_once()
+

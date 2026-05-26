@@ -37,8 +37,12 @@ class RAGStore:
 
         # 1. Generate embeddings for the whole batch
         logger.info(f"RAGStore: Generating embeddings for {len(documents)} docs...")
-        embeddings = await self.rag_manager.embed_texts(documents, task="document", chat_id=chat_id)
-        logger.debug(f"RAGStore: Embeddings generated in {time.time() - start_time:.2f}s")
+        embeddings = None
+        try:
+            embeddings = await self.rag_manager.embed_texts(documents, task="document", chat_id=chat_id)
+            logger.debug(f"RAGStore: Embeddings generated in {time.time() - start_time:.2f}s")
+        except Exception as e:
+            logger.warning(f"RAGStore: Failed to generate embeddings for storage: {e}. Indexing lexical-only.")
 
         # 2. Upsert to ChromaDB in batches
         CHROMA_UPSERT_BATCH_SIZE = getattr(config, 'CHROMA_UPSERT_BATCH_SIZE', 100)
@@ -48,21 +52,28 @@ class RAGStore:
             batch_slice = slice(i, batch_end)
             
             # Vector collection (with embeddings)
-            logger.info(f"RAGStore: Upserting batch {i//CHROMA_UPSERT_BATCH_SIZE + 1} to vector collection...")
-            self.vector_collection.upsert(
-                documents=documents[batch_slice],
-                embeddings=embeddings[batch_slice],
-                metadatas=metadatas[batch_slice],
-                ids=ids[batch_slice]
-            )
+            if embeddings is not None:
+                try:
+                    logger.info(f"RAGStore: Upserting batch {i//CHROMA_UPSERT_BATCH_SIZE + 1} to vector collection...")
+                    self.vector_collection.upsert(
+                        documents=documents[batch_slice],
+                        embeddings=embeddings[batch_slice],
+                        metadatas=metadatas[batch_slice],
+                        ids=ids[batch_slice]
+                    )
+                except Exception as ve:
+                    logger.error(f"Vector collection upsert error: {ve}")
             
             # BM25 collection (no embeddings - lexical only)
-            logger.info(f"RAGStore: Upserting batch {i//CHROMA_UPSERT_BATCH_SIZE + 1} to BM25 collection...")
-            self.bm25_collection.upsert(
-                documents=documents[batch_slice],
-                metadatas=metadatas[batch_slice],
-                ids=ids[batch_slice]
-            )
+            try:
+                logger.info(f"RAGStore: Upserting batch {i//CHROMA_UPSERT_BATCH_SIZE + 1} to BM25 collection...")
+                self.bm25_collection.upsert(
+                    documents=documents[batch_slice],
+                    metadatas=metadatas[batch_slice],
+                    ids=ids[batch_slice]
+                )
+            except Exception as be:
+                logger.error(f"BM25 collection upsert error: {be}")
 
         duration = time.time() - start_time
         log_event("rag_store_complete", {"count": len(documents), "duration_s": duration, "chat_id": chat_id})
@@ -71,31 +82,38 @@ class RAGStore:
 
     async def retrieve_by_query(self, query: str, n_results: int = 5, where: dict = None,
                           hybrid: bool = True, fetch_multiplier: int = None, chat_id: str = None) -> list:
-        query_embs = await self.rag_manager.embed_texts([query], task="query", chat_id=chat_id)
-        if not query_embs:
-            return []
-        query_emb = query_embs[0]
-        
+        query_emb = None
+        try:
+            query_embs = await self.rag_manager.embed_texts([query], task="query", chat_id=chat_id)
+            if query_embs:
+                query_emb = query_embs[0]
+        except Exception as e:
+            logger.warning(f"RAGStore: Failed to embed query '{query}': {e}. Falling back to lexical-only search.")
+
         multiplier = fetch_multiplier if fetch_multiplier is not None else config.RAG_FETCH_MULTIPLIER
         fetch_k = n_results * multiplier
 
         # 1. Semantic Search (Gemma)
-        vector_results = self.vector_collection.query(
-            query_embeddings=[query_emb],
-            n_results=fetch_k,
-            where=where,
-            include=["documents", "metadatas", "embeddings", "distances"]
-        )
+        vector_docs = []
+        if query_emb is not None:
+            try:
+                vector_results = self.vector_collection.query(
+                    query_embeddings=[query_emb],
+                    n_results=fetch_k,
+                    where=where,
+                    include=["documents", "metadatas", "embeddings", "distances"]
+                )
+                vector_docs = self._results_to_docs(vector_results, source="vector")
+                NOISE_FLOOR = 0.05
+                vector_docs = [d for d in vector_docs if d.get('score', 0) >= NOISE_FLOOR]
+            except Exception as ve:
+                logger.error(f"Vector search query error: {ve}")
 
-        vector_docs = self._results_to_docs(vector_results, source="vector")
-        
-        NOISE_FLOOR = 0.05
-        vector_docs = [d for d in vector_docs if d.get('score', 0) >= NOISE_FLOOR]
-
-        if not hybrid or not config.HYBRID_SEARCH_ENABLED:
-            if config.RAG_MIN_SEMANTIC_SCORE:
+        if (not hybrid or not config.HYBRID_SEARCH_ENABLED) or query_emb is None:
+            if query_emb is not None and config.RAG_MIN_SEMANTIC_SCORE:
                 vector_docs = [d for d in vector_docs if d.get('score', 0) >= config.RAG_MIN_SEMANTIC_SCORE]
-            return self._score_only_results(vector_docs, n_results * 2)
+            if query_emb is not None:
+                return self._score_only_results(vector_docs, n_results * 2)
 
         # 2. Lexical Search (True BM25)
         bm25_docs = []
@@ -137,6 +155,16 @@ class RAGStore:
                             d["lexical_score"] /= max_score
         except Exception as e:
             logger.error(f"BM25 Retrieval error: {e}")
+
+        # If query_emb is None (embedding failed) but we got lexical results:
+        if query_emb is None:
+            bm25_docs.sort(key=lambda x: x['lexical_score'], reverse=True)
+            return [{
+                "id": d["id"],
+                "text": d["text"],
+                "metadata": d["metadata"],
+                "score": d["lexical_score"]
+            } for d in bm25_docs[:n_results]]
 
         # 3. Hybrid RRF Fusion
         return self._fuse_results(vector_docs, bm25_docs, n_results)

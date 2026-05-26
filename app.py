@@ -12,6 +12,8 @@ from dotenv import load_dotenv
 # Load environment variables FIRST
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 # Set correct timezone dynamically for the process
 if os.environ.get('TZ') is None:
     os.environ['TZ'] = 'Asia/Kolkata'
@@ -114,7 +116,6 @@ def portal_ws_proxy(ws):
 # Limit request size to 100MB to match FILE_UPLOAD_MAX_SIZE config
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 
-logger = logging.getLogger(__name__)
 
 # Initialize components with config - load models from model_loader (no fallbacks)
 init_db()
@@ -123,8 +124,6 @@ embedding_model = get_embedding_model()
 # Initialize RAGManager for Research and File RAG (singleton) via provider
 rag_manager = RAGProvider.get_manager(
     persist_path=config.CHROMA_PATH,
-    api_url=config.EMBEDDING_URL,
-    api_key=config.EMBEDDING_API_KEY,
     embedding_model=embedding_model
 )
 

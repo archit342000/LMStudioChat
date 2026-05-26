@@ -21,11 +21,9 @@ def test_ai_embedding_function_init():
     with pytest.raises(ValueError, match="embedding_model must be explicitly provided"):
         AIEmbeddingFunction()
 
-    fn = AIEmbeddingFunction(api_url="http://test", model_name="test-model", default_task="query", api_key="secret")
-    assert fn.api_url == "http://test"
+    fn = AIEmbeddingFunction(model_name="test-model", default_task="query")
     assert fn.model_name == "test-model"
     assert fn.default_task == "query"
-    assert fn.api_key == "secret"
 
 @pytest.mark.anyio
 async def test_embed_async():

@@ -326,3 +326,83 @@ async def test_flow_fn_text_model_screenshot_pruning(mock_agent, mock_config, mo
     args, kwargs = mock_agent.run_inference_step.call_args
     history_msgs = kwargs["messages"][2:]
     assert history_msgs[0]["content"] == [{"type": "text", "text": "[Screenshot captured. Use browser_read_page and browser_get_interactive_elements to understand the page.]"}]
+
+@pytest.mark.anyio
+async def test_flow_fn_resume_missing_session_id(mock_agent, mock_config, mock_db, mock_playwright_client, mock_load_model_config):
+    mock_db.get_messages.side_effect = [
+        [{"role": "user", "content": "prev"}], # is_resume check -> True
+        [{"role": "user", "content": "prev"}], # history build
+        [{"role": "assistant"}] # completion
+    ]
+    # Simulate DB having None for browsing_session_id
+    mock_db.get_chat.return_value = {"browsing_session_id": None}
+    mock_db.get_task_list.return_value = [{"id": "task1"}]
+
+    chunks = [chunk async for chunk in flow_fn(mock_agent, "browsing_agent", "search")]
+    
+    # Verify that a new session_id was generated and stored in DB
+    mock_db.update_chat.assert_any_call("test_chat", browsing_session_id=mock_playwright_client.execute_tool.call_args_list[0][0][1]["session_id"])
+    
+    # And start session was called with this new session_id
+    mock_playwright_client.execute_tool.assert_any_call("browser_start_session", {
+        "session_id": mock_playwright_client.execute_tool.call_args_list[0][0][1]["session_id"],
+        "stealth_level": 1
+    })
+
+@pytest.mark.anyio
+async def test_flow_fn_playwright_connection_failure(mock_agent, mock_config, mock_db, mock_playwright_client, mock_load_model_config):
+    mock_db.get_messages.side_effect = [
+        [], # is_resume check -> False
+    ]
+    mock_db.get_chat.return_value = {"browsing_session_id": None}
+    
+    # Mock playwright connection raising an error
+    mock_playwright_client.connect.side_effect = Exception("Connection refused")
+    
+    chunks = [chunk async for chunk in flow_fn(mock_agent, "browsing_agent", "search")]
+    
+    # Verify we yielded the error message
+    assert len(chunks) == 1
+    assert "Failed to connect to browser session" in chunks[0]
+    
+    # Verify database event message was added
+    mock_db.add_message.assert_any_call(
+        chat_id="test_chat",
+        role='event',
+        content='Error initializing browser session: Connection refused',
+        parent_id="test_parent",
+        parent_type='browsing_agent'
+    )
+    
+    # Verify database session ID was cleaned up
+    mock_db.update_chat.assert_any_call("test_chat", browsing_session_id=None)
+
+@pytest.mark.anyio
+async def test_flow_fn_execution_error(mock_agent, mock_config, mock_db, mock_playwright_client, mock_load_model_config):
+    mock_db.get_messages.side_effect = [
+        [], # is_resume check -> False
+        [], # history build
+    ]
+    mock_db.get_chat.return_value = {"browsing_session_id": "sess_123"}
+    mock_db.get_task_list.return_value = [{"id": "task1"}]
+    
+    # Mock run_inference_step to raise an exception
+    mock_agent.run_inference_step.side_effect = Exception("Inference timeout")
+    
+    chunks = [chunk async for chunk in flow_fn(mock_agent, "browsing_agent", "search")]
+    
+    # Verify we yielded the error message
+    assert len(chunks) == 1
+    assert "Browsing agent failed during execution" in chunks[0]
+    
+    # Verify database event message was added
+    mock_db.add_message.assert_any_call(
+        chat_id="test_chat",
+        role='event',
+        content='Browsing Agent execution failed: Inference timeout',
+        parent_id="test_parent",
+        parent_type='browsing_agent'
+    )
+    
+    # Verify browser_end_session was still called in finally block
+    mock_playwright_client.execute_tool.assert_any_call("browser_end_session", {"session_id": "sess_123"})

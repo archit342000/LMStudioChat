@@ -19,9 +19,13 @@ def read_file(file_id: str, query: str = None, **kwargs):
     logger.info(f"[TOOL] read_file: file_id={file_id}, query={query}")
 
     # 1. Fetch file metadata
-    file_meta = db.get_file(file_id)
-    if not file_meta:
-        return f"Error: File with ID {file_id} not found."
+    try:
+        file_meta = db.get_file(file_id)
+        if not file_meta:
+            return f"Error: File with ID {file_id} not found."
+    except Exception as e:
+        logger.error(f"Failed to fetch file metadata from database for {file_id}: {e}", exc_info=True)
+        return f"Error: Failed to access database: {str(e)}"
 
     filename = file_meta.get('original_filename', 'Unknown')
 
@@ -32,8 +36,6 @@ def read_file(file_id: str, query: str = None, **kwargs):
             embedding_model = get_embedding_model()
             rag_manager = RAGProvider.get_manager(
                 persist_path=config.CHROMA_PATH,
-                api_url=config.EMBEDDING_URL,
-                api_key=config.EMBEDDING_API_KEY,
                 embedding_model=embedding_model
             )
             file_rag = FileRAG(rag_manager=rag_manager)

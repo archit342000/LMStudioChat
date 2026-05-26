@@ -18,8 +18,6 @@ def get_file_manager():
     embedding_model = get_embedding_model()
     rag_manager = RAGProvider.get_manager(
         persist_path=config.CHROMA_PATH,
-        api_url=config.EMBEDDING_URL,
-        api_key=config.EMBEDDING_API_KEY,
         embedding_model=embedding_model
     )
     return FileManager(rag_manager=rag_manager)

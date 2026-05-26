@@ -39,7 +39,7 @@ class RAGManager:
             cls._instance = super(RAGManager, cls).__new__(cls)
         return cls._instance
 
-    def __init__(self, persist_path: str = None, api_url: str = None, embedding_model: str = None, api_key: str = None):
+    def __init__(self, persist_path: str = None, embedding_model: str = None):
         if self._initialized:
             return
         
@@ -49,9 +49,7 @@ class RAGManager:
         # Initialize embedding function
         self.embedding_model = embedding_model or config.EMBEDDING_MODEL
         self.embedding_fn = AIEmbeddingFunction(
-            api_url=api_url or config.EMBEDDING_URL,
-            model_name=self.embedding_model,
-            api_key=api_key or config.EMBEDDING_API_KEY
+            model_name=self.embedding_model
         )
         
         # Track dimensions for validation
