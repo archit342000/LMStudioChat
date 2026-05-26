@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.6.0
+* **Agentic Safety Guardrails**: Designed and implemented dynamic agentic safety audits to prevent execution loops and stagnation. Includes detection for consecutive broken tool call repeats (Error Loops), repetitive successful but redundant tool executions (Tool/Duplicate Action Loops), and task list stagnation (where the agent has not updated its high-level checklist for a set number of assistant turns), raising unified system interrupt alerts to prompt the agent to pivot.
+* **App-Wide Test Suite Improvements**: Significantly refactored and expanded the test suite coverage across all layers of the application—backend core, database wrappers, file managers, PDF extractor, inference engines, loggers, agent tool implementations, and isolated MCP client tools—ensuring comprehensive coverage, fixing existing test issues, and preventing regressions.
+* **Version Bump**: Incremented version globally to 4.6.0.
+
 ## v4.5.6
 * **Media File RAG Skipping**: Updated the File Manager to completely skip text chunking and RAG (ChromaDB) indexing for media files (images, audio, and video) during all synchronous, asynchronous, and background file uploads, preserving performance and storage.
 * **ChromaDB Custom Zero Embedding Function**: Implemented `ZeroEmbeddingFunction`, a custom, zero-latency embedding function returning zero-filled vectors for collections where embeddings are disabled. This prevents ChromaDB from automatically downloading or using its default `all-MiniLM-L6-v2` embedding model over the internet, while correctly maintaining the L2 distance space geometry and adding self-healing for embedding/schema configuration conflicts.
