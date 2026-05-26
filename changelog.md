@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v4.6.1
+* **Model Pass-Through Support for Trailing Slashes**: Added route handling and custom endpoints to the backend models blueprint to gracefully resolve both `/api/models` and `/api/models/` without redirect loops or 404 errors, fixing settings menu and model switcher failures in the frontend.
+* **Frontend Model Switcher Backdrop & Viewport Blocking**: Fixed a bug where switching models did not block the screen or show the loading spinner by integrating actual `#model-switch-overlay` and `.open` class toggles to block user interactions during model swaps.
+* **Intelligent Model Swapping on Explicit Loading**: Replaced the stateless raw pass-through `/api/models/load` endpoint inside the inference proxy with the active `ensure_model_loaded` lifecycle engine, guaranteeing that previously loaded models in the same category are cleanly unloaded from GPU VRAM to prevent Out-Of-Memory (OOM) crashes before a new model is loaded.
+* **Draft Chat Auto-Persistence Prevention**: Refactored the frontend chat draft state logic (`patchChat` and `onModelChanged`) to prevent saving empty placeholder chats to the database on page reload or "New Chat" click unless explicitly created within a workspace.
+* **Version Bump**: Incremented version globally to 4.6.1.
+
 ## v4.6.0
 * **Agentic Safety Guardrails**: Designed and implemented dynamic agentic safety audits to prevent execution loops and stagnation. Includes detection for consecutive broken tool call repeats (Error Loops), repetitive successful but redundant tool executions (Tool/Duplicate Action Loops), and task list stagnation (where the agent has not updated its high-level checklist for a set number of assistant turns), raising unified system interrupt alerts to prompt the agent to pivot.
 * **App-Wide Test Suite Improvements**: Significantly refactored and expanded the test suite coverage across all layers of the application—backend core, database wrappers, file managers, PDF extractor, inference engines, loggers, agent tool implementations, and isolated MCP client tools—ensuring comprehensive coverage, fixing existing test issues, and preventing regressions.
