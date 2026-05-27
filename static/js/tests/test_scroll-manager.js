@@ -169,4 +169,70 @@ describe('scroll-manager.js', () => {
         // Should not apply translateY since it's a desktop browser width and non-touch screen
         assert.strictEqual(chatInputArea.style.transform, '');
     });
+
+    test('touchmove overscroll prevention on iOS/iPad allows workspace-view scrolling', () => {
+        // Setup JSDOM in iOS mode
+        const dom = new JSDOM(`<!DOCTYPE html><html><body>
+            <div id="messages"></div>
+            <div id="workspace-view">
+                <div id="child"></div>
+            </div>
+            <div id="other-blocked-element"></div>
+            <div id="chat-input-area"></div>
+        </body></html>`, { 
+            runScripts: "dangerously",
+            url: "http://localhost/"
+        });
+        const win = dom.window;
+
+        // Mock navigator properties to trick scroll-manager into detecting iOS/iPad
+        Object.defineProperty(win.navigator, 'userAgent', {
+            value: 'Mozilla/5.0 (iPad; CPU OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1',
+            configurable: true
+        });
+
+        // Load utils & scroll-manager
+        const loadScript = (code) => {
+            const scriptEl = win.document.createElement("script");
+            scriptEl.textContent = code;
+            win.document.body.appendChild(scriptEl);
+        };
+        loadScript(utilsCode);
+        loadScript(scrollManagerCode);
+
+        // Run scroll manager setup
+        const initScrollManager = win.eval('initScrollManager');
+        initScrollManager();
+
+        // Get the elements
+        const workspaceView = win.document.getElementById('workspace-view');
+        const child = win.document.getElementById('child');
+        const otherEl = win.document.getElementById('other-blocked-element');
+
+        // We will dispatch a touchmove event and check if preventDefault was called.
+        // On workspace-view or its children, preventDefault should NOT be called.
+        // On other-blocked-element, preventDefault SHOULD be called.
+
+        const dispatchTouchMove = (element) => {
+            let preventDefaultCalled = false;
+            const event = new win.TouchEvent('touchmove', {
+                bubbles: true,
+                cancelable: true
+            });
+            event.preventDefault = () => {
+                preventDefaultCalled = true;
+            };
+            element.dispatchEvent(event);
+            return preventDefaultCalled;
+        };
+
+        // Touch on child inside workspace-view -> Should NOT preventDefault (allowed to scroll)
+        assert.strictEqual(dispatchTouchMove(child), false);
+
+        // Touch on workspace-view itself -> Should NOT preventDefault (allowed to scroll)
+        assert.strictEqual(dispatchTouchMove(workspaceView), false);
+
+        // Touch on other blocked element -> SHOULD preventDefault (scrolling blocked)
+        assert.strictEqual(dispatchTouchMove(otherEl), true);
+    });
 });
