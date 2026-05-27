@@ -1519,7 +1519,13 @@ const chatTitleHeader = document.getElementById("chat-title-header");
         "font-size: 0.7rem; color: var(--content-muted); background: var(--surface-secondary); padding: 1px 6px; border-radius: 6px; font-weight: 500;";
       countSpan.textContent = grouped[workspace.name].length;
 
-      folderHeader.innerHTML = chevronSvg;
+      const chevronWrapper = document.createElement("span");
+      chevronWrapper.className = "folder-chevron-wrapper";
+      chevronWrapper.style.cssText =
+        "display: inline-flex; align-items: center; justify-content: center; cursor: pointer; flex-shrink: 0; width: 16px; height: 16px;";
+      chevronWrapper.innerHTML = chevronSvg;
+
+      folderHeader.appendChild(chevronWrapper);
       folderHeader.appendChild(nameWrapper);
       folderHeader.appendChild(countSpan);
 
@@ -1571,7 +1577,8 @@ const chatTitleHeader = document.getElementById("chat-title-header");
         showContextMenu("workspace", workspace.name, null, e);
       });
 
-      folderHeader.onclick = (e) => {
+      chevronWrapper.onclick = (e) => {
+        e.stopPropagation();
         if (fIsLongPress) {
           e.preventDefault();
           return;
@@ -1579,6 +1586,13 @@ const chatTitleHeader = document.getElementById("chat-title-header");
         workspace.expanded = !workspace.expanded;
         window.WorkspaceManager.setChatWorkspaces(workspaces);
         renderChatList();
+      };
+
+      folderHeader.onclick = (e) => {
+        if (fIsLongPress) {
+          e.preventDefault();
+          return;
+        }
         loadWorkspace(workspace.name);
       };
 
