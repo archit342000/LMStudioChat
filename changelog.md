@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v4.6.2
+* **Markdown LaTeX Rendering Improvements**:
+    - **LaTeX Display Math Boundary Padding**: Preprocessed multiline display math blocks (`$$ ... $$`) in the frontend to ensure they are padded with boundary newlines and isolated on their own paragraph boundaries. This guarantees that `marked-katex-extension`'s block rule can correctly match and render block equations instead of falling back to standard markdown.
+    - **Escape Sequence Protection**: Integrated a negative lookahead regex in the newline normalization pipeline (`/\\n(?![a-zA-Z])/g`) to protect LaTeX commands starting with the letter `n` (e.g., `\nabla`, `\nearrow`, `\nu`, `\neq`, `\neg`) from being corrupted into newline characters followed by plain text (e.g., preventing `\nabla` from rendering as a newline followed by `abla`).
+* **Version Bump**: Incremented version globally to 4.6.2.
+
 ## v4.6.1
 * **Model Pass-Through Support for Trailing Slashes**: Added route handling and custom endpoints to the backend models blueprint to gracefully resolve both `/api/models` and `/api/models/` without redirect loops or 404 errors, fixing settings menu and model switcher failures in the frontend.
 * **Frontend Model Switcher Backdrop & Viewport Blocking**: Fixed a bug where switching models did not block the screen or show the loading spinner by integrating actual `#model-switch-overlay` and `.open` class toggles to block user interactions during model swaps.

@@ -112,6 +112,21 @@ function parseContent(text) {
     return { thoughts: thoughts.trim(), cleaned: cleaned.trim() };
 }
 
+/**
+ * Helper to preprocess LaTeX block equations to ensure that display math blocks
+ * ($$ ... $$) containing newlines are correctly padded with newlines and isolated on their
+ * own paragraph boundaries so marked-katex-extension's blockRule can match them.
+ */
+function preprocessLatex(text) {
+    if (!text) return text;
+    return text.replace(/\$\$(.+?)\$\$/gs, (match, content) => {
+        if (content.includes('\n')) {
+            return `\n\n$$\n${content.trim()}\n$$\n\n`;
+        }
+        return match;
+    });
+}
+
 // ---------------------------------------------------------------------------
 // Markdown / HTML Rendering
 // ---------------------------------------------------------------------------
@@ -126,7 +141,8 @@ function formatMarkdown(text) {
     const textStr = (typeof text === 'string') ? text : (typeof text === 'object' ? JSON.stringify(text) : String(text));
 
     const { cleaned } = parseContent(textStr);
-    let normalized = cleaned.replace(/\\n/g, '\n');
+    let normalized = cleaned.replace(/\\n(?![a-zA-Z])/g, '\n');
+    normalized = preprocessLatex(normalized);
 
     const trimmed = normalized.trim();
 

@@ -80,6 +80,23 @@ describe('utils.js', () => {
         assert.strictEqual(result, '<p>hello **world**</p>');
     });
 
+    test('formatMarkdown with LaTeX display math preprocessing', () => {
+        const formatMarkdown = window.formatMarkdown;
+        const latexInput = `Here is a matrix: $$\\begin{bmatrix}\nx & y\n\\end{bmatrix}$$ and text after.`;
+        const result = formatMarkdown(latexInput);
+        assert.strictEqual(
+            result,
+            '<p>Here is a matrix: \n\n$$\n\\begin{bmatrix}\nx & y\n\\end{bmatrix}\n$$\n\n and text after.</p>'
+        );
+    });
+
+    test('formatMarkdown protects LaTeX commands starting with n', () => {
+        const formatMarkdown = window.formatMarkdown;
+        const latexInput = `$$\\nabla f(x) + \\nu + \\nearrow + \\neq$$`;
+        const result = formatMarkdown(latexInput);
+        assert.strictEqual(result, '<p>$$\\nabla f(x) + \\nu + \\nearrow + \\neq$$</p>');
+    });
+
     test('renderMermaidBlocks', () => {
         const renderMermaidBlocks = window.renderMermaidBlocks;
         let runCalled = false;
