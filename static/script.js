@@ -1116,24 +1116,36 @@ const chatTitleHeader = document.getElementById("chat-title-header");
         chatsGrid.classList.remove("hidden");
 
         workspaceChats.forEach(chat => {
-          const card = document.createElement("div");
-          card.className = "workspace-chat-card glass";
+          const row = document.createElement("div");
+          row.className = "workspace-chat-row glass";
           
-          const cardTitle = document.createElement("div");
-          cardTitle.className = "workspace-chat-card-title";
-          cardTitle.textContent = chat.title || "Untitled Chat";
+          const infoWrapper = document.createElement("div");
+          infoWrapper.className = "workspace-chat-row-info";
           
-          const cardMeta = document.createElement("div");
-          cardMeta.className = "workspace-chat-card-meta";
-          const dateStr = new Date(chat.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
-          cardMeta.textContent = dateStr;
+          const iconSpan = document.createElement("span");
+          iconSpan.className = "workspace-chat-row-icon";
+          iconSpan.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="var(--content-muted)" stroke-width="2" style="opacity: 0.85;"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>`;
+          
+          const titleSpan = document.createElement("span");
+          titleSpan.className = "workspace-chat-row-title";
+          titleSpan.textContent = chat.title || "Untitled Chat";
+          
+          infoWrapper.appendChild(iconSpan);
+          infoWrapper.appendChild(titleSpan);
 
-          // Quick actions row
-          const cardActions = document.createElement("div");
-          cardActions.className = "workspace-chat-card-actions";
+          const metaWrapper = document.createElement("div");
+          metaWrapper.className = "workspace-chat-row-meta";
+          
+          const dateSpan = document.createElement("span");
+          dateSpan.className = "workspace-chat-row-date";
+          const dateStr = new Date(chat.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+          dateSpan.textContent = dateStr;
+
+          const actionsDiv = document.createElement("div");
+          actionsDiv.className = "workspace-chat-row-actions";
           
           const renameBtn = document.createElement("button");
-          renameBtn.className = "workspace-chat-card-btn";
+          renameBtn.className = "workspace-chat-row-btn";
           renameBtn.title = "Rename Chat";
           renameBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>`;
           renameBtn.onclick = async (e) => {
@@ -1155,7 +1167,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
           };
 
           const deleteBtn = document.createElement("button");
-          deleteBtn.className = "workspace-chat-card-btn";
+          deleteBtn.className = "workspace-chat-row-btn";
           deleteBtn.title = "Delete Chat";
           deleteBtn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-rose)" stroke-width="2"><path d="M3 6h18M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"/></svg>`;
           deleteBtn.onclick = async (e) => {
@@ -1172,18 +1184,20 @@ const chatTitleHeader = document.getElementById("chat-title-header");
             }
           };
 
-          cardActions.appendChild(renameBtn);
-          cardActions.appendChild(deleteBtn);
+          actionsDiv.appendChild(renameBtn);
+          actionsDiv.appendChild(deleteBtn);
+          
+          metaWrapper.appendChild(dateSpan);
+          metaWrapper.appendChild(actionsDiv);
+          
+          row.appendChild(infoWrapper);
+          row.appendChild(metaWrapper);
 
-          card.appendChild(cardTitle);
-          card.appendChild(cardMeta);
-          card.appendChild(cardActions);
-
-          card.onclick = () => {
+          row.onclick = () => {
             loadChat(chat.id);
           };
 
-          chatsGrid.appendChild(card);
+          chatsGrid.appendChild(row);
         });
       }
     }
