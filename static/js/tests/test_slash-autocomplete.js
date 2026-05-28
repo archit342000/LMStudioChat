@@ -188,4 +188,56 @@ describe('slash-autocomplete.js', () => {
 
         assert.strictEqual(window.SlashAutocomplete.isOpen, false);
     });
+
+    test('initializes backdrop wrapper and element', () => {
+        const wrapper = document.querySelector('.chat-textarea-wrapper');
+        const backdrop = document.getElementById('chat-textarea-backdrop');
+        assert.ok(wrapper, 'chat-textarea-wrapper should exist');
+        assert.ok(backdrop, 'chat-textarea-backdrop should exist');
+        assert.strictEqual(textarea.parentNode, wrapper, 'textarea should be child of wrapper');
+        assert.strictEqual(backdrop.parentNode, wrapper, 'backdrop should be child of wrapper');
+    });
+
+    test('highlights skill trigger in textarea backdrop', () => {
+        textarea.value = '/git-helper status';
+        // Trigger input event to sync
+        const inputEvent = new window.Event('input', { bubbles: true });
+        textarea.dispatchEvent(inputEvent);
+
+        const backdrop = document.getElementById('chat-textarea-backdrop');
+        const highlight = backdrop.querySelector('.skill-highlight-input');
+        assert.ok(highlight, 'Should find skill-highlight-input');
+        assert.strictEqual(highlight.textContent, '/git-helper');
+    });
+
+    test('highlights multiple known skills anywhere in textarea', () => {
+        textarea.value = 'Checkout /skills or ask /help';
+        const inputEvent = new window.Event('input', { bubbles: true });
+        textarea.dispatchEvent(inputEvent);
+
+        const backdrop = document.getElementById('chat-textarea-backdrop');
+        const highlights = backdrop.querySelectorAll('.skill-highlight-input');
+        assert.strictEqual(highlights.length, 2, 'Should find two highlighted commands');
+        assert.strictEqual(highlights[0].textContent, '/skills');
+        assert.strictEqual(highlights[1].textContent, '/help');
+    });
+
+    test('updates backdrop on programmatic value change', () => {
+        textarea.value = '/git-helper programmatic';
+        const backdrop = document.getElementById('chat-textarea-backdrop');
+        const highlight = backdrop.querySelector('.skill-highlight-input');
+        assert.ok(highlight, 'Should find skill-highlight-input after programmatic set');
+        assert.strictEqual(highlight.textContent, '/git-helper');
+    });
+
+    test('syncs scroll offset on scroll event', () => {
+        textarea.scrollTop = 42;
+        textarea.scrollLeft = 24;
+        const scrollEvent = new window.Event('scroll', { bubbles: true });
+        textarea.dispatchEvent(scrollEvent);
+
+        const backdrop = document.getElementById('chat-textarea-backdrop');
+        assert.strictEqual(backdrop.scrollTop, 42, 'Backdrop scrollTop should sync');
+        assert.strictEqual(backdrop.scrollLeft, 24, 'Backdrop scrollLeft should sync');
+    });
 });

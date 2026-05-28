@@ -38,6 +38,12 @@ describe('message-manager.js', () => {
             resolveModelDisplayName: (name) => name || 'Luminous-13B'
         };
 
+        window.SkillsManager = {
+            skills: [
+                { id: '1', name: 'git-helper', description: 'Git helper description', instructions: 'git instructions' }
+            ]
+        };
+
         window.showAlert = async (title, message) => {
             mockAlerts.push({ title, message });
         };
@@ -429,6 +435,32 @@ describe('message-manager.js', () => {
             assert.strictEqual(row2.querySelector('.retry-msg-btn').style.display, 'none');
 
             mockDeps.getIsGenerating = prevGenerating;
+        });
+    });
+
+    describe('skill highlighting', () => {
+        test('highlights skill trigger in user message bubbles', () => {
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+
+            const row = window.MessageManager.appendMessage('user', '/git-helper status check', 'user', 'm-skills', [], [], 0);
+            
+            // It should wrap /git-helper in a span with class "skill-highlight"
+            const highlightSpan = row.querySelector('.skill-highlight');
+            assert.ok(highlightSpan, 'Should find a skill-highlight span');
+            assert.strictEqual(highlightSpan.textContent, '/git-helper');
+        });
+
+        test('highlights multiple known skills anywhere in the text', () => {
+            const container = window.document.getElementById('messages');
+            container.innerHTML = '';
+
+            const row = window.MessageManager.appendMessage('user', 'Use /skills to manage, or /help for guidance', 'user', 'm-skills-2', [], [], 0);
+            
+            const highlights = row.querySelectorAll('.skill-highlight');
+            assert.strictEqual(highlights.length, 2, 'Should find two highlighted commands');
+            assert.strictEqual(highlights[0].textContent, '/skills');
+            assert.strictEqual(highlights[1].textContent, '/help');
         });
     });
 });

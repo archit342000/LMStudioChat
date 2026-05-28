@@ -251,7 +251,91 @@
                   ${actionsMarkup}
               `;
       }
+      this.highlightSkillsInElement(row);
       return row;
+    },
+
+    /**
+     * Traverses the element's text nodes and highlights skills/commands
+     * while avoiding HTML tags, links, and code blocks.
+     */
+    highlightSkillsInElement(element) {
+      if (!element) return;
+      const walker = document.createTreeWalker(
+        element,
+        NodeFilter.SHOW_TEXT,
+        {
+          acceptNode(node) {
+            let parent = node.parentNode;
+            while (parent && parent !== element) {
+              const tag = parent.tagName.toLowerCase();
+              if (
+                tag === "pre" ||
+                tag === "code" ||
+                tag === "a" ||
+                tag === "button" ||
+                parent.classList.contains("thought-timeline-wrapper")
+              ) {
+                return NodeFilter.FILTER_REJECT;
+              }
+              parent = parent.parentNode;
+            }
+            return NodeFilter.FILTER_ACCEPT;
+          }
+        }
+      );
+
+      const nodesToReplace = [];
+      while (walker.nextNode()) {
+        nodesToReplace.push(walker.currentNode);
+      }
+
+      const customSkills = (window.SkillsManager && window.SkillsManager.skills) || [];
+      const knownTriggers = ["help", "skills", ...customSkills.map(s => s.name)];
+
+      for (const node of nodesToReplace) {
+        const text = node.nodeValue;
+        if (!text.includes("/")) continue;
+
+        const regex = /(?:\b|\s|^)\/([\w-]+)/g;
+        let lastIndex = 0;
+        let match;
+        const fragment = document.createDocumentFragment();
+        let hasReplacements = false;
+
+        while ((match = regex.exec(text)) !== null) {
+          const matchStr = match[0];
+          const cmdName = match[1].toLowerCase();
+
+          const isKnown = knownTriggers.includes(cmdName);
+          const isStart = text.trim().startsWith(matchStr.trim()) && (node === nodesToReplace[0]);
+
+          if (isKnown || isStart) {
+            hasReplacements = true;
+            const beforeIndex = match.index;
+            const slashIdx = matchStr.indexOf("/");
+            const textBefore = text.substring(lastIndex, beforeIndex + slashIdx);
+            if (textBefore) {
+              fragment.appendChild(document.createTextNode(textBefore));
+            }
+
+            const span = document.createElement("span");
+            span.className = "skill-highlight";
+            span.textContent = matchStr.substring(slashIdx);
+            fragment.appendChild(span);
+
+            lastIndex = regex.lastIndex;
+          }
+        }
+
+        if (hasReplacements) {
+          const textAfter = text.substring(lastIndex);
+          if (textAfter) {
+            fragment.appendChild(document.createTextNode(textAfter));
+          }
+          node.parentNode.replaceChild(fragment, node);
+        }
+      }
     },
 
     /**

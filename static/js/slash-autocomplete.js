@@ -31,7 +31,37 @@
     init() {
       this.cacheDOM();
       if (!this.nodes.textarea || !this.nodes.dropdown) return;
+
+      // Wrap the textarea in a relative div container to absolute-position the backdrop
+      const textarea = this.nodes.textarea;
+      const wrapper = document.createElement("div");
+      wrapper.className = "chat-textarea-wrapper";
+      
+      textarea.parentNode.insertBefore(wrapper, textarea);
+      wrapper.appendChild(textarea);
+
+      // Create the highlighting backdrop div
+      const backdrop = document.createElement("div");
+      backdrop.id = "chat-textarea-backdrop";
+      wrapper.insertBefore(backdrop, textarea);
+      this.nodes.backdrop = backdrop;
+
+      // Override the textarea value setter to keep backdrop updated
+      const self = this;
+      const descriptor = Object.getOwnPropertyDescriptor(HTMLTextAreaElement.prototype, "value");
+      Object.defineProperty(textarea, "value", {
+        get() {
+          return descriptor.get.call(this);
+        },
+        set(val) {
+          descriptor.set.call(this, val);
+          self.syncBackdrop();
+        },
+        configurable: true
+      });
+
       this.bindEvents();
+      this.syncBackdrop();
     },
 
     cacheDOM() {
@@ -42,9 +72,20 @@
     },
 
     bindEvents() {
-      // Listen to typing in prompt input
-      this.nodes.textarea.addEventListener("input", () => this.handleInput());
+      // Listen to typing in prompt input and update backdrop
+      this.nodes.textarea.addEventListener("input", () => {
+        this.handleInput();
+        this.syncBackdrop();
+      });
       
+      // Update backdrop on scroll to match textarea viewport scroll offsets
+      this.nodes.textarea.addEventListener("scroll", () => {
+        if (this.nodes.backdrop) {
+          this.nodes.backdrop.scrollTop = this.nodes.textarea.scrollTop;
+          this.nodes.backdrop.scrollLeft = this.nodes.textarea.scrollLeft;
+        }
+      });
+
       // Key navigation
       this.nodes.textarea.addEventListener("keydown", (e) => this.handleKeyDown(e), true);
 
@@ -60,6 +101,7 @@
         if (this.nodes.textarea.value.startsWith("/") && !this.nodes.textarea.value.includes(" ")) {
           this.handleInput();
         }
+        this.syncBackdrop();
       });
     },
 
@@ -248,6 +290,50 @@
 
       this.closeDropdown();
       this.nodes.textarea.focus();
+    },
+
+    /**
+     * Synchronize input text highlights with backdrop
+     */
+    syncBackdrop() {
+      if (!this.nodes.backdrop) return;
+      const text = this.nodes.textarea.value;
+      this.nodes.backdrop.innerHTML = this.highlightSkills(text) + "\n";
+      this.nodes.backdrop.scrollTop = this.nodes.textarea.scrollTop;
+      this.nodes.backdrop.scrollLeft = this.nodes.textarea.scrollLeft;
+    },
+
+    /**
+     * Parse text and highlight skills/commands
+     */
+    highlightSkills(text) {
+      if (!text) return "";
+      
+      // Escape HTML to prevent injection and rendering conflicts
+      const escaped = text
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;")
+        .replace(/"/g, "&quot;");
+
+      const customSkills = (window.SkillsManager && window.SkillsManager.skills) || [];
+      const knownTriggers = ["help", "skills", ...customSkills.map(s => s.name)];
+
+      // Match slash commands preceded by word boundary, space, or start of input
+      const regex = /(?:\b|\s|^)\/([\w-]+)/g;
+      
+      return escaped.replace(regex, (match, p1) => {
+        const isStart = escaped.trim().startsWith(match.trim());
+        const isKnown = knownTriggers.includes(p1.toLowerCase());
+
+        if (isStart || isKnown) {
+          const slashIdx = match.indexOf('/');
+          const leading = match.substring(0, slashIdx);
+          const cmd = match.substring(slashIdx);
+          return leading + `<span class="skill-highlight-input">${cmd}</span>`;
+        }
+        return match;
+      });
     }
   };
 

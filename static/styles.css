@@ -5960,5 +5960,69 @@ max-height: 70vh;
   color: var(--content-muted);
 }
 
+/* Chat Textarea Highlighting Backdrop */
+.chat-textarea-wrapper {
+  position: relative;
+  display: flex;
+  flex: 1;
+  min-width: 0;
+}
+
+#chat-textarea-backdrop {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  pointer-events: none;
+  white-space: pre-wrap;
+  word-wrap: break-word;
+  color: transparent;
+  margin: 0;
+  font-family: var(--font-body);
+  font-size: 1rem;
+  line-height: 1.5;
+  padding: 8px 0;
+  overflow: hidden;
+  box-sizing: border-box;
+  border: none;
+  background: transparent;
+}
+
+/* Make sure the text highlights shine through */
+.skill-highlight-input {
+  background: rgba(var(--accent-rgb), 0.18);
+  border: 1px solid rgba(var(--accent-rgb), 0.35);
+  border-radius: 4px;
+  padding: 1px 3px;
+  margin: -1px -3px;
+  box-shadow: 0 0 4px rgba(var(--accent-rgb), 0.1);
+  display: inline;
+}
+
+/* User Message bubble skill highlights */
+.skill-highlight {
+  display: inline-flex;
+  align-items: center;
+  font-family: monospace;
+  font-weight: 600;
+  font-size: 0.85rem;
+  background: rgba(var(--accent-rgb), 0.12);
+  color: var(--accent-light);
+  border: 1px solid rgba(var(--accent-rgb), 0.25);
+  padding: 2px 6px;
+  border-radius: 6px;
+  margin: 0 4px;
+  vertical-align: middle;
+}
+
+/* Contrast adjustment for skill highlights inside blue user messages */
+.user-message .skill-highlight {
+  background: rgba(255, 255, 255, 0.18) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.35) !important;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+}
+
 
 

@@ -152,6 +152,17 @@
           if (data.success) {
             this.skills = data.skills || [];
             this.renderSkills();
+
+            // Highlight skills in all currently rendered message bubbles
+            if (window.MessageManager && typeof window.MessageManager.highlightSkillsInElement === "function") {
+              document.querySelectorAll('.message-row').forEach(row => {
+                window.MessageManager.highlightSkillsInElement(row);
+              });
+            }
+            // Sync/update backdrop for input area
+            if (window.SlashAutocomplete && typeof window.SlashAutocomplete.syncBackdrop === "function") {
+              window.SlashAutocomplete.syncBackdrop();
+            }
           }
         }
       } catch (error) {
