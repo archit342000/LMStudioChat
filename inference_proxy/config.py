@@ -19,9 +19,9 @@ INFERENCE_PARALLELISM = int(os.getenv("INFERENCE_PARALLELISM", "1"))
 
 # Timeouts (in seconds)
 TIMEOUT_LLM_ASYNC = float(os.getenv("TIMEOUT_LLM_ASYNC", "120.0"))
-TIMEOUT_EMBEDDING = float(os.getenv("TIMEOUT_EMBEDDING", "60.0"))
-TIMEOUT_LLM_STREAM_READ = float(os.getenv("TIMEOUT_LLM_STREAM_READ", "60.0"))
+TIMEOUT_EMBEDDING = float(os.getenv("TIMEOUT_EMBEDDING", "1800.0"))
+TIMEOUT_LLM_STREAM_READ = float(os.getenv("TIMEOUT_LLM_STREAM_READ", "1800.0"))
 
 # Retry Logic
 LLM_RETRY_COUNT = int(os.getenv("LLM_RETRY_COUNT", "3"))
-LLM_RETRY_DELAY = float(os.getenv("LLM_RETRY_DELAY", "2.0"))
+LLM_RETRY_DELAY = float(os.getenv("LLM_RETRY_DELAY", "0.5"))
