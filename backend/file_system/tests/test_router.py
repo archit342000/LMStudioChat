@@ -475,3 +475,66 @@ def test_workspace_only_operations(client):
         response = client.delete('/api/file_system/directory?workspace_id=ws-1&path=dir')
         assert response.status_code == 200
         mock_delete_dir.assert_called_with(chat_id=None, path="dir", workspace_id="ws-1")
+
+def test_slash_inclusive_file_system_id_matching(client):
+    # Test that route matching handles file_system_id with slashes correctly (e.g. disk:My-AI/backend/chat/__init__.py)
+    from unittest.mock import mock_open
+    with patch('backend.file_system.router.db') as mock_db, \
+         patch('backend.file_system.utils.resolve_owner_and_physical_path') as mock_resolve, \
+         patch('backend.file_system.router.os.path.exists') as mock_exists, \
+         patch('backend.file_system.router.os.path.isfile') as mock_isfile, \
+         patch('backend.file_system.router.os.path.getmtime') as mock_getmtime, \
+         patch('backend.file_system.manager.get_fs_file_content', new_callable=AsyncMock) as mock_get_content, \
+         patch('builtins.open', mock_open(read_data=b"file content here")):
+        
+        mock_resolve.return_value = ("c1", None, "/some/path/to/__init__.py")
+        mock_exists.return_value = True
+        mock_isfile.return_value = True
+        mock_getmtime.return_value = 1234567.0
+        mock_get_content.return_value = "file content here"
+        
+        response = client.get('/api/file_system/disk:My-AI/backend/chat/__init__.py?chat_id=c1')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["id"] == "disk:My-AI/backend/chat/__init__.py"
+        assert data["content"] == "file content here"
+        assert data["language"] == "py"
+        
+        # Test raw endpoint with slashes
+        response = client.get('/api/file_system/disk:My-AI/backend/chat/__init__.py/raw?chat_id=c1')
+        assert response.status_code == 200
+        assert response.data == b"file content here"
+
+def test_disk_prefixed_file_system_operations(client):
+    from unittest.mock import mock_open
+    # 1. Test DELETE disk-prefixed file
+    with patch('backend.file_system.utils.resolve_owner_and_physical_path') as mock_resolve, \
+         patch('backend.file_system.router.os.path.exists') as mock_exists, \
+         patch('backend.file_system.router.os.path.isdir') as mock_isdir, \
+         patch('backend.file_system.router.os.remove') as mock_remove:
+        
+        mock_resolve.return_value = ("c1", None, "/some/path/to/.gitignore")
+        mock_exists.return_value = True
+        mock_isdir.return_value = False
+        
+        response = client.delete('/api/file_system/disk:My-AI/.gitignore?chat_id=c1')
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        assert data["action"] == "delete"
+        mock_remove.assert_called_once_with("/some/path/to/.gitignore")
+
+    # 2. Test PATCH disk-prefixed file
+    with patch('backend.file_system.utils.resolve_owner_and_physical_path') as mock_resolve, \
+         patch('builtins.open', mock_open()) as m_open:
+        
+        mock_resolve.return_value = ("c1", None, "/some/path/to/.gitignore")
+        
+        response = client.patch('/api/file_system/disk:My-AI/.gitignore?chat_id=c1', json={"content": "new ignore rules"})
+        assert response.status_code == 200
+        data = response.get_json()
+        assert data["success"] is True
+        
+        m_open.assert_called_once_with("/some/path/to/.gitignore", "w", encoding="utf-8")
+        m_open().write.assert_called_once_with("new ignore rules")

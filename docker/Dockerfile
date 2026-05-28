@@ -1,5 +1,11 @@
 FROM python:3.12-slim
 
+# Install system dependencies (git and openssh-client for secure repositories)
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    git \
+    openssh-client \
+    && rm -rf /var/lib/apt/lists/*
+
 # Create a non-root user and group with explicit UID/GID matching the host
 ARG UID=1000
 ARG GID=1000

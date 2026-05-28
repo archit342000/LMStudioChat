@@ -31,6 +31,7 @@
         personaResearchCheckbox: document.getElementById("persona-research-checkbox"),
         personaFileSystemCheckbox: document.getElementById("persona-file-system-checkbox"),
         personaBrowsingCheckbox: document.getElementById("persona-browsing-checkbox"),
+        personaGitCheckbox: document.getElementById("persona-git-checkbox"),
         newPersonaBtn: document.getElementById("new-persona-btn"),
         cancelPersonaBtn: document.getElementById("cancel-persona-btn"),
         savePersonaBtn: document.getElementById("save-persona-btn"),
@@ -259,6 +260,9 @@
         if (this.nodes.personaBrowsingCheckbox) {
           this.nodes.personaBrowsingCheckbox.checked = persona.browsing_mode === 1;
         }
+        if (this.nodes.personaGitCheckbox) {
+          this.nodes.personaGitCheckbox.checked = persona.git_mode === 1;
+        }
       } else {
         if (this.nodes.personaIdInput) this.nodes.personaIdInput.value = "";
         if (this.nodes.personaNameInput) this.nodes.personaNameInput.value = "";
@@ -274,6 +278,9 @@
         }
         if (this.nodes.personaBrowsingCheckbox) {
           this.nodes.personaBrowsingCheckbox.checked = false;
+        }
+        if (this.nodes.personaGitCheckbox) {
+          this.nodes.personaGitCheckbox.checked = false;
         }
       }
       this.syncPersonaAgentCheckboxes();
@@ -299,6 +306,7 @@
       const research_mode = this.nodes.personaResearchCheckbox && this.nodes.personaResearchCheckbox.checked ? 1 : 0;
       const file_system_mode = this.nodes.personaFileSystemCheckbox && this.nodes.personaFileSystemCheckbox.checked ? 1 : 0;
       const browsing_mode = this.nodes.personaBrowsingCheckbox && this.nodes.personaBrowsingCheckbox.checked ? 1 : 0;
+      const git_mode = this.nodes.personaGitCheckbox && this.nodes.personaGitCheckbox.checked ? 1 : 0;
 
       const showAlert = window.showAlert || ((title, msg) => window.alert(msg));
 
@@ -307,7 +315,7 @@
         return;
       }
 
-      const payload = { name, content, is_default, research_mode, file_system_mode, browsing_mode };
+      const payload = { name, content, is_default, research_mode, file_system_mode, browsing_mode, git_mode };
       const url = id ? `/api/personas/${id}` : "/api/personas";
       const method = id ? "PUT" : "POST";
 

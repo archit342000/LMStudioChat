@@ -144,6 +144,7 @@ document.addEventListener("DOMContentLoaded", () => {
   // FileSystem & Artifact Management
   const fileSystemModeToggle = document.getElementById("file-system-mode-toggle");
   const browsingModeToggle = document.getElementById("browsing-mode-toggle");
+  const gitModeToggle = document.getElementById("git-mode-toggle");
   const fileSystemPanel = document.getElementById("file-system-panel");
   const fileSystemPanelTitle = document.getElementById("file-system-panel-title");
   const closeFileSystemPanelBtn = document.getElementById("close-file-system-panel");
@@ -225,6 +226,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
   let isResearchOngoing = false;
   let fileSystemMode = false; // If file_system panel is active
   let browsingMode = false; // If browsing agent is enabled
+  let gitMode = false; // If git agent is enabled
   let fileSystemPanelVisible = false;
   let wasUserPreferences = true;
   let currentResearchPlan = null;
@@ -484,6 +486,11 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       browsingModeToggle.classList.remove("active");
       browsingModeToggle.title = "Enable Browsing Agent";
     }
+    gitMode = false;
+    if (gitModeToggle) {
+      gitModeToggle.classList.remove("active");
+      gitModeToggle.title = "Enable Git Agent";
+    }
     closeFileSystemPanel();
     if (rightSidebar) rightSidebar.classList.add("collapsed");
     currentFileSystemContentRaw = "";
@@ -715,6 +722,15 @@ const chatTitleHeader = document.getElementById("chat-title-header");
           browsingModeToggle.classList.add("active");
         } else {
           browsingModeToggle.classList.remove("active");
+        }
+      }
+
+      gitMode = !!chat.git_mode;
+      if (gitModeToggle) {
+        if (gitMode) {
+          gitModeToggle.classList.add("active");
+        } else {
+          gitModeToggle.classList.remove("active");
         }
       }
 
@@ -1238,6 +1254,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
           workspace_id: workspaceId,
           user_preferences: isUserPreferences,
           research_mode: isResearchMode,
+          git_mode: gitMode,
           persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
           ...samplingParams,
         }),
@@ -2212,6 +2229,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
               messages: chatHistory,
               user_preferences: isUserPreferences,
               research_mode: isResearchMode,
+              git_mode: gitMode,
               persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
               ...samplingParams,
             }),
@@ -2681,6 +2699,7 @@ ${customSkillsList}
             folder: currentChatData ? currentChatData.folder : null,
             user_preferences: isUserPreferences,
             research_mode: isResearchMode ? 1 : 0,
+            git_mode: gitMode ? 1 : 0,
             is_vision: 0,
           };
           savedChats.push(chat);
@@ -2698,6 +2717,7 @@ ${customSkillsList}
             folder: currentChatData ? currentChatData.folder : null,
             file_system_mode: fileSystemMode ? 1 : 0,
             browsing_mode: browsingMode ? 1 : 0,
+            git_mode: gitMode ? 1 : 0,
             thinking_profile: samplingParams.thinking_profile,
           });
           if (chatTitleHeader) chatTitleHeader.classList.remove("hidden");
@@ -2792,6 +2812,7 @@ ${customSkillsList}
         visionEnabled: window.ModelManager.getIsVisionEnabled(),
         fileSystemMode: fileSystemMode,
         browsingMode: browsingMode,
+        gitMode: gitMode,
         persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
 
         approvedPlan: approvedPlanPayload || undefined,
@@ -3741,7 +3762,15 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
         return;
       }
 
-      const blob = new Blob([data.content], { type: "text/plain" });
+      let blob;
+      const isBinary = data.content && data.content.startsWith("[Binary File]");
+      if (isBinary || file_systemId.startsWith("disk:")) {
+        const rawRes = await fetch(`${API_MODULES.FILE_SYSTEMS}/${file_systemId}/raw?${queryParams}`);
+        blob = await rawRes.blob();
+      } else {
+        blob = new Blob([data.content], { type: "text/plain" });
+      }
+
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
@@ -4106,6 +4135,43 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
 
     // Update editors with new content (runs after language parser is ready)
     window.EditorManager.setEditorContent(currentFileSystemContentRaw);
+
+    const isBinary = currentFileSystemContentRaw && currentFileSystemContentRaw.startsWith("[Binary File]");
+    await window.EditorManager.setReadOnly(isBinary);
+
+    let binaryBanner = document.getElementById("file-system-binary-banner");
+    if (isBinary) {
+      if (!binaryBanner) {
+        binaryBanner = document.createElement("div");
+        binaryBanner.id = "file-system-binary-banner";
+        binaryBanner.style.cssText = "background: var(--surface-secondary); border-bottom: 1px solid var(--border-subtle); padding: 1rem 1.5rem; display: flex; align-items: center; gap: 12px; font-size: 0.85rem; color: var(--content-muted);";
+        binaryBanner.innerHTML = `
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--color-rose)" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="flex-shrink: 0;"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+          <div style="flex: 1;">
+            <span style="font-weight: 600; color: var(--content-primary); display: block; margin-bottom: 2px;">Binary File</span>
+            This file contains binary data (e.g. image, PDF, zip) and cannot be edited as text. Click the download button in the top right to save this file to your device.
+          </div>
+        `;
+        const body = document.querySelector(".file-system-body");
+        if (body) {
+          body.insertBefore(binaryBanner, body.firstChild);
+        }
+      } else {
+        binaryBanner.classList.remove("hidden");
+        binaryBanner.style.display = "flex";
+      }
+      if (fileSystemCodemirrorContainer) {
+        fileSystemCodemirrorContainer.style.opacity = "0.5";
+      }
+    } else {
+      if (binaryBanner) {
+        binaryBanner.classList.add("hidden");
+        binaryBanner.style.display = "none";
+      }
+      if (fileSystemCodemirrorContainer) {
+        fileSystemCodemirrorContainer.style.opacity = "1";
+      }
+    }
 
     // Handle view mode toggle (Code/Preview)
     const cleanExt = (currentFileSystemLanguage || "markdown")
@@ -4476,6 +4542,16 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     });
   }
 
+  if (gitModeToggle) {
+    gitModeToggle.addEventListener("click", () => {
+      gitMode = !gitMode;
+      gitModeToggle.classList.toggle("active", gitMode);
+      if (chatHistory.length > 0) {
+        patchChat({ git_mode: gitMode ? 1 : 0 });
+      }
+    });
+  }
+
   if (fileSystemPanelCopyBtn) {
     fileSystemPanelCopyBtn.addEventListener("click", () => {
       if (currentFileSystemContentRaw) {
@@ -4659,6 +4735,7 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
             fileSystemMode = !!persona.file_system_mode;
           }
           browsingMode = !!persona.browsing_mode;
+          gitMode = !!persona.git_mode;
         }
 
         // Apply rules: research_mode overrides others
@@ -4680,6 +4757,9 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
         if (browsingModeToggle) {
           browsingModeToggle.classList.toggle("active", browsingMode);
         }
+        if (gitModeToggle) {
+          gitModeToggle.classList.toggle("active", gitMode);
+        }
 
         // Check compatibility and fetch models if research mode changes
         window.ModelManager.checkSendButtonCompatibility();
@@ -4690,7 +4770,8 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
           patchChat({
             research_mode: isResearchMode,
             file_system_mode: fileSystemMode,
-            browsing_mode: browsingMode
+            browsing_mode: browsingMode,
+            git_mode: gitMode
           });
         }
       }

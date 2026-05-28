@@ -231,7 +231,7 @@ class ChatOpsMixin(BaseMixin):
                     'top_k', 'min_p', 'presence_penalty', 'frequency_penalty',
                     'last_user_id', 'last_assistant_id', 'research_state',
                     'resume_suppressed', 'thinking_profile',
-                    'browsing_session_id'
+                    'browsing_session_id', 'git_mode'
                 ]
                 for field in allowed_fields:
                     if field in kwargs:

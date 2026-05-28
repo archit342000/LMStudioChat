@@ -465,3 +465,40 @@ async def test_create_fs_file_existent_workspace(mock_db, mock_channel, mock_uti
         assert res["success"] is True
         mock_cursor.execute.assert_called_with("SELECT id FROM workspaces WHERE id = ?", ("existent_ws",))
 
+def test_is_binary_file(tmp_path):
+    # Test text file
+    txt_file = tmp_path / "test.txt"
+    txt_file.write_text("Hello, world! This is a plain text file.")
+    assert manager.is_binary_file(str(txt_file)) is False
+
+    # Test binary file with null byte
+    bin_file = tmp_path / "test.bin"
+    bin_file.write_bytes(b"Hello\x00world")
+    assert manager.is_binary_file(str(bin_file)) is True
+
+    # Test common binary extensions
+    png_file = tmp_path / "image.png"
+    png_file.write_text("fake png content")
+    assert manager.is_binary_file(str(png_file)) is True
+
+@pytest.mark.anyio
+async def test_resolve_and_get_disk_fallback(tmp_path, mock_db):
+    # Setup a physical file on disk
+    file_path = tmp_path / "workspace_file.txt"
+    file_path.write_text("Content of physical file on disk.")
+
+    with patch('backend.file_system.manager.resolve_owner_and_physical_path') as mock_resolve:
+        mock_resolve.return_value = (None, "w1", str(file_path))
+        mock_db.get_file_system_meta_by_path.return_value = None
+
+        # 1. Test resolve_path_to_fs_file fallback
+        meta = manager.resolve_path_to_fs_file(None, "workspace/workspace_file.txt", workspace_id="w1")
+        assert meta["id"] == "disk:workspace/workspace_file.txt"
+        assert meta["filename"] == "workspace/workspace_file.txt"
+        assert meta["title"] == "workspace_file.txt"
+
+        # 2. Test get_fs_file_content fallback
+        mock_db.get_file_system_content_by_id.return_value = None
+        content = await manager.get_fs_file_content(meta["id"], workspace_id="w1")
+        assert content == "Content of physical file on disk."
+

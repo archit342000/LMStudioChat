@@ -39,6 +39,19 @@ def get_all_file_systems_for_chat(chat_id: str) -> List[Dict[str, Any]]:
         file_systems.extend(ws_file_systems)
     return file_systems
 
+def is_binary_file(filepath: str) -> bool:
+    try:
+        # Check by extension first for common binary/media types
+        ext = os.path.splitext(filepath)[1].lower()
+        if ext in ['.png', '.jpg', '.jpeg', '.gif', '.webp', '.heic', '.pdf', '.docx', '.mp4', '.webm', '.mp3', '.wav', '.zip', '.tar', '.gz', '.db', '.sqlite', '.exe', '.dll', '.so', '.o', '.a', '.pyc', '.bin']:
+            return True
+            
+        with open(filepath, 'rb') as f:
+            chunk = f.read(8000)
+            return b'\0' in chunk
+    except Exception:
+        return True
+
 def resolve_path_to_fs_file(chat_id: Optional[str], path: str, workspace_id: Optional[str] = None) -> Dict[str, Any]:
     """Resolve a relative virtual path to a file_system metadata object."""
     target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, path, workspace_id=workspace_id)
@@ -55,6 +68,28 @@ def resolve_path_to_fs_file(chat_id: Optional[str], path: str, workspace_id: Opt
         
     file_system = db.get_file_system_meta_by_path(path=lookup_path, chat_id=target_chat_id, workspace_id=target_workspace_id)
     if not file_system:
+        if os.path.exists(physical_path) and os.path.isfile(physical_path):
+            parts = lookup_path.split('/')
+            if '.git' in parts or any(p.startswith('.git') for p in parts):
+                raise FileNotFoundError(f"No file_system found at path: {safe_path}")
+                
+            ext = os.path.splitext(lookup_path)[1].lower()
+            lang = ext.lstrip('.') if ext else 'markdown'
+            mtime = os.path.getmtime(physical_path)
+            
+            return {
+                "id": f"disk:{safe_path}",
+                "chat_id": target_chat_id,
+                "workspace_id": target_workspace_id,
+                "title": os.path.basename(lookup_path),
+                "filename": safe_path,
+                "timestamp": mtime,
+                "folder": os.path.dirname(lookup_path),
+                "tags": "[]",
+                "file_system_type": "custom",
+                "current_version": 1,
+                "language": lang
+            }
         raise FileNotFoundError(f"No file_system found at path: {safe_path}")
     return file_system
 
@@ -169,7 +204,24 @@ async def create_fs_file(
 
 async def get_fs_file_content(file_system_id: str, chat_id: str = None, workspace_id: str = None) -> Optional[str]:
     """Get file_system content by ID."""
-    return db.get_file_system_content_by_id(file_system_id, chat_id=chat_id, workspace_id=workspace_id)
+    content = db.get_file_system_content_by_id(file_system_id, chat_id=chat_id, workspace_id=workspace_id)
+    if content is not None:
+        return content
+        
+    # Disk fallback
+    if file_system_id.startswith("disk:"):
+        virtual_path = file_system_id[5:]
+        try:
+            _, _, physical_path = resolve_owner_and_physical_path(chat_id, virtual_path, workspace_id=workspace_id)
+            if os.path.exists(physical_path) and os.path.isfile(physical_path):
+                if is_binary_file(physical_path):
+                    return "[Binary File] This file contains binary content and cannot be displayed in the text editor."
+                async with aiofiles.open(physical_path, mode='r', encoding='utf-8', errors='replace') as f:
+                    return await f.read()
+        except Exception as e:
+            logger.error(f"Error reading physical file for disk fallback {virtual_path}: {e}")
+            
+    return None
 
 async def update_fs_file_content(
     file_system_id: str,
@@ -845,12 +897,22 @@ async def ls_files_for_tool(chat_id: str, path: str = None, **kwargs) -> Dict[st
         for p_dir, v_path in dirs_to_scan:
             if os.path.exists(p_dir) and os.path.isdir(p_dir):
                 for entry in os.listdir(p_dir):
+                    if entry == '.git' or entry.startswith('.git/'):
+                        continue
                     full_entry_path = os.path.join(p_dir, entry)
                     if os.path.isdir(full_entry_path):
                         if entry not in children:
                             v_prefix = v_path + '/' if v_path else ""
                             children[entry] = {
                                 "type": "directory", 
+                                "name": entry, 
+                                "path": v_prefix + entry
+                            }
+                    elif os.path.isfile(full_entry_path):
+                        if entry not in children:
+                            v_prefix = v_path + '/' if v_path else ""
+                            children[entry] = {
+                                "type": "file", 
                                 "name": entry, 
                                 "path": v_prefix + entry
                             }
@@ -984,7 +1046,36 @@ async def replace_fs_text(chat_id: str, path: str, expected_version: int, edits:
     id = file_system_meta['id']
     actual_chat_id = file_system_meta.get('chat_id')
     actual_workspace_id = file_system_meta.get('workspace_id')
-    file_system_content = await get_fs_file_content(id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+    
+    if id.startswith("disk:"):
+        try:
+            _, _, physical_path = resolve_owner_and_physical_path(chat_id, path, workspace_id=actual_workspace_id)
+            if os.path.exists(physical_path) and os.path.isfile(physical_path):
+                if is_binary_file(physical_path):
+                    return {"success": False, "error": "Cannot edit binary files."}
+                async with aiofiles.open(physical_path, mode='r', encoding='utf-8', errors='replace') as f:
+                    disk_content = await f.read()
+            else:
+                disk_content = ""
+            create_res = await create_fs_file(
+                chat_id=chat_id,
+                path=path,
+                content=disk_content,
+                workspace_id=actual_workspace_id,
+                author="ai"
+            )
+            if not create_res.get("success"):
+                return {"success": False, "error": f"Failed to initialize file record in database: {create_res.get('error')}"}
+            file_system_meta = resolve_path_to_fs_file(chat_id, path, workspace_id=actual_workspace_id)
+            id = file_system_meta['id']
+            actual_chat_id = file_system_meta.get('chat_id')
+            actual_workspace_id = file_system_meta.get('workspace_id')
+            file_system_content = disk_content
+            expected_version = file_system_meta['current_version']
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upgrade disk file to VFS: {e}"}
+    else:
+        file_system_content = await get_fs_file_content(id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
 
     if expected_version != file_system_meta['current_version']:
         return {"success": False, "error": f"Write rejected. Expected version {expected_version}, but current is {file_system_meta['current_version']}."}
@@ -1062,7 +1153,36 @@ async def replace_fs_lines(chat_id: str, path: str, expected_version: int, edits
     id = file_system_meta['id']
     actual_chat_id = file_system_meta.get('chat_id')
     actual_workspace_id = file_system_meta.get('workspace_id')
-    file_system_content = await get_fs_file_content(id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
+
+    if id.startswith("disk:"):
+        try:
+            _, _, physical_path = resolve_owner_and_physical_path(chat_id, path, workspace_id=actual_workspace_id)
+            if os.path.exists(physical_path) and os.path.isfile(physical_path):
+                if is_binary_file(physical_path):
+                    return {"success": False, "error": "Cannot edit binary files."}
+                async with aiofiles.open(physical_path, mode='r', encoding='utf-8', errors='replace') as f:
+                    disk_content = await f.read()
+            else:
+                disk_content = ""
+            create_res = await create_fs_file(
+                chat_id=chat_id,
+                path=path,
+                content=disk_content,
+                workspace_id=actual_workspace_id,
+                author="ai"
+            )
+            if not create_res.get("success"):
+                return {"success": False, "error": f"Failed to initialize file record in database: {create_res.get('error')}"}
+            file_system_meta = resolve_path_to_fs_file(chat_id, path, workspace_id=actual_workspace_id)
+            id = file_system_meta['id']
+            actual_chat_id = file_system_meta.get('chat_id')
+            actual_workspace_id = file_system_meta.get('workspace_id')
+            file_system_content = disk_content
+            expected_version = file_system_meta['current_version']
+        except Exception as e:
+            return {"success": False, "error": f"Failed to upgrade disk file to VFS: {e}"}
+    else:
+        file_system_content = await get_fs_file_content(id, chat_id=actual_chat_id, workspace_id=actual_workspace_id)
 
     if expected_version != file_system_meta['current_version']:
         return {"success": False, "error": f"Write rejected. Expected version {expected_version}, but current is {file_system_meta['current_version']}."}

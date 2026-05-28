@@ -560,6 +560,75 @@ FILE_SYSTEM_AGENT_TOOL = {
     }
 }
 
+GIT_AGENT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "git_agent",
+        "description": (
+            "Delegates a git/version-control task to a specialized sub-agent. "
+            "The agent can clone repos, inspect history, create branches, stage and commit changes. "
+            "Push is disabled by default but can be enabled in System Settings. "
+            "For workflows requiring file edits, use file_system_agent to edit files and git_agent to stage/commit."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "instruction": {
+                    "type": "string",
+                    "description": (
+                        "Self-contained git task description. The agent has no access to conversation history. "
+                        "Include the target repository path or URL, the desired working directory (e.g. '/'), "
+                        "and the full context needed to complete the task."
+                    )
+                }
+            },
+            "required": ["instruction"]
+        }
+    }
+}
+
+EXECUTE_GIT_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "execute_git",
+        "description": (
+            "Execute a validated git command inside the file system. "
+            "The subcommand must be in the configured allowed list. "
+            "The working_directory must always be specified as a virtual path."
+        ),
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "subcommand": {
+                    "type": "string",
+                    "description": "Git subcommand (e.g., 'clone', 'status', 'commit', 'log')."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "Arguments to pass to the git subcommand. "
+                        "For clone: first arg is the URL, optional second arg is the target directory name. "
+                        "For commit: ['-m', 'commit message']. "
+                        "For add: ['.'] or specific file paths. "
+                        "Do NOT include shell operators (;, &, |, `)."
+                    )
+                },
+                "working_directory": {
+                    "type": "string",
+                    "description": (
+                        "Virtual path where the git command runs. "
+                        "For clone: the parent directory (e.g. '/'). "
+                        "For all other commands: the repo root (e.g. './my-repo')."
+                    )
+                }
+            },
+            "required": ["subcommand", "args", "working_directory"]
+        }
+    }
+}
+
+
 SEARCH_WEB_TOOL = {
     "type": "function",
     "function": {
@@ -888,6 +957,14 @@ def get_document_agent_tools(mime_type: str) -> list:
     else:
         return DOCUMENT_AGENT_INTERNAL_TOOLS_BASE + [READ_UPLOADED_FILE_LINES_TOOL]
 
+GIT_AGENT_INTERNAL_TOOLS = [
+    EXECUTE_GIT_TOOL,
+    LS_FILES_TOOL,
+    READ_FS_FILE_TOOL,
+    REQUEST_CLARIFICATION_TOOL,
+    MANAGE_TASK_LIST_TOOL,
+]
+
 # Tools available to the main assistant
 MAIN_ASSISTANT_TOOLS = [
     GET_TIME_TOOL,
@@ -897,6 +974,7 @@ MAIN_ASSISTANT_TOOLS = [
     REQUEST_CLARIFICATION_TOOL,
     RESEARCH_TOOL,
     FILE_SYSTEM_AGENT_TOOL,
+    GIT_AGENT_TOOL,
     BROWSING_AGENT_TOOL,
     SEARCH_WEB_TOOL,
     MANAGE_TASK_LIST_TOOL

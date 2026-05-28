@@ -475,6 +475,28 @@
                                 </div>
                             </div>
 
+                            <!-- Git Agent Toggle -->
+                            <div class="tool-option" id="git-mode-option">
+                                <div class="tool-label-group">
+                                    <div class="tool-icon-circle">
+                                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                            <circle cx="18" cy="18" r="3"></circle>
+                                            <circle cx="6" cy="6" r="3"></circle>
+                                            <circle cx="6" cy="18" r="3"></circle>
+                                            <path d="M18 15V9a4 4 0 0 0-4-4H9"></path>
+                                            <line x1="6" y1="9" x2="6" y2="15"></line>
+                                        </svg>
+                                    </div>
+                                    <div class="tool-text">
+                                        <span class="tool-name">Git Agent</span>
+                                        <span class="tool-desc">Autonomous version control & syncing</span>
+                                    </div>
+                                </div>
+                                <div class="toggle-switch" id="git-mode-toggle">
+                                    <div class="toggle-handle"></div>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
@@ -624,6 +646,29 @@
                         <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="browsing_agent">Browsing Agent</button>
                         <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="search_web">Search Agent</button>
                         <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="visit_page">Visit Page Agent</button>
+                        <button class="btn-secondary agent-config-btn" style="height: 36px; font-size: 0.85rem;" data-agent="git_agent">Git Agent</button>
+                    </div>
+                </div>
+
+                <!-- Git Agent Settings -->
+                <div class="hardware-surface">
+                    <h3 class="text-h2" style="font-size: 1.1rem; margin-bottom: 0.5rem;">Git Agent Settings</h3>
+                    <p style="font-size: 0.85rem; color: var(--content-muted); margin-bottom: 1.0rem;">Configure GitHub Personal Access Token (PAT) for private repositories and enable/disable allowed subcommands.</p>
+                    
+                    <div style="margin-bottom: 1.0rem;">
+                        <label style="display: block; font-size: 0.8rem; color: var(--content-muted); margin-bottom: 0.25rem;">GitHub PAT</label>
+                        <div style="display: flex; gap: 0.5rem;">
+                            <input type="password" id="git-pat-input" placeholder="ghp_..." style="flex: 1; height: 36px; padding: 0 0.75rem; border-radius: 8px; background: var(--bg-secondary); border: 1px solid var(--border-primary); color: var(--content-primary);">
+                            <button id="save-git-pat-btn" class="btn-secondary" style="height: 36px; padding: 0 1rem;">Save PAT</button>
+                        </div>
+                        <span id="git-pat-status" style="display: block; font-size: 0.75rem; margin-top: 0.25rem;"></span>
+                    </div>
+
+                    <div>
+                        <label style="display: block; font-size: 0.8rem; color: var(--content-muted); margin-bottom: 0.5rem;">Allowed Git Commands</label>
+                        <div id="git-allowed-commands-container" style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.5rem; max-height: 150px; overflow-y: auto; padding: 0.5rem; border-radius: 8px; background: var(--bg-secondary); border: 1px solid var(--border-primary);">
+                            <!-- Populated dynamically -->
+                        </div>
                     </div>
                 </div>
 
@@ -952,6 +997,13 @@
                                     <div style="display: flex; flex-direction: column;">
                                         <label for="persona-browsing-checkbox" style="font-size: 0.9rem; font-weight: 600; color: var(--content-primary); cursor: pointer; user-select: none;">Browsing Agent</label>
                                         <span style="font-size: 0.75rem; color: var(--content-muted);">Auto-enable headless web scraping/navigation</span>
+                                    </div>
+                                </div>
+                                <div class="persona-checkbox-row" style="display: flex; align-items: center; gap: 0.75rem; transition: opacity 0.2s;">
+                                    <input type="checkbox" id="persona-git-checkbox" style="width: 1.1rem; height: 1.1rem; cursor: pointer;">
+                                    <div style="display: flex; flex-direction: column;">
+                                        <label for="persona-git-checkbox" style="font-size: 0.9rem; font-weight: 600; color: var(--content-primary); cursor: pointer; user-select: none;">Git Agent</label>
+                                        <span style="font-size: 0.75rem; color: var(--content-muted);">Auto-enable version control operations</span>
                                     </div>
                                 </div>
                             </div>

@@ -1,4 +1,4 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, Response
 import logging
 import json
 import os
@@ -170,53 +170,121 @@ async def list_file_systems_endpoint():
         
     if chat_id or workspace_id:
         try:
+            from backend.file_system.manager import is_binary_file
             from backend.file_system.utils import FILE_SYSTEMS_DIR, WORKSPACES_DIR, sanitize_filename
             
-            def scan_empty_dirs(current_path, rel_path=""):
-                empty_dirs = []
-                if not os.path.exists(current_path): return empty_dirs
+            def scan_physical_items(current_path, rel_path=""):
+                items = []
+                if not os.path.exists(current_path): return items
                 
-                is_empty = True
-                for item in os.listdir(current_path):
-                    full_item_path = os.path.join(current_path, item)
-                    if os.path.isdir(full_item_path):
-                        is_empty = False
-                        new_rel = f"{rel_path}/{item}" if rel_path else item
-                        empty_dirs.extend(scan_empty_dirs(full_item_path, new_rel))
-                    else:
-                        is_empty = False
-                        
-                if is_empty and rel_path:
-                    empty_dirs.append({"type": "directory", "filename": rel_path})
+                if os.path.basename(current_path) == '.git' or os.path.basename(current_path).startswith('.git'):
+                    return items
+                
+                try:
+                    entries = os.listdir(current_path)
+                except Exception:
+                    return items
                     
-                return empty_dirs
+                for item in entries:
+                    if item == '.git' or item.startswith('.git/'):
+                        continue
+                    full_item_path = os.path.join(current_path, item)
+                    new_rel = f"{rel_path}/{item}" if rel_path else item
+                    
+                    if os.path.isdir(full_item_path):
+                        items.append({"type": "directory", "filename": new_rel, "title": item})
+                        items.extend(scan_physical_items(full_item_path, new_rel))
+                    elif os.path.isfile(full_item_path):
+                        mtime = os.path.getmtime(full_item_path)
+                        size = os.path.getsize(full_item_path)
+                        ext = os.path.splitext(item)[1].lower()
+                        lang = ext.lstrip('.') if ext else 'markdown'
+                        
+                        items.append({
+                            "id": f"disk:{new_rel}",
+                            "filename": new_rel,
+                            "title": item,
+                            "type": "file",
+                            "timestamp": mtime,
+                            "file_size": size,
+                            "language": lang
+                        })
+                return items
+                
+            added_filenames = {item['filename'] for item in file_systems_with_content}
                 
             if chat_id:
                 base_chat_dir = os.path.join(FILE_SYSTEMS_DIR, sanitize_filename(chat_id))
-                file_systems_with_content.extend(scan_empty_dirs(base_chat_dir))
+                chat_physical = scan_physical_items(base_chat_dir)
+                for item in chat_physical:
+                    if item['filename'] not in added_filenames:
+                        if item.get('type') == 'file':
+                            filepath = os.path.join(base_chat_dir, item['filename'])
+                            if is_binary_file(filepath):
+                                item['content'] = "[Binary File] This file contains binary content and cannot be displayed in the text editor."
+                            else:
+                                try:
+                                    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                                        item['content'] = f.read(5000)
+                                except Exception:
+                                    item['content'] = ""
+                        file_systems_with_content.append(item)
+                        added_filenames.add(item['filename'])
                 
                 chat_workspace_id = get_workspace_for_chat(chat_id)
                 if chat_workspace_id:
                     base_ws_dir = os.path.join(WORKSPACES_DIR, sanitize_filename(chat_workspace_id))
-                    ws_empty_dirs = scan_empty_dirs(base_ws_dir)
-                    for d in ws_empty_dirs:
-                        d['filename'] = "workspace/" + d['filename']
-                    file_systems_with_content.extend(ws_empty_dirs)
+                    ws_physical = scan_physical_items(base_ws_dir)
+                    for item in ws_physical:
+                        old_rel = item['filename']
+                        item['filename'] = "workspace/" + old_rel
+                        if item.get('id'):
+                            item['id'] = "disk:workspace/" + old_rel
+                            
+                        if item['filename'] not in added_filenames:
+                            if item.get('type') == 'file':
+                                filepath = os.path.join(base_ws_dir, old_rel)
+                                if is_binary_file(filepath):
+                                    item['content'] = "[Binary File] This file contains binary content and cannot be displayed in the text editor."
+                                else:
+                                    try:
+                                        with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                                            item['content'] = f.read(5000)
+                                    except Exception:
+                                        item['content'] = ""
+                            file_systems_with_content.append(item)
+                            added_filenames.add(item['filename'])
                     
                     if not any(c.get('type') == 'directory' and c.get('filename') == 'workspace' for c in file_systems_with_content):
-                         file_systems_with_content.append({"type": "directory", "filename": "workspace"})
+                         file_systems_with_content.append({"type": "directory", "filename": "workspace", "title": "workspace"})
             elif workspace_id:
                 base_ws_dir = os.path.join(WORKSPACES_DIR, sanitize_filename(workspace_id))
-                ws_empty_dirs = scan_empty_dirs(base_ws_dir)
-                for d in ws_empty_dirs:
-                    d['filename'] = "workspace/" + d['filename']
-                file_systems_with_content.extend(ws_empty_dirs)
-                
+                ws_physical = scan_physical_items(base_ws_dir)
+                for item in ws_physical:
+                    old_rel = item['filename']
+                    item['filename'] = "workspace/" + old_rel
+                    if item.get('id'):
+                        item['id'] = "disk:workspace/" + old_rel
+                        
+                    if item['filename'] not in added_filenames:
+                        if item.get('type') == 'file':
+                            filepath = os.path.join(base_ws_dir, old_rel)
+                            if is_binary_file(filepath):
+                                item['content'] = "[Binary File] This file contains binary content and cannot be displayed in the text editor."
+                            else:
+                                try:
+                                    with open(filepath, 'r', encoding='utf-8', errors='replace') as f:
+                                        item['content'] = f.read(5000)
+                                except Exception:
+                                    item['content'] = ""
+                        file_systems_with_content.append(item)
+                        added_filenames.add(item['filename'])
+                        
                 if not any(c.get('type') == 'directory' and c.get('filename') == 'workspace' for c in file_systems_with_content):
-                     file_systems_with_content.append({"type": "directory", "filename": "workspace"})
+                     file_systems_with_content.append({"type": "directory", "filename": "workspace", "title": "workspace"})
                      
         except Exception as e:
-            logger.error(f"Error scanning empty dirs for frontend: {e}")
+            logger.error(f"Error scanning physical items for frontend: {e}")
 
     return jsonify({"success": True, "file_systems": file_systems_with_content})
 
@@ -263,14 +331,13 @@ async def get_raw_file_by_name_endpoint():
     if content is None:
         return jsonify({"error": "File content not found"}), 404
         
-    from flask import Response
     mime_type, _ = mimetypes.guess_type(filename)
     if not mime_type:
         mime_type = 'text/plain'
         
     return Response(content, mimetype=mime_type)
 
-@file_system_bp.route('/<file_system_id>/raw', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>/raw', methods=['GET'])
 async def get_raw_file_by_id_endpoint(file_system_id):
     """Get raw file_system content by ID."""
     chat_id = request.args.get('chat_id')
@@ -278,6 +345,22 @@ async def get_raw_file_by_id_endpoint(file_system_id):
     
     if not chat_id and not workspace_id:
         return jsonify({"error": "chat_id or workspace_id is required"}), 400
+
+    if file_system_id.startswith("disk:"):
+        virtual_path = file_system_id[5:]
+        from backend.file_system.utils import resolve_owner_and_physical_path
+        try:
+            target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, virtual_path, workspace_id=workspace_id)
+            if os.path.exists(physical_path) and os.path.isfile(physical_path):
+                with open(physical_path, 'rb') as f:
+                    content = f.read()
+                mime_type, _ = mimetypes.guess_type(virtual_path)
+                if not mime_type:
+                    mime_type = 'application/octet-stream'
+                return Response(content, mimetype=mime_type)
+        except Exception as e:
+            logger.error(f"Error fetching raw disk file {virtual_path}: {e}")
+            return jsonify({"error": "FileSystem file not found on disk"}), 404
 
     if workspace_id:
         file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
@@ -296,20 +379,53 @@ async def get_raw_file_by_id_endpoint(file_system_id):
         return jsonify({"error": "FileSystem file not found on disk"}), 404
 
     filename = file_system['filename']
-    from flask import Response
     mime_type, _ = mimetypes.guess_type(filename)
     if not mime_type:
         mime_type = 'text/plain'
         
     return Response(content, mimetype=mime_type)
 
-@file_system_bp.route('/<file_system_id>', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>', methods=['GET'])
 async def get_file_system_endpoint(file_system_id):
     """Get a file_system and its content."""
     chat_id = request.args.get('chat_id')
     workspace_id = request.args.get('workspace_id')
     if not chat_id and not workspace_id:
         return jsonify({"error": "chat_id or workspace_id is required"}), 400
+
+    if file_system_id.startswith("disk:"):
+        virtual_path = file_system_id[5:]
+        from backend.file_system.utils import resolve_owner_and_physical_path
+        try:
+            target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, virtual_path, workspace_id=workspace_id)
+            if os.path.exists(physical_path) and os.path.isfile(physical_path):
+                from backend.file_system.manager import is_binary_file, get_fs_file_content
+                content = await get_fs_file_content(file_system_id, chat_id=chat_id, workspace_id=workspace_id)
+                ext = os.path.splitext(virtual_path)[1].lower()
+                lang = ext.lstrip('.') if ext else 'markdown'
+                
+                filename = virtual_path
+                if target_workspace_id:
+                    filename = "workspace/" + filename if not filename.startswith("workspace/") else filename
+                
+                return jsonify({
+                    "success": True,
+                    "id": file_system_id,
+                    "chat_id": target_chat_id,
+                    "workspace_id": target_workspace_id,
+                    "title": os.path.basename(virtual_path),
+                    "filename": filename,
+                    "timestamp": os.path.getmtime(physical_path),
+                    "folder": os.path.dirname(virtual_path),
+                    "tags": [],
+                    "file_system_type": "custom",
+                    "current_version": 1,
+                    "language": lang,
+                    "content": content
+                })
+        except Exception as e:
+            logger.error(f"Error fetching disk file {virtual_path}: {e}")
+            return jsonify({"error": "FileSystem file not found on disk"}), 404
 
     if workspace_id:
         file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
@@ -362,7 +478,7 @@ async def get_file_system_endpoint(file_system_id):
     })
 
 
-@file_system_bp.route('/<file_system_id>', methods=['PATCH'])
+@file_system_bp.route('/<path:file_system_id>', methods=['PATCH'])
 async def update_file_system_endpoint(file_system_id):
     """Update file_system content or metadata (folder, title)."""
     data = request.json or {}
@@ -370,6 +486,20 @@ async def update_file_system_endpoint(file_system_id):
     workspace_id = request.args.get('workspace_id') or data.get('workspace_id')
     if not chat_id and not workspace_id:
         return jsonify({"success": False, "error": "chat_id or workspace_id is required"}), 400
+
+    if file_system_id.startswith("disk:"):
+        virtual_path = file_system_id[5:]
+        from backend.file_system.utils import resolve_owner_and_physical_path
+        try:
+            target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, virtual_path, workspace_id=workspace_id)
+            new_content = data.get('content')
+            if new_content is not None:
+                with open(physical_path, 'w', encoding='utf-8') as f:
+                    f.write(new_content)
+            return jsonify({"success": True, "id": file_system_id})
+        except Exception as e:
+            logger.error(f"Error updating disk file {virtual_path}: {e}")
+            return jsonify({"success": False, "error": str(e)}), 500
     if workspace_id:
         file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
     else:
@@ -443,13 +573,29 @@ async def update_file_system_endpoint(file_system_id):
     return jsonify({"success": True, "id": file_system_id})
 
 
-@file_system_bp.route('/<file_system_id>', methods=['DELETE'])
+@file_system_bp.route('/<path:file_system_id>', methods=['DELETE'])
 async def remove_fs_file_endpoint(file_system_id):
     """Delete a file_system."""
     chat_id = request.args.get('chat_id')
     workspace_id = request.args.get('workspace_id')
     if not chat_id and not workspace_id:
         return jsonify({"error": "chat_id or workspace_id is required"}), 400
+
+    if file_system_id.startswith("disk:"):
+        virtual_path = file_system_id[5:]
+        from backend.file_system.utils import resolve_owner_and_physical_path
+        try:
+            target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, virtual_path, workspace_id=workspace_id)
+            if os.path.exists(physical_path):
+                if os.path.isdir(physical_path):
+                    import shutil
+                    shutil.rmtree(physical_path)
+                else:
+                    os.remove(physical_path)
+            return jsonify({"success": True, "action": "delete", "file_system_id": file_system_id})
+        except Exception as e:
+            logger.error(f"Error deleting disk file {virtual_path}: {e}")
+            return jsonify({"success": False, "error": str(e)}), 500
     if workspace_id:
         file_system = db.get_file_system_meta(file_system_id=file_system_id, workspace_id=workspace_id)
     else:
@@ -466,7 +612,7 @@ async def remove_fs_file_endpoint(file_system_id):
     return jsonify(result)
 
 
-@file_system_bp.route('/<file_system_id>/export/markdown', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>/export/markdown', methods=['GET'])
 async def export_fs_file_markdown_endpoint(file_system_id):
     """Export file_system as markdown file."""
     chat_id = request.args.get('chat_id')
@@ -490,7 +636,6 @@ async def export_fs_file_markdown_endpoint(file_system_id):
     if content is None:
         return jsonify({"error": filename}), 404
 
-    from flask import Response
     return Response(
         content,
         mimetype='text/markdown',
@@ -501,7 +646,7 @@ async def export_fs_file_markdown_endpoint(file_system_id):
     )
 
 
-@file_system_bp.route('/<file_system_id>/export/html', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>/export/html', methods=['GET'])
 async def export_fs_file_html_endpoint(file_system_id):
     """Export file_system as HTML file."""
     chat_id = request.args.get('chat_id')
@@ -525,7 +670,6 @@ async def export_fs_file_html_endpoint(file_system_id):
     if html_content is None:
         return jsonify({"error": filename}), 404
 
-    from flask import Response
     return Response(
         html_content,
         mimetype='text/html',
@@ -536,7 +680,7 @@ async def export_fs_file_html_endpoint(file_system_id):
     )
 
 
-@file_system_bp.route('/<file_system_id>/export/pdf', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>/export/pdf', methods=['GET'])
 async def export_fs_file_pdf_endpoint(file_system_id):
     """Export file_system as PDF file."""
     chat_id = request.args.get('chat_id')
@@ -563,7 +707,6 @@ async def export_fs_file_pdf_endpoint(file_system_id):
     if isinstance(pdf_content, str):
         pdf_content = pdf_content.encode('utf-8')
 
-    from flask import Response
     return Response(
         pdf_content,
         mimetype='application/pdf',
@@ -574,7 +717,7 @@ async def export_fs_file_pdf_endpoint(file_system_id):
     )
 
 
-@file_system_bp.route('/<file_system_id>/folder', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/folder', methods=['POST'])
 def set_file_system_folder(file_system_id):
     """Set folder for a file_system."""
     data = request.json or {}
@@ -606,7 +749,7 @@ def set_file_system_folder(file_system_id):
     return jsonify({"success": True, "title": base_title})
 
 
-@file_system_bp.route('/<file_system_id>/tags', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/tags', methods=['POST'])
 def set_file_system_tags(file_system_id):
     """Set tags for a file_system."""
     data = request.json or {}
@@ -662,7 +805,7 @@ def remove_fs_file_tag(file_system_id, tag):
     return jsonify({"success": True, "tags": current_tags})
 
 
-@file_system_bp.route('/<file_system_id>/tags/<tag>', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/tags/<tag>', methods=['POST'])
 def add_file_system_tag(file_system_id, tag):
     """Add a tag to a file_system."""
     chat_id = request.args.get('chat_id')
@@ -693,7 +836,7 @@ def add_file_system_tag(file_system_id, tag):
     return jsonify({"success": True, "tags": current_tags})
 
 
-@file_system_bp.route('/<file_system_id>/versions', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>/versions', methods=['GET'])
 async def get_file_system_versions_endpoint(file_system_id):
     """Get version history for a file_system."""
     chat_id = request.args.get('chat_id')
@@ -726,7 +869,7 @@ async def get_file_system_versions_endpoint(file_system_id):
     })
 
 
-@file_system_bp.route('/<file_system_id>/versions/<int:version_number>', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>/versions/<int:version_number>', methods=['GET'])
 async def get_fs_file_version_endpoint(file_system_id, version_number):
     """Get a specific version of a file_system content."""
     chat_id = request.args.get('chat_id')
@@ -745,7 +888,7 @@ async def get_fs_file_version_endpoint(file_system_id, version_number):
     })
 
 
-@file_system_bp.route('/<file_system_id>/versions/<int:version_number>/restore', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/versions/<int:version_number>/restore', methods=['POST'])
 async def restore_fs_file_version_endpoint(file_system_id, version_number):
     """Restore a file_system to a previous version."""
     data = request.json or {}
@@ -761,7 +904,7 @@ async def restore_fs_file_version_endpoint(file_system_id, version_number):
     return jsonify(result), 404
 
 
-@file_system_bp.route('/<file_system_id>/diff', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/diff', methods=['POST'])
 async def get_fs_file_diff_endpoint(file_system_id):
     """Get diff between two versions."""
     data = request.json or {}
@@ -783,7 +926,7 @@ async def get_fs_file_diff_endpoint(file_system_id):
     return jsonify(result), 400
 
 
-@file_system_bp.route('/<file_system_id>/current-version', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>/current-version', methods=['GET'])
 async def get_file_system_current_version_endpoint(file_system_id):
     """Get the current active version number for a file_system."""
     chat_id = request.args.get('chat_id')
@@ -812,7 +955,7 @@ async def get_file_system_current_version_endpoint(file_system_id):
     })
 
 
-@file_system_bp.route('/<file_system_id>/navigate-version', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/navigate-version', methods=['POST'])
 async def navigate_to_version_endpoint(file_system_id):
     """Navigate to a specific version of a file_system without creating a new version."""
     data = request.json or {}
@@ -827,7 +970,7 @@ async def navigate_to_version_endpoint(file_system_id):
     return jsonify(result)
 
 
-@file_system_bp.route('/<file_system_id>/delete-future-versions', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/delete-future-versions', methods=['POST'])
 async def delete_future_versions_endpoint(file_system_id):
     """Delete all versions after a specific version (for branch handling)."""
     data = request.json or {}
@@ -861,7 +1004,7 @@ async def delete_future_versions_endpoint(file_system_id):
     })
 
 
-@file_system_bp.route('/<file_system_id>/share', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/share', methods=['POST'])
 def share_fs_file_endpoint(file_system_id):
     """Share a file_system with another user."""
     data = request.json or {}
@@ -883,7 +1026,7 @@ def share_fs_file_endpoint(file_system_id):
     return jsonify(result), 400
 
 
-@file_system_bp.route('/<file_system_id>/unshare', methods=['POST'])
+@file_system_bp.route('/<path:file_system_id>/unshare', methods=['POST'])
 def unshare_fs_file_endpoint(file_system_id):
     """Remove user access to a file_system."""
     data = request.json or {}
@@ -904,7 +1047,7 @@ def unshare_fs_file_endpoint(file_system_id):
     return jsonify(result), 400
 
 
-@file_system_bp.route('/<file_system_id>/shared-users', methods=['GET'])
+@file_system_bp.route('/<path:file_system_id>/shared-users', methods=['GET'])
 def get_shared_users_endpoint(file_system_id):
     """Get list of users who have access to a file_system."""
     chat_id = request.args.get('chat_id')

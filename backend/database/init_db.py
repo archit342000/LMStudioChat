@@ -58,7 +58,8 @@ def init_db():
                 timestamp REAL,
                 research_mode INTEGER DEFAULT 0,
                 file_system_mode INTEGER DEFAULT 0,
-                browsing_mode INTEGER DEFAULT 0
+                browsing_mode INTEGER DEFAULT 0,
+                git_mode INTEGER DEFAULT 0
             )
         ''')
 
@@ -82,6 +83,12 @@ def init_db():
                 c.execute("ALTER TABLE personas ADD COLUMN browsing_mode INTEGER DEFAULT 0")
             except Exception as e:
                 logger.error(f"Error adding browsing_mode column to personas: {e}")
+        if 'git_mode' not in persona_cols:
+            logger.info("MIGRATION: Adding 'git_mode' column to 'personas' table.")
+            try:
+                c.execute("ALTER TABLE personas ADD COLUMN git_mode INTEGER DEFAULT 0")
+            except Exception as e:
+                logger.error(f"Error adding git_mode column to personas: {e}")
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS chats (
@@ -117,6 +124,7 @@ def init_db():
                 thinking_profile TEXT DEFAULT 'general',
                 browsing_session_id TEXT,
                 browsing_mode INTEGER DEFAULT 0,
+                git_mode INTEGER DEFAULT 0,
                 persona_snapshot TEXT,
                 history_compression TEXT,
                 FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
@@ -131,6 +139,12 @@ def init_db():
                 c.execute("ALTER TABLE chats ADD COLUMN persona_id TEXT")
             except Exception as e:
                 logger.error(f"Error adding persona_id column: {e}")
+        if 'git_mode' not in columns:
+            logger.info("MIGRATION: Adding 'git_mode' column to 'chats' table.")
+            try:
+                c.execute("ALTER TABLE chats ADD COLUMN git_mode INTEGER DEFAULT 0")
+            except Exception as e:
+                logger.error(f"Error adding git_mode column: {e}")
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS messages (
@@ -296,6 +310,15 @@ def init_db():
                 description TEXT,
                 instructions TEXT,
                 timestamp REAL
+            )
+        ''')
+
+        # System Settings table for persistent global configuration
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS system_settings (
+                key TEXT PRIMARY KEY,
+                value TEXT NOT NULL,
+                updated_at TEXT DEFAULT (datetime('now'))
             )
         ''')
 

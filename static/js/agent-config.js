@@ -115,7 +115,8 @@ window.AgentConfig = {
       file_system_agent: "FileSystem Agent",
       browsing_agent: "Browsing Agent",
       search_web: "Search Agent",
-      visit_page: "Visit Page Agent"
+      visit_page: "Visit Page Agent",
+      git_agent: "Git Agent"
     };
     if (this.elements.title) {
       this.elements.title.textContent = labels[agentName] || agentName;

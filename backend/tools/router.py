@@ -175,6 +175,11 @@ def get_agents_config():
             "thinking_profile": AGENT_PROFILES.get("visit_page", "none"),
             "max_tokens": config.VISIT_PAGE_AGENT_MAX_TOKENS,
             "thinking_budget": config.VISIT_PAGE_AGENT_THINKING_BUDGET
+        },
+        "git_agent": {
+            "thinking_profile": AGENT_PROFILES.get("git_agent", "precision"),
+            "max_tokens": config.GIT_AGENT_MAX_TOKENS,
+            "thinking_budget": config.GIT_AGENT_THINKING_BUDGET
         }
     })
 
@@ -202,6 +207,7 @@ def update_agent_config(agent_name):
         elif agent_name == "file_system_agent": config.FILE_SYSTEM_AGENT_MAX_TOKENS = val
         elif agent_name == "browsing_agent": config.BROWSING_AGENT_MAX_TOKENS = val
         elif agent_name == "visit_page": config.VISIT_PAGE_AGENT_MAX_TOKENS = val
+        elif agent_name == "git_agent": config.GIT_AGENT_MAX_TOKENS = val
         logger.info(f"Updated {agent_name} max_tokens to {val}")
         
     # Update Thinking Budget
@@ -212,6 +218,7 @@ def update_agent_config(agent_name):
         elif agent_name == "file_system_agent": config.FILE_SYSTEM_AGENT_THINKING_BUDGET = val
         elif agent_name == "browsing_agent": config.BROWSING_AGENT_THINKING_BUDGET = val
         elif agent_name == "visit_page": config.VISIT_PAGE_AGENT_THINKING_BUDGET = val
+        elif agent_name == "git_agent": config.GIT_AGENT_THINKING_BUDGET = val
         logger.info(f"Updated {agent_name} thinking_budget to {val}")
         
     return jsonify({"success": True})
@@ -277,3 +284,43 @@ def proxy_portal_init():
     except Exception as e:
         logger.error(f"Portal init proxy exception: {e}")
         return jsonify({"error": str(e)}), 500
+
+
+# --- Global System Settings Routes ---
+
+@tools_bp.route('/config/settings', methods=['GET'])
+def get_system_settings():
+    from backend.database import db
+    from backend import config
+    settings = db.get_all_settings()
+    # Ensure git_allowed_commands fallback is present
+    if 'git_allowed_commands' not in settings:
+        settings['git_allowed_commands'] = config.GIT_DEFAULT_ALLOWED_COMMANDS
+    # Do not expose github_pat value directly, or expose only that a pat exists
+    if 'github_pat' in settings and settings['github_pat']:
+        settings['github_pat_configured'] = True
+        # Do not send the raw token to the client for safety
+        del settings['github_pat']
+    else:
+        settings['github_pat_configured'] = False
+    
+    # Expose known git subcommands and config-level permanently blocked commands
+    settings['git_known_commands'] = config.GIT_ALL_KNOWN_COMMANDS
+    return jsonify(settings)
+
+@tools_bp.route('/config/settings', methods=['POST'])
+def update_system_settings():
+    from backend.database import db
+    data = request.json
+    if not isinstance(data, dict):
+        return jsonify({"error": "Data must be a JSON object"}), 400
+    
+    for key, val in data.items():
+        if key == 'github_pat' and val == '__REDACTED__':
+            # User submitted placeholder, ignore it
+            continue
+        db.set_setting(key, val)
+        logger.info(f"Updated system setting: {key}")
+        
+    return jsonify({"success": True})
+

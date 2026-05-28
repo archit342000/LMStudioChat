@@ -15,7 +15,8 @@ AGENT_PROFILES = {
     "research_agent": "precision",
     "document_agent": "precision",
     "file_system_agent": "precision",
-    "browsing_agent": "precision"
+    "browsing_agent": "precision",
+    "git_agent": "precision"
 }
 
 class AgentHandler:

@@ -11,10 +11,10 @@ from .tool_handler import ToolHandler
 from backend.database import db, response_cache
 from backend.logging import log_event
 from backend.task_manager import task_manager
-from backend.tools import MAIN_ASSISTANT_TOOLS, RESEARCH_TOOL, MANAGE_USER_PREFERENCES_TOOL, BROWSING_AGENT_TOOL, FILE_SYSTEM_AGENT_TOOL
+from backend.tools import MAIN_ASSISTANT_TOOLS, RESEARCH_TOOL, MANAGE_USER_PREFERENCES_TOOL, BROWSING_AGENT_TOOL, FILE_SYSTEM_AGENT_TOOL, GIT_AGENT_TOOL
 from backend import config
 from backend.prompts import BASE_SYSTEM_PROMPT, PREFERENCES_SYSTEM_PROMPT, RESEARCH_MODE_SYSTEM_PROMPT
-from backend.tools.prompts import FILE_SYSTEM_AGENT_DIRECTIVES
+from backend.tools.prompts import FILE_SYSTEM_AGENT_DIRECTIVES, GIT_AGENT_DIRECTIVES
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class ChatHandler:
         
         # Sync mode flags from request to DB immediately
         db_updates = {}
-        for flag_name, db_col in [('researchMode', 'research_mode'), ('browsingMode', 'browsing_mode'), ('fileSystemMode', 'file_system_mode')]:
+        for flag_name, db_col in [('researchMode', 'research_mode'), ('browsingMode', 'browsing_mode'), ('fileSystemMode', 'file_system_mode'), ('gitMode', 'git_mode')]:
             val = kwargs.get(flag_name)
             if val is not None:
                 db_updates[db_col] = 1 if val else 0
@@ -286,6 +286,7 @@ class ChatHandler:
                 is_user_preferences = bool(chat_metadata.get('user_preferences'))
                 is_browsing_mode = bool(chat_metadata.get('browsing_mode'))
                 is_file_system_mode = bool(chat_metadata.get('file_system_mode'))
+                is_git_mode = bool(chat_metadata.get('git_mode'))
                 
                 # Inject System Prompt for main turns
                 if parent_type == "main":
@@ -310,6 +311,8 @@ class ChatHandler:
                     
                     if is_file_system_mode:
                         system_prompt += "\n\n" + FILE_SYSTEM_AGENT_DIRECTIVES
+                    if is_git_mode:
+                        system_prompt += "\n\n" + GIT_AGENT_DIRECTIVES
 
                     # Inject custom user persona if selected.
                     # Use persona_snapshot (content frozen at assignment time) to prevent
@@ -450,7 +453,7 @@ class ChatHandler:
                 if not tools_disabled:
                     for t in MAIN_ASSISTANT_TOOLS:
                         tool_name = t.get('function', {}).get('name')
-                        if tool_name in ('research', 'browsing_agent', 'file_system_agent'):
+                        if tool_name in ('research', 'browsing_agent', 'file_system_agent', 'git_agent'):
                             continue
                         active_tools.append(t)
                     if is_research_mode:
@@ -461,6 +464,8 @@ class ChatHandler:
                         active_tools.append(BROWSING_AGENT_TOOL)
                     if is_file_system_mode:
                         active_tools.append(FILE_SYSTEM_AGENT_TOOL)
+                    if is_git_mode:
+                        active_tools.append(GIT_AGENT_TOOL)
 
                 stream_kwargs = {
                     "messages": history,

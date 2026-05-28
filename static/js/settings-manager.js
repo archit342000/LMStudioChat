@@ -87,6 +87,12 @@
         sysResetPreferencesBtn: document.getElementById("sys-reset-preferences"),
         sysResetAppBtn: document.getElementById("sys-reset-app"),
 
+        // Git Agent Settings
+        gitPatInput: document.getElementById("git-pat-input"),
+        saveGitPatBtn: document.getElementById("save-git-pat-btn"),
+        gitPatStatus: document.getElementById("git-pat-status"),
+        gitAllowedCommandsContainer: document.getElementById("git-allowed-commands-container"),
+
         // Theme and Tabs
         themeRadios: document.querySelectorAll('input[name="theme"]'),
         tabItems: document.querySelectorAll(".tab-item"),
@@ -124,6 +130,11 @@
       // Close System Settings
       if (this.nodes.closeSystemSettingsBtn) {
         this.nodes.closeSystemSettingsBtn.addEventListener("click", () => this.closeSystemSettings());
+      }
+
+      // Save Git PAT
+      if (this.nodes.saveGitPatBtn) {
+        this.nodes.saveGitPatBtn.addEventListener("click", () => this.saveGitPat());
       }
 
       // Settings Modal trigger
@@ -472,6 +483,8 @@
       this.nodes.systemSettingsModal.style.display = "flex";
       setTimeout(() => this.nodes.systemSettingsModal.classList.add("open"), 10);
       
+      this.loadGitSettings();
+
       if (this.deps.setScrollLock) {
         this.deps.setScrollLock(true);
       }
@@ -607,6 +620,118 @@
         localStorage.removeItem("my_ai_selected_model_name");
         localStorage.removeItem("my_ai_theme_mode");
         location.reload();
+      }
+    },
+
+    /**
+     * Fetches Git settings (allowed commands list and PAT configuration status)
+     * and populates the settings modal UI dynamically.
+     */
+    async loadGitSettings() {
+      try {
+        const res = await fetch("/api/tools/config/settings");
+        if (!res.ok) return;
+
+        const data = await res.json();
+        
+        // 1. Populate GitHub PAT status
+        if (this.nodes.gitPatStatus) {
+          if (data.github_pat_configured) {
+            this.nodes.gitPatStatus.textContent = "✓ GitHub PAT Configured";
+            this.nodes.gitPatStatus.style.color = "var(--color-emerald-500)";
+            if (this.nodes.gitPatInput) {
+              this.nodes.gitPatInput.value = "__REDACTED__";
+            }
+          } else {
+            this.nodes.gitPatStatus.textContent = "✗ No GitHub PAT Configured (anonymous mode)";
+            this.nodes.gitPatStatus.style.color = "var(--color-rose-500)";
+            if (this.nodes.gitPatInput) {
+              this.nodes.gitPatInput.value = "";
+            }
+          }
+        }
+
+        // 2. Populate Allowed Git Commands checkboxes
+        if (this.nodes.gitAllowedCommandsContainer) {
+          this.nodes.gitAllowedCommandsContainer.innerHTML = "";
+          const allowed = data.git_allowed_commands || [];
+          const known = data.git_known_commands || [];
+
+          known.forEach(cmd => {
+            const isChecked = allowed.includes(cmd);
+            const label = document.createElement("label");
+            label.style.cssText = "display: flex; align-items: center; gap: 0.25rem; font-size: 0.8rem; cursor: pointer; color: var(--content-primary);";
+            
+            const checkbox = document.createElement("input");
+            checkbox.type = "checkbox";
+            checkbox.value = cmd;
+            checkbox.checked = isChecked;
+            checkbox.className = "git-cmd-checkbox";
+            checkbox.style.cursor = "pointer";
+
+            checkbox.addEventListener("change", () => this.saveAllowedCommands());
+
+            const span = document.createElement("span");
+            span.textContent = cmd;
+
+            label.appendChild(checkbox);
+            label.appendChild(span);
+            this.nodes.gitAllowedCommandsContainer.appendChild(label);
+          });
+        }
+      } catch (err) {
+        console.error("Error loading Git settings:", err);
+      }
+    },
+
+    /**
+     * Saves the GitHub PAT to the backend.
+     */
+    async saveGitPat() {
+      if (!this.nodes.gitPatInput) return;
+      const pat = this.nodes.gitPatInput.value.trim();
+      const alertFn = this.deps.showAlert || window.showAlert || alert;
+
+      try {
+        const res = await fetch("/api/tools/config/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ github_pat: pat })
+        });
+
+        if (res.ok) {
+          await this.loadGitSettings();
+          await alertFn("Success", "GitHub Personal Access Token updated successfully.");
+        } else {
+          throw new Error("Failed to save PAT");
+        }
+      } catch (err) {
+        console.error("Error saving Git PAT:", err);
+        await alertFn("Error", "Failed to update GitHub PAT.");
+      }
+    },
+
+    /**
+     * Collects checked git commands and updates backend settings.
+     */
+    async saveAllowedCommands() {
+      if (!this.nodes.gitAllowedCommandsContainer) return;
+      const checkboxes = this.nodes.gitAllowedCommandsContainer.querySelectorAll(".git-cmd-checkbox");
+      const allowed = [];
+      checkboxes.forEach(cb => {
+        if (cb.checked) {
+          allowed.push(cb.value);
+        }
+      });
+
+      try {
+        await fetch("/api/tools/config/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ git_allowed_commands: allowed })
+        });
+      } catch (err) {
+        console.error("Error saving allowed git commands:", err);
       }
     }
   };

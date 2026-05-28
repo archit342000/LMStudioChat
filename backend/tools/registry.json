@@ -163,5 +163,15 @@
     "type": "pure",
     "implementation": "backend.tools.browser.browser_screenshot",
     "description": "Takes a full-page screenshot of the current page."
+  },
+  "git_agent": {
+    "type": "agent",
+    "implementation": "backend.tools.agents.git_agent.agent.flow_fn",
+    "description": "Autonomous sub-agent for git version control operations."
+  },
+  "execute_git": {
+    "type": "pure",
+    "implementation": "backend.tools.implementations.git_executor.execute_git",
+    "description": "Executes a validated git command inside the file system."
   }
 }
