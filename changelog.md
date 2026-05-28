@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v4.7.0
+* **Autonomous Git Agent & Safe Execution Tooling**:
+    - Implemented a fully functional autonomous Git operations agent capable of performing safe clones, checkouts, branch operations, commits, status lookups, and log listings.
+    - Integrated with a VFS-safe execution environment in `backend/tools/implementations/git_executor.py` to strictly restrict commands inside `FILE_SYSTEMS_DIR` paths, preventing path traversal and shell injection attacks.
+* **Playwright Scraping Context Size Limit Upgrade**:
+    - Documented update in `backend/config.py` changing `MAX_CHARS_VISIT_PAGE` from `8000` to `40000`. This expands web crawling context extraction limits to capture extremely dense document text and multi-page technical articles during autonomous page visits.
+* **Version Bump**: Incremented version globally to 4.7.0.
+
 ## v4.6.2
 * **Markdown LaTeX Rendering Improvements**:
     - **LaTeX Display Math Boundary Padding**: Preprocessed multiline display math blocks (`$$ ... $$`) in the frontend to ensure they are padded with boundary newlines and isolated on their own paragraph boundaries. This guarantees that `marked-katex-extension`'s block rule can correctly match and render block equations instead of falling back to standard markdown.
