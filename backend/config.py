@@ -58,7 +58,7 @@ SUBSCRIBER_POLL_INTERVAL = float(os.getenv("SUBSCRIBER_POLL_INTERVAL", 5.0))
 # =============================================================================
 # WEB EXTRACTION & PARSING
 # =============================================================================
-MAX_CHARS_VISIT_PAGE = 8000        # Character cap for standard visit_page tool
+MAX_CHARS_VISIT_PAGE = 40000        # Character cap for standard visit_page tool
 # Minimum content length thresholds (chars) to accept extraction as valid
 RESEARCH_EXTRACT_MIN_RAW_CONTENT = 50       # Raw content from Tavily search results
 RESEARCH_EXTRACT_MIN_PDF_CONTENT = 100      # PDF extraction via pymupdf
@@ -345,4 +345,37 @@ VISIT_PAGE_AGENT_THINKING_BUDGET = int(os.getenv("VISIT_PAGE_AGENT_THINKING_BUDG
 AGENT_SAFETY_ERROR_LOOP_THRESHOLD = int(os.getenv("AGENT_SAFETY_ERROR_LOOP_THRESHOLD", 2))
 AGENT_SAFETY_TOOL_LOOP_THRESHOLD = int(os.getenv("AGENT_SAFETY_TOOL_LOOP_THRESHOLD", 3))
 AGENT_SAFETY_STAGNATION_THRESHOLD = int(os.getenv("AGENT_SAFETY_STAGNATION_THRESHOLD", 3))
+
+# =============================================================================
+# GIT AGENT CONFIGURATION
+# =============================================================================
+GIT_AGENT_MAX_TURNS = int(os.getenv("GIT_AGENT_MAX_TURNS", 50))
+GIT_AGENT_FAILSAFE_TURNS = int(os.getenv("GIT_AGENT_FAILSAFE_TURNS", 5))
+GIT_AGENT_MAX_TOKENS = int(os.getenv("GIT_AGENT_MAX_TOKENS", 8192))
+GIT_AGENT_THINKING_BUDGET = int(os.getenv("GIT_AGENT_THINKING_BUDGET", 1024))
+GIT_COMMAND_TIMEOUT = int(os.getenv("GIT_COMMAND_TIMEOUT", 120))  # seconds
+
+# Default allowed git subcommands (read-only + clone enabled by default)
+# These defaults are used when no system_settings DB override exists.
+GIT_DEFAULT_ALLOWED_COMMANDS = [
+    "clone", "status", "log", "diff", "show"
+]
+
+# Permanently blocked commands — these are NEVER allowed regardless of settings
+# (Currently empty — all commands including push are configurable)
+GIT_PERMANENTLY_BLOCKED_COMMANDS: list = []
+
+# All known git subcommands available for the settings UI
+GIT_ALL_KNOWN_COMMANDS = [
+    # Read-only (enabled by default)
+    "clone", "status", "log", "diff", "show",
+    # Modifying (disabled by default, can be enabled)
+    "init", "add", "rm", "commit",
+    "branch", "checkout", "switch",
+    "fetch", "pull", "merge",
+    "stash", "tag", "remote", "config",
+    "reset", "rebase", "clean",
+    # Remote-write (disabled by default, can be enabled)
+    "push",
+]
 
