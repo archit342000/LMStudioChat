@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v4.7.2
+* **Inference Proxy Timeout & Retry Alignment**:
+    - **Stream Read Timeout Upgrade**: Aligned the default `TIMEOUT_LLM_STREAM_READ` parameter from 60 seconds to **1800 seconds** (30 minutes) in the `inference_proxy` to tolerate prolonged prompt prefills on consumer hardware.
+    - **Embedding Timeout Upgrade**: Aligned the default `TIMEOUT_EMBEDDING` parameter from 60 seconds to **1800 seconds** (30 minutes) in the `inference_proxy` to allow batch document and codebase embedding indexing under heavy workloads without timeouts.
+    - **Retry Delay Realignment**: Adjusted `LLM_RETRY_DELAY` from 2.0 seconds to **0.5 seconds** in the `inference_proxy` to match prompt retry latency defaults in the main app.
+    - **Configuration Test Suite**: Added dedicated test coverage in `inference_proxy/tests/test_config.py` verifying default settings and environmental overrides.
+* **Version Bump**: Incremented version globally to 4.7.2.
+
 ## v4.7.1
 * **Right Sidebar Layout & Padding Alignment**:
     - Synchronized right sidebar transition, width, and padding parameters to match the left sidebar exactly.
