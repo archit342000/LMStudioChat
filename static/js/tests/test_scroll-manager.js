@@ -170,12 +170,15 @@ describe('scroll-manager.js', () => {
         assert.strictEqual(chatInputArea.style.transform, '');
     });
 
-    test('touchmove overscroll prevention on iOS/iPad allows workspace-view scrolling', () => {
+    test('touchmove overscroll prevention on iOS/iPad allows workspace-view and clarification popover scrolling', () => {
         // Setup JSDOM in iOS mode
         const dom = new JSDOM(`<!DOCTYPE html><html><body>
             <div id="messages"></div>
             <div id="workspace-view">
                 <div id="child"></div>
+            </div>
+            <div class="clarification-popover">
+                <div id="popover-child"></div>
             </div>
             <div id="other-blocked-element"></div>
             <div id="chat-input-area"></div>
@@ -208,9 +211,11 @@ describe('scroll-manager.js', () => {
         const workspaceView = win.document.getElementById('workspace-view');
         const child = win.document.getElementById('child');
         const otherEl = win.document.getElementById('other-blocked-element');
+        const popover = win.document.querySelector('.clarification-popover');
+        const popoverChild = win.document.getElementById('popover-child');
 
         // We will dispatch a touchmove event and check if preventDefault was called.
-        // On workspace-view or its children, preventDefault should NOT be called.
+        // On workspace-view, clarification-popover or their children, preventDefault should NOT be called.
         // On other-blocked-element, preventDefault SHOULD be called.
 
         const dispatchTouchMove = (element) => {
@@ -231,6 +236,12 @@ describe('scroll-manager.js', () => {
 
         // Touch on workspace-view itself -> Should NOT preventDefault (allowed to scroll)
         assert.strictEqual(dispatchTouchMove(workspaceView), false);
+
+        // Touch on child inside clarification-popover -> Should NOT preventDefault (allowed to scroll)
+        assert.strictEqual(dispatchTouchMove(popoverChild), false);
+
+        // Touch on clarification-popover itself -> Should NOT preventDefault (allowed to scroll)
+        assert.strictEqual(dispatchTouchMove(popover), false);
 
         // Touch on other blocked element -> SHOULD preventDefault (scrolling blocked)
         assert.strictEqual(dispatchTouchMove(otherEl), true);
