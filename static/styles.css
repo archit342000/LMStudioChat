@@ -3064,7 +3064,9 @@ background: var(--accent-border);
   inset: 0;
   top: 0;
   /* Atmospheric overlay, not solid */
-  background: transparent;
+  background: rgba(248, 247, 244, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   z-index: var(--z-overlay);
   display: flex;
   justify-content: center;
@@ -3077,7 +3079,7 @@ background: var(--accent-border);
     opacity 0.3s var(--ease-spring),
     transform 0.3s var(--ease-spring);
 }.dark .file-system-backdrop {
-  background: transparent;
+  background: rgba(9, 9, 11, 0.8);
 }.file-system-backdrop.open {
   opacity: 1;
   pointer-events: auto;
