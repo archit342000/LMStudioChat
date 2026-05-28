@@ -151,7 +151,7 @@ body {
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  transition: margin-left 400ms var(--ease-spring);
+  transition: margin-left 400ms var(--ease-spring), margin-right 400ms var(--ease-spring);
 }#messages {
   flex: 1;
   overflow-y: auto;
@@ -2259,7 +2259,12 @@ background: var(--accent-border);
   main {
     /* Adjusted width for desktop with sidebar */
     margin-left: var(--sidebar-width, 16rem);
+    margin-right: var(--right-sidebar-width, 0px);
     width: auto;
+  }
+  #app-root:has(#sidebar.resizing) main,
+  #app-root:has(#right-sidebar.resizing) main {
+    transition: none !important;
   }#messages {
     /* Desktop specific padding */
     padding: clamp(2rem, 8vh, 4rem) clamp(1.5rem, 8vw, 6rem)
@@ -3015,6 +3020,7 @@ background: var(--accent-border);
     display: inline;
   }main {
     margin-left: 0 !important;
+    margin-right: 0 !important;
     padding-inline-start: 0 !important;
     width: 100vw !important;
     height: 100vh;
@@ -3127,7 +3133,7 @@ background: var(--accent-border);
   display: flex;
   flex-direction: column;
   z-index: var(--z-sidebar);
-  transition: transform 0.3s var(--ease-spring);
+  transition: transform 0.3s var(--ease-spring), visibility 0.3s;
   transform: none;
   border-inline-start: 1px solid var(--sidebar-border-color);
   border-inline-end: none; /* Clear aside's default border-inline-end */
@@ -3135,8 +3141,12 @@ background: var(--accent-border);
   border-inline-start: 1px solid var(--sidebar-border-color);
 }.right-sidebar:not(.collapsed) {
   transform: translateX(0);
+  visibility: visible;
+  pointer-events: auto;
 }.right-sidebar.collapsed {
   transform: translateX(100%);
+  visibility: hidden;
+  pointer-events: none;
 }
 
 /* Right sidebar header - mirrors left */.right-sidebar .sidebar-header {

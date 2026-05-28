@@ -407,5 +407,125 @@ describe('script.js', () => {
             }, 150);
         });
     });
-});
 
+    test('right sidebar toggle collapses and expands', async () => {
+        return new Promise((resolve, reject) => {
+            const virtualConsole = new VirtualConsole();
+            virtualConsole.on("jsdomError", (error) => reject(error));
+            virtualConsole.on("log", (...args) => console.log("JSDOM LOG:", ...args));
+            virtualConsole.on("error", (...args) => {
+                const errorStr = args.map(a => a ? a.toString() : '').join(' ');
+                if (errorStr.includes('Failed to fetch')) return;
+                if (errorStr.includes('Model config fetch error')) return;
+                reject(new Error(`Console Error: ${errorStr}`));
+            });
+
+            const htmlContent = loadFile('index.html').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            const dom = new JSDOM(htmlContent, { 
+                runScripts: "dangerously",
+                url: "http://localhost/",
+                virtualConsole 
+            });
+            const window = dom.window;
+            
+            // Mock canvas and required window helpers
+            window.HTMLCanvasElement.prototype.getContext = () => ({
+                scale: () => {}, clearRect: () => {}, beginPath: () => {}, arc: () => {}, fill: () => {}
+            });
+            window.requestAnimationFrame = () => {};
+            window.matchMedia = () => ({ matches: false, addEventListener: () => {}, removeEventListener: () => {} });
+            
+            window.fetch = async (url) => ({
+                ok: true,
+                json: async () => {
+                    if (url && url.includes('/file_systems')) return { file_systems: [], success: true };
+                    return [];
+                }
+            });
+            
+            window.URL = {
+                createObjectURL: () => '',
+                revokeObjectURL: () => {}
+            };
+            
+            const injectScript = (code) => {
+                const scriptEl = window.document.createElement("script");
+                scriptEl.textContent = code;
+                window.document.body.appendChild(scriptEl);
+            };
+
+            // Load dependencies
+            injectScript(loadFile('js/utils.js'));
+            injectScript(loadFile('js/constants.js'));
+            injectScript(loadFile('js/context-menu.js'));
+            injectScript(loadFile('js/persona-manager.js'));
+            injectScript(loadFile('js/agent-config.js'));
+            injectScript(loadFile('js/preferences-manager.js'));
+            injectScript(loadFile('js/skills-manager.js'));
+            injectScript(loadFile('js/slash-autocomplete.js'));
+            injectScript(loadFile('js/model-manager.js'));
+            injectScript(loadFile('js/bg-animation.js'));
+            injectScript(loadFile('js/icons.js'));
+            injectScript(loadFile('js/agent-renderers.js'));
+            injectScript(loadFile('js/modals.js'));
+            injectScript(loadFile('js/toast.js'));
+            injectScript(loadFile('js/clarification-popover.js'));
+            injectScript(loadFile('js/file-system-ui.js'));
+            injectScript(loadFile('js/version-manager.js'));
+            injectScript(loadFile('js/settings-manager.js'));
+            injectScript(loadFile('js/workspace-manager.js'));
+            injectScript(loadFile('js/editor-manager.js'));
+            injectScript(loadFile('js/attachment-manager.js'));
+            injectScript(loadFile('js/image-modal.js'));
+            injectScript(loadFile('js/markdown-renderer.js'));
+            injectScript(loadFile('js/file-explorer-modal.js'));
+            injectScript(loadFile('js/browser-portal.js'));
+            injectScript(loadFile('js/browser-stealth.js'));
+            injectScript(loadFile('js/telemetry-chart.js'));
+            injectScript(loadFile('js/scroll-manager.js'));
+            injectScript(loadFile('js/message-manager.js'));
+            
+            window.EditorManager.loadCodeMirror = async () => {};
+
+            // Load main script
+            injectScript(loadFile('script.js'));
+            
+            // DOMContentLoaded is already triggered by JSDOM after scripts are injected
+            
+            setTimeout(() => {
+                try {
+                    // Navigate to a workspace page to enable the files button
+                    window.history.pushState({ workspaceId: "test-workspace" }, "", "/workspace/test-workspace");
+                    const popstateEvent = new window.Event('popstate');
+                    window.dispatchEvent(popstateEvent);
+
+                    setTimeout(() => {
+                        try {
+                            const rightSidebar = window.document.getElementById("right-sidebar");
+                            const navFilesBtn = window.document.getElementById("nav-files-btn");
+                            const rightSidebarClose = window.document.getElementById("right-sidebar-close");
+
+                            // Initially right sidebar is collapsed
+                            assert.ok(rightSidebar.classList.contains("collapsed"), "Initially collapsed");
+
+                            // 1. Click navFilesBtn to open right sidebar (should remove collapsed)
+                            navFilesBtn.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+
+                            assert.ok(!rightSidebar.classList.contains("collapsed"), "Clicking navFilesBtn should expand the right sidebar");
+
+                            // 2. Click rightSidebarClose to collapse the right sidebar (should add collapsed)
+                            rightSidebarClose.dispatchEvent(new window.MouseEvent('click', { bubbles: true, cancelable: true }));
+                            assert.ok(rightSidebar.classList.contains("collapsed"), "Clicking close should collapse the right sidebar");
+
+                            resolve();
+                        } catch (err) {
+                            reject(err);
+                        }
+                    }, 50);
+                } catch (err) {
+                    reject(err);
+                }
+            }, 100);
+        });
+    });
+});

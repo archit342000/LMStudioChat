@@ -353,8 +353,23 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     const width = sidebar.getBoundingClientRect().width;
     document.documentElement.style.setProperty("--sidebar-width", `${width}px`);
   }
+
+  let lastRightSidebarWidth = "16rem";
+
+  function syncRightSidebarWidth() {
+    if (window.innerWidth <= 768 || !rightSidebar || rightSidebar.classList.contains("collapsed")) {
+      document.documentElement.style.setProperty("--right-sidebar-width", "0px");
+      return;
+    }
+    document.documentElement.style.setProperty("--right-sidebar-width", lastRightSidebarWidth);
+  }
+
   syncSidebarWidth();
-  window.addEventListener("resize", syncSidebarWidth);
+  syncRightSidebarWidth();
+  window.addEventListener("resize", () => {
+    syncSidebarWidth();
+    syncRightSidebarWidth();
+  });
 
   // Initialize Settings Manager
   window.SettingsManager.init({
@@ -492,7 +507,10 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       gitModeToggle.title = "Enable Git Agent";
     }
     closeFileSystemPanel();
-    if (rightSidebar) rightSidebar.classList.add("collapsed");
+    if (rightSidebar) {
+      rightSidebar.classList.add("collapsed");
+      syncRightSidebarWidth();
+    }
     currentFileSystemContentRaw = "";
     currentFileSystemId = null;
     currentFileSystemLanguage = "markdown";
@@ -2353,9 +2371,11 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     if (newWidth < 120) {
       rightSidebar.classList.add("collapsed");
       rightSidebar.style.width = "";
+      syncRightSidebarWidth();
     } else if (newWidth >= 240 && newWidth <= window.innerWidth * 0.8) {
       rightSidebar.classList.remove("collapsed");
       rightSidebar.style.width = `${newWidth}px`;
+      lastRightSidebarWidth = `${newWidth}px`;
       document.documentElement.style.setProperty(
         "--right-sidebar-width",
         `${newWidth}px`,
@@ -3895,6 +3915,7 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     navFilesBtn.addEventListener("click", (e) => {
       e.preventDefault();
       rightSidebar?.classList.toggle("collapsed");
+      syncRightSidebarWidth();
       if (!rightSidebar?.classList.contains("collapsed") && (currentChatId || currentWorkspaceId)) {
         fetchFileSystems(currentChatId, currentWorkspaceId);
       }
@@ -3904,6 +3925,7 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
   if (rightSidebarClose && rightSidebar) {
     rightSidebarClose.addEventListener("click", () => {
       rightSidebar.classList.add("collapsed");
+      syncRightSidebarWidth();
     });
   }
 
