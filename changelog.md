@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v4.7.1
+* **Right Sidebar Layout & Padding Alignment**:
+    - Synchronized right sidebar transition, width, and padding parameters to match the left sidebar exactly.
+    - Implemented a robust, state-driven JS synchronization for `--right-sidebar-width` to resolve layout feedback locks.
+    - Cleaned up the search artifacts input element in `static/index.html` to eliminate double-border styling and outline mismatches.
+* **Version Bump**: Incremented version globally to 4.7.1.
+
 ## v4.7.0
 * **Autonomous Git Agent & Safe Execution Tooling**:
     - Implemented a fully functional autonomous Git operations agent capable of performing safe clones, checkouts, branch operations, commits, status lookups, and log listings.
