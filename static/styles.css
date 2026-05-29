@@ -819,7 +819,9 @@ body {
   scrollbar-width: thin;
 }
 .message-content table {
-  width: 100%;
+  width: max-content;
+  min-width: 100%;
+  max-width: none;
   border-collapse: collapse;
   table-layout: auto;
   margin: 0;
@@ -830,7 +832,9 @@ body {
   white-space: normal;
   overflow-wrap: break-word;
   word-wrap: break-word;
-  word-break: break-word;
+  word-break: normal;
+  min-width: 80px;
+  max-width: 320px;
 }.dark .message-content th, .dark .message-content td {
   border-color: rgba(255, 255, 255, 0.1);
 }.bot-message {
