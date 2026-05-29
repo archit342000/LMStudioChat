@@ -1541,7 +1541,7 @@ background: var(--accent-border);
 }
 
 /* LaTeX / KaTeX Equation Layout & Responsiveness */
-.message-content .katex {
+.katex {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
@@ -1550,17 +1550,23 @@ background: var(--accent-border);
   -ms-overflow-style: none; /* IE and Edge */
 }
 
-.message-content .katex::-webkit-scrollbar {
+.katex::-webkit-scrollbar {
   display: none; /* Hide scrollbar for Chrome/Safari/Webkit */
 }
 
-.message-content .katex-display {
+.katex-display {
   max-width: 100%;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: thin;
   padding: 0.5rem 0;
   margin: 1rem 0;
+}
+
+/* Fix for display math: the inner .katex should not scroll or be constrained; the outer .katex-display handles it */
+.katex-display > .katex {
+  max-width: none;
+  overflow-x: visible;
 }
 
 /* Model Selection Cards */
