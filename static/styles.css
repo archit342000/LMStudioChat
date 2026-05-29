@@ -3588,6 +3588,7 @@ background: var(--accent-border);
     padding-inline: 1.5rem !important;
   }#app-root.file-system-open main {
     margin-left: var(--sidebar-width, 16rem);
+    margin-right: 0 !important;
     width: auto !important;
   }
 }.dark #file-system-panel {
