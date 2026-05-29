@@ -371,8 +371,19 @@ class ChatHandler:
                         role = msg.get('role')
                         if role == 'user':
                             content = msg.get('content', '')
+                            text_str = None
                             if isinstance(content, str) and content.startswith('/'):
-                                parts = content[1:].split(None, 1)
+                                text_str = content
+                            elif isinstance(content, list):
+                                for block in content:
+                                    if (isinstance(block, dict) 
+                                            and block.get('type') == 'text' 
+                                            and isinstance(block.get('text'), str) 
+                                            and block.get('text', '').startswith('/')):
+                                        text_str = block['text']
+                                        break
+                            if text_str:
+                                parts = text_str[1:].split(None, 1)
                                 if parts:
                                     potential_name = parts[0]
                                     if potential_name in skills_by_name:
@@ -416,20 +427,40 @@ class ChatHandler:
 
                             if current_inv['type'] == 'user':
                                 content = msg.get('content', '')
-                                parts = content[1:].split(None, 1)
-                                remaining_text = parts[1] if len(parts) > 1 else ""
-                                
-                                new_msg = dict(msg)
-                                if is_latest:
-                                    wrapped_instructions = f"[SKILL: {skill_name}]\n{instructions}\n[/SKILL]"
-                                    if remaining_text:
-                                        new_msg['content'] = f"{wrapped_instructions}\n\n{remaining_text}"
-                                    else:
-                                        new_msg['content'] = wrapped_instructions
+                                if isinstance(content, list):
+                                    import copy
+                                    new_msg = copy.deepcopy(msg)
+                                    for block in new_msg.get('content', []):
+                                        if (isinstance(block, dict) 
+                                                and block.get('type') == 'text' 
+                                                and isinstance(block.get('text'), str) 
+                                                and block.get('text', '').startswith('/')):
+                                            text_str = block['text']
+                                            parts = text_str[1:].split(None, 1)
+                                            remaining_text = parts[1] if len(parts) > 1 else ""
+                                            if is_latest:
+                                                wrapped_instructions = f"[SKILL: {skill_name}]\n{instructions}\n[/SKILL]"
+                                                if remaining_text:
+                                                    block['text'] = f"{wrapped_instructions}\n\n{remaining_text}"
+                                                else:
+                                                    block['text'] = wrapped_instructions
+                                            break
+                                    compiled_history.append(new_msg)
                                 else:
-                                    # Older user invocations are kept as is (starting with /skill_name prefix)
-                                    pass
-                                compiled_history.append(new_msg)
+                                    parts = content[1:].split(None, 1)
+                                    remaining_text = parts[1] if len(parts) > 1 else ""
+                                    
+                                    new_msg = dict(msg)
+                                    if is_latest:
+                                        wrapped_instructions = f"[SKILL: {skill_name}]\n{instructions}\n[/SKILL]"
+                                        if remaining_text:
+                                            new_msg['content'] = f"{wrapped_instructions}\n\n{remaining_text}"
+                                        else:
+                                            new_msg['content'] = wrapped_instructions
+                                    else:
+                                        # Older user invocations are kept as is (starting with /skill_name prefix)
+                                        pass
+                                    compiled_history.append(new_msg)
                             
                             elif current_inv['type'] == 'ai':
                                 compiled_history.append(msg)

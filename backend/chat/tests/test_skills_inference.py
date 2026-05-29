@@ -309,3 +309,56 @@ async def test_multiple_ai_invocations_only_latest_gets_full_instructions(
     # Second AI invocation (latest) should get the full instructions
     assert messages[7]["role"] == "user"
     assert messages[7]["content"] == "[SKILL: git-helper]\nUse git status.\n[/SKILL]"
+
+
+@pytest.mark.anyio
+async def test_multimodal_user_invocation_replacement(
+    mock_db, mock_task_manager, mock_response_cache
+):
+    chat_id = "test_chat_skills"
+    handler = ChatHandler(chat_id)
+
+    mock_db.get_all_skills.return_value = [
+        {
+            "id": "s1",
+            "name": "git-helper",
+            "description": "Git commands assist",
+            "instructions": "Use git status.",
+        }
+    ]
+    mock_db.get_chat.return_value = {}
+    
+    # User message contains multimodal list content with an image and a skill invocation
+    multimodal_content = [
+        {"type": "text", "text": "/git-helper check status\n\n[System Note: some notes]"},
+        {"type": "image_url", "image_url": {"url": "data:image/png;base64,image_data"}}
+    ]
+    
+    mock_db.get_messages.return_value = [
+        {"role": "user", "content": multimodal_content}
+    ]
+    mock_task_manager.is_interrupted.return_value = False
+
+    async def mock_stream_gen(*args, **kwargs):
+        yield "data: chunk1"
+
+    handler.engine.stream = MagicMock(side_effect=mock_stream_gen)
+
+    gen = handler._run_orchestrated_stream(
+        user_message=None, model_name="test-model"
+    )
+    async for _ in gen:
+        pass
+
+    called_kwargs = handler.engine.stream.call_args[1]
+    messages = called_kwargs["messages"]
+
+    # The user message should have its text block updated
+    assert messages[1]["role"] == "user"
+    content = messages[1]["content"]
+    assert isinstance(content, list)
+    assert len(content) == 2
+    assert content[0]["type"] == "text"
+    assert content[0]["text"] == "[SKILL: git-helper]\nUse git status.\n[/SKILL]\n\ncheck status\n\n[System Note: some notes]"
+    assert content[1]["type"] == "image_url"
+    assert content[1]["image_url"]["url"] == "data:image/png;base64,image_data"
