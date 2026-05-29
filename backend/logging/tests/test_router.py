@@ -140,3 +140,49 @@ def test_get_app_log_lines(mock_exists, client, tmp_path):
         res = client.get('/logs/app/lines?start=1&end=3')
         assert res.status_code == 200
         assert res.json == {"logs": ["line1", "line2"], "start": 1, "end": 3}
+
+
+from unittest.mock import MagicMock
+
+@patch('backend.logging.router.make_connection')
+def test_get_db_tables_and_data(mock_make_connection, client):
+    # Test tables list
+    res = client.get('/logs/db/tables')
+    assert res.status_code == 200
+    assert "chat_tables" in res.json
+    assert "global_tables" in res.json
+    assert "chats" in res.json["chat_tables"]
+    assert "workspaces" in res.json["global_tables"]
+
+    # Test invalid table access block
+    res = client.get('/logs/db/table/forbidden_table')
+    assert res.status_code == 403
+
+    # Mock DB cursor responses
+    mock_conn = MagicMock()
+    mock_cursor = MagicMock()
+    mock_make_connection.return_value = mock_conn
+    mock_conn.cursor.return_value = mock_cursor
+
+    mock_row = {"id": "chat1", "title": "Test Chat"}
+    # mock fetchall returning sqlite3.Row-like dictionary objects
+    mock_cursor.fetchall.return_value = [mock_row]
+
+    # Test valid chat-bound table data retrieval with filter
+    res = client.get('/logs/db/table/chats?chat_id=chat1')
+    assert res.status_code == 200
+    assert len(res.json) == 1
+    assert res.json[0]["id"] == "chat1"
+    mock_cursor.execute.assert_called_with(
+        "SELECT * FROM chats WHERE id = ? ORDER BY rowid DESC LIMIT ?",
+        ("chat1", 200)
+    )
+
+    # Test valid global table data retrieval (no chat_id filter)
+    res = client.get('/logs/db/table/workspaces')
+    assert res.status_code == 200
+    mock_cursor.execute.assert_called_with(
+        "SELECT * FROM workspaces ORDER BY rowid DESC LIMIT ?",
+        (200,)
+    )
+

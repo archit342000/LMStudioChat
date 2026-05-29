@@ -3,6 +3,7 @@ import os
 import json
 import collections
 from backend import config
+from backend.database.db_layer import make_connection
 
 logs_bp = Blueprint('logs', __name__)
 
@@ -173,3 +174,76 @@ def get_app_log_lines():
         return jsonify({"logs": logs, "start": start, "end": len(logs) + start})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+
+@logs_bp.route('/db/tables', methods=['GET'])
+def get_db_tables():
+    """Return all database tables classified as chat-bound or global."""
+    return jsonify({
+        "chat_tables": [
+            "chats",
+            "messages",
+            "file_systems",
+            "file_system_versions",
+            "file_system_permissions",
+            "files",
+            "sub_agent_messages",
+            "collections",
+            "pending_callbacks"
+        ],
+        "global_tables": [
+            "workspaces",
+            "personas",
+            "skills",
+            "system_settings",
+            "memories"
+        ]
+    })
+
+
+@logs_bp.route('/db/table/<table_name>', methods=['GET'])
+def get_db_table_data(table_name):
+    """Retrieve raw records from a database table, optionally filtered by chat_id."""
+    allowlist = [
+        "chats", "messages", "file_systems", "file_system_versions",
+        "file_system_permissions", "files", "sub_agent_messages",
+        "collections", "pending_callbacks", "workspaces", "personas",
+        "skills", "system_settings", "memories"
+    ]
+    if table_name not in allowlist:
+        return jsonify({"error": f"Table '{table_name}' access not allowed"}), 403
+
+    chat_id = request.args.get('chat_id')
+    try:
+        limit = min(int(request.args.get('limit', 200)), 1000)
+    except (ValueError, TypeError):
+        limit = 200
+
+    import sqlite3
+    
+    conn = make_connection()
+    try:
+        conn.row_factory = sqlite3.Row
+        c = conn.cursor()
+        
+        chat_bound_tables = [
+            "chats", "messages", "file_systems", "file_system_versions",
+            "file_system_permissions", "files", "sub_agent_messages",
+            "collections", "pending_callbacks"
+        ]
+        
+        if chat_id and table_name in chat_bound_tables:
+            id_col = "id" if table_name == "chats" else "chat_id"
+            query = f"SELECT * FROM {table_name} WHERE {id_col} = ? ORDER BY rowid DESC LIMIT ?"
+            c.execute(query, (chat_id, limit))
+        else:
+            query = f"SELECT * FROM {table_name} ORDER BY rowid DESC LIMIT ?"
+            c.execute(query, (limit,))
+            
+        rows = [dict(row) for row in c.fetchall()]
+        return jsonify(rows)
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+    finally:
+        conn.close()
+

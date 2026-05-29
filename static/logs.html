@@ -73,7 +73,7 @@
 
         .nav-tab {
             flex: 1;
-            padding: 8px;
+            padding: 8px 4px;
             text-align: center;
             font-size: 0.8rem;
             font-weight: 600;
@@ -246,7 +246,7 @@
         }
 
         .detail-header {
-            padding: 24px 32px;
+            padding: 20px 24px;
             border-bottom: 1px solid var(--border-header);
             display: flex;
             justify-content: space-between;
@@ -255,6 +255,99 @@
             backdrop-filter: var(--glass-blur);
             -webkit-backdrop-filter: var(--glass-blur);
             z-index: 10;
+            flex-wrap: wrap;
+            gap: 16px;
+        }
+
+        @media (max-width: 768px) {
+            .detail-header {
+                padding-left: 72px;
+            }
+        }
+
+        .detail-header > div:first-child {
+            min-width: 0;
+            flex: 1;
+        }
+
+        .detail-header h2 {
+            font-family: var(--font-mono);
+            color: var(--accent);
+            font-size: 1.1rem;
+            margin: 0;
+            word-break: break-word;
+            overflow-wrap: break-word;
+            white-space: normal;
+        }
+
+        .detail-header-stats {
+            display: flex;
+            gap: 12px 20px;
+            flex-wrap: wrap;
+        }
+
+        /* Single Pane Layout Modifier */
+        .panes-container.single-pane {
+            grid-template-columns: 1fr;
+        }
+
+        /* DB Table Styles */
+        .db-table-wrapper {
+            overflow-x: auto;
+            margin-top: 12px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--glass-border);
+            background: var(--glass-bg);
+            scrollbar-width: thin;
+        }
+        .db-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.75rem;
+            font-family: var(--font-body);
+        }
+        .db-table th {
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 700;
+            color: var(--color-primary-500);
+            border-bottom: 2px solid var(--glass-border);
+            text-transform: uppercase;
+            font-size: 0.65rem;
+            letter-spacing: 0.05em;
+            background: rgba(0, 0, 0, 0.03);
+            white-space: nowrap;
+        }
+        html.dark .db-table th {
+            background: rgba(255, 255, 255, 0.01);
+            color: var(--color-primary-400);
+        }
+        .db-table tr {
+            border-bottom: 1px solid var(--glass-border);
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+        .db-table tr:hover {
+            background: rgba(59, 130, 246, 0.04);
+        }
+        html.dark .db-table tr:hover {
+            background: rgba(37, 99, 235, 0.04);
+        }
+        .db-table tr.active {
+            background: rgba(59, 130, 246, 0.08) !important;
+            font-weight: 600;
+        }
+        html.dark .db-table tr.active {
+            background: rgba(37, 99, 235, 0.1) !important;
+        }
+        .db-table td {
+            padding: 8px 12px;
+            color: var(--content-primary);
+            max-width: 180px;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+            font-family: var(--font-mono);
         }
 
         .panes-container {
@@ -463,6 +556,7 @@
             flex: 1;
             width: 0;
             padding: 0 !important;
+            margin-left: 0 !important;
             /* Override standard padding */
             display: flex;
             flex-direction: column;
@@ -481,8 +575,55 @@
         }
 
         /* Override sidebar specific for logs */
+        #sidebar {
+            container-type: inline-size;
+            container-name: sidebar;
+        }
+
+        @container sidebar (max-width: 320px) {
+            .nav-tabs {
+                flex-direction: column !important;
+                gap: 4px !important;
+                padding: 6px !important;
+            }
+            .nav-tab {
+                flex: none !important;
+                width: 100% !important;
+                text-align: left !important;
+                padding: 6px 12px !important;
+                font-size: 0.75rem !important;
+            }
+            .sidebar-header {
+                flex-wrap: wrap !important;
+                gap: 8px !important;
+            }
+            .sidebar-brand {
+                flex: 0 0 100% !important;
+                margin-bottom: 4px !important;
+            }
+        }
+
         .sidebar-header {
-            padding: 1rem 1rem;
+            padding: 1rem 0.75rem;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .sidebar-header-buttons {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-collapsed .sidebar-header-buttons {
+            margin: 0 auto !important;
+            flex-direction: row !important;
+        }
+
+        .sidebar-collapsed .sidebar-header-buttons button {
+            margin: 0 !important;
         }
 
         .sidebar-collapsed #refresh-btn {
@@ -514,6 +655,59 @@
             padding: 0 16px 8px;
             opacity: 0.7;
         }
+
+        /* Custom Premium Select Dropdown */
+        .premium-select {
+            background: var(--glass-bg);
+            backdrop-filter: var(--glass-blur);
+            -webkit-backdrop-filter: var(--glass-blur);
+            border: 1px solid var(--glass-border);
+            color: var(--content-primary);
+            border-radius: var(--radius-lg);
+            font-size: 0.8rem;
+            font-weight: 600;
+            padding: 8px 12px;
+            cursor: pointer;
+            outline: none;
+            font-family: var(--font-mono);
+            transition: border-color 0.2s, box-shadow 0.2s;
+            appearance: none;
+            -webkit-appearance: none;
+            -moz-appearance: none;
+            background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2.5' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: right 12px center;
+            padding-right: 36px;
+        }
+
+        .premium-select:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.15);
+        }
+
+        .premium-select option {
+            background: var(--bg-base, #1e293b);
+            color: var(--content-primary, #f8fafc);
+            font-family: var(--font-sans);
+            padding: 8px;
+        }
+
+        .premium-select optgroup {
+            background: var(--bg-base, #0f172a);
+            color: var(--accent);
+            font-weight: 600;
+            font-style: normal;
+        }
+
+        html.dark .premium-select option {
+            background: #1e293b;
+            color: #f8fafc;
+        }
+
+        html.dark .premium-select optgroup {
+            background: #0f172a;
+            color: var(--accent);
+        }
     </style>
 </head>
 
@@ -527,7 +721,7 @@
             <div class="resize-handle" id="sidebar-resizer"></div>
 
             <div class="sidebar-header">
-                <a href="/" class="sidebar-brand" style="text-decoration: none;">
+                <div class="sidebar-brand">
                     <svg class="sidebar-logo-icon" width="22" height="22" viewBox="0 0 32 32" fill="none">
                         <defs>
                             <linearGradient id="brand-grad" x1="0" y1="0" x2="1" y2="1">
@@ -540,7 +734,7 @@
                         <circle cx="16" cy="12" r="2.5" fill="white" opacity="0.9" />
                     </svg>
                     <span class="sidebar-brand-text font-heading sidebar-text">Intelligence</span>
-                </a>
+                </div>
                 <select class="limit-select sidebar-text" id="limit-select" onchange="loadData(true)"
                     title="Max entries to load">
                     <option value="50">50</option>
@@ -548,20 +742,22 @@
                     <option value="500">500</option>
                     <option value="1000">1000</option>
                 </select>
-                <button class="sidebar-icon-btn" onclick="loadData(true)" title="Refresh" id="refresh-btn">
-                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
-                        <path
-                            d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
-                            stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                </button>
-                <button id="sidebar-toggle" class="sidebar-icon-btn" title="Toggle sidebar" aria-label="Toggle sidebar">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
-                        stroke-width="2.5">
-                        <path d="M15 6l-6 6 6 6" id="toggle-icon-path" stroke-linecap="round" stroke-linejoin="round" />
-                    </svg>
-                </button>
+                <div class="sidebar-header-buttons">
+                    <button class="sidebar-icon-btn" onclick="loadData(true)" title="Refresh" id="refresh-btn">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <path
+                                d="M23 4v6h-6M1 20v-6h6M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"
+                                stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                    <button id="sidebar-toggle" class="sidebar-icon-btn" title="Toggle sidebar" aria-label="Toggle sidebar">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor"
+                            stroke-width="2.5">
+                            <path d="M15 6l-6 6 6 6" id="toggle-icon-path" stroke-linecap="round" stroke-linejoin="round" />
+                        </svg>
+                    </button>
+                </div>
             </div>
 
             <section class="search-area sidebar-text" style="margin-top: 16px;">
@@ -1033,13 +1229,13 @@
                         <path d="M3 12h18M3 6h18M3 18h18" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </button>
-                <header class="detail-header" style="padding-left: 72px;">
+                <header class="detail-header">
                     <div>
-                        <h2 style="font-family: var(--font-mono); color: var(--accent); font-size: 1.1rem; margin:0;">${escapeHtml(chat.title || 'Chat Data')}</h2>
+                        <h2>${escapeHtml(chat.title || 'Chat Data')}</h2>
                         <p style="margin: 5px 0 0; font-size: 0.75rem; color: var(--content-muted); font-family: var(--font-mono);">${chat.id} | ${time}</p>
                     </div>
-                    <div style="display: flex; gap: 30px;">
-                        <div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Messages</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${msgCount}</span></div>
+                    <div class="detail-header-stats">
+                        <div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Woven Messages</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${msgCount}</span></div>
                         <div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">ID</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${escapeHtml(chat.id)}</span></div>
                     </div>
                 </header>
@@ -1049,21 +1245,37 @@
                             <span class="pane-title">Database Records</span>
                         </div>
                         <div class="pane-content">
-                            <div class="nav-tabs" style="margin-bottom: 16px;">
-                                <div class="nav-tab active" onclick="selectDatabaseTable('${chat.id}', 'messages')">Messages</div>
-                                <div class="nav-tab" onclick="selectDatabaseTable('${chat.id}', 'sse_chunks')">SSE Chunks</div>
-                                <div class="nav-tab" onclick="selectDatabaseTable('${chat.id}', 'collections')">Collections</div>
-                                <div class="nav-tab" onclick="selectDatabaseTable('${chat.id}', 'order_map')">Order Map</div>
-                                <div class="nav-tab" onclick="selectDatabaseTable('${chat.id}', 'sub_agent_messages')">Sub-Agent</div>
+                            <div style="display: flex; gap: 10px; margin-bottom: 16px; align-items: center; flex-wrap: wrap;">
+                                <span style="font-size: 0.7rem; font-weight: 700; color: var(--content-muted); text-transform: uppercase; letter-spacing: 0.05em;">Table:</span>
+                                <select id="db-table-select" class="premium-select" onchange="selectDatabaseTable('${chat.id}', this.value)" style="flex: 1;">
+                                    <optgroup label="Chat-Specific Tables">
+                                        <option value="chats">chats (chat metadata)</option>
+                                        <option value="messages" selected>messages (raw logs)</option>
+                                        <option value="file_systems">file_systems (virtual fs)</option>
+                                        <option value="file_system_versions">file_system_versions (version history)</option>
+                                        <option value="file_system_permissions">file_system_permissions (sharing)</option>
+                                        <option value="files">files (user uploads)</option>
+                                        <option value="sub_agent_messages">sub_agent_messages (agents history)</option>
+                                        <option value="collections">collections (RAG contexts)</option>
+                                        <option value="pending_callbacks">pending_callbacks (confirmations)</option>
+                                    </optgroup>
+                                    <optgroup label="Global Tables (All Chats)">
+                                        <option value="workspaces">workspaces</option>
+                                        <option value="personas">personas</option>
+                                        <option value="skills">skills</option>
+                                        <option value="system_settings">system_settings</option>
+                                        <option value="memories">memories</option>
+                                    </optgroup>
+                                </select>
                             </div>
                             <div id="db-table-content" style="min-height: 200px;">
-                                <p style="color: var(--content-muted); font-size: 0.9rem;">Click a table above to view records.</p>
+                                <p style="color: var(--content-muted); font-size: 0.85rem;">Select a table above to fetch records.</p>
                             </div>
                         </div>
                     </section>
                     <section class="pane">
                         <div class="pane-header">
-                            <span class="pane-title">JSON View</span>
+                            <span class="pane-title">Inspect Inspector / JSON View</span>
                         </div>
                         <div class="pane-content">
                             <pre><code id="chat-json" style="background:transparent;" class="language-json">${escapeHtml(JSON.stringify(chat, null, 2))}</code></pre>
@@ -1073,56 +1285,30 @@
             `;
 
             document.querySelectorAll('pre code').forEach(hljs.highlightElement);
+            selectDatabaseTable(chat.id, 'messages');
         }
 
         async function selectDatabaseTable(chatId, table) {
-            if (selectedTable === table) return;
-
             selectedTable = table;
             const contentDiv = document.getElementById('db-table-content');
             if (!contentDiv) return;
 
-            // Update active tab
-            document.querySelectorAll('.nav-tab').forEach(t => t.classList.remove('active'));
-            const activeTab = Array.from(document.querySelectorAll('.nav-tab')).find(t => t.textContent.toLowerCase().includes('sub-agent') && table === 'sub_agent_messages' || t.textContent.toLowerCase().includes(table));
-            if (activeTab) activeTab.classList.add('active');
+            const selectElem = document.getElementById('db-table-select');
+            if (selectElem && selectElem.value !== table) {
+                selectElem.value = table;
+            }
 
-            contentDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--content-muted);">Loading...</div>';
+            contentDiv.innerHTML = '<div style="padding: 20px; text-align: center; color: var(--content-muted);">Loading table records...</div>';
 
             try {
-                const url = `/api/chats/${chatId}`;
+                const url = `/api/logs/db/table/${table}?chat_id=${chatId}&limit=200`;
                 const res = await fetch(url);
-                const data = await res.json();
+                const records = await res.json();
 
                 if (res.ok) {
-                    let records = [];
-                    const messages = data.messages || [];
-
-                    if (table === 'order_map') {
-                        const rawMap = data.message_order_map;
-                        records = rawMap ? (typeof rawMap === 'string' ? JSON.parse(rawMap) : rawMap) : [];
-                    } else if (table === 'messages') {
-                        records = messages.filter(m => m.role !== 'assistant_active').map(m => {
-                            const { sub_agent_history, collections, chunks, ...rest } = m;
-                            return rest;
-                        });
-                    } else if (table === 'sse_chunks') {
-                        messages.filter(m => m.role === 'assistant_active').forEach(b => {
-                            if (b.chunks) records.push(...b.chunks);
-                        });
-                    } else if (table === 'sub_agent_messages') {
-                        messages.forEach(m => {
-                            if (m.sub_agent_history) records.push(...m.sub_agent_history);
-                        });
-                    } else if (table === 'collections') {
-                        messages.forEach(m => {
-                            if (m.collections) records.push(...m.collections);
-                        });
-                    }
-                    
                     renderDatabaseTable(contentDiv, table, records, chatId);
                 } else {
-                    contentDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--color-rose-500);">Error: ${data.error || 'Failed to load data'}</div>`;
+                    contentDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--color-rose-500);">Error: ${records.error || 'Failed to load database records'}</div>`;
                 }
             } catch (err) {
                 contentDiv.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--color-rose-500);">Network Error: ${escapeHtml(err.message)}</div>`;
@@ -1131,33 +1317,64 @@
 
         function renderDatabaseTable(container, table, records, chatId) {
             if (!records || records.length === 0) {
-                container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--content-muted);">No ${table} records found.</div>`;
+                container.innerHTML = `<div style="padding: 20px; text-align: center; color: var(--content-muted);">No records found in ${table}.</div>`;
                 return;
             }
 
+            const headers = Object.keys(records[0]);
+            window.currentDbRows = window.currentDbRows || {};
+
             let html = `
-                <div style="font-size: 0.75rem; color: var(--content-muted); margin-bottom: 8px;">
-                    Showing ${records.length} record(s) from ${table} table
+                <div style="font-size: 0.7rem; color: var(--content-muted); margin-bottom: 8px;">
+                    Showing ${records.length} record(s) (click a row to inspect details)
                 </div>
-                <div style="overflow-x: auto;">
-                    <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem; font-family: var(--font-mono);">
+                <div class="db-table-wrapper">
+                    <table class="db-table">
                         <thead>
-                            <tr style="border-bottom: 1px solid var(--border-subtle);">
-                                ${Object.keys(records[0]).map(k => `<th style="padding: 8px; text-align: left; color: var(--color-primary-500);">${escapeHtml(k)}</th>`).join('')}
+                            <tr>
+                                ${headers.map(k => `<th>${escapeHtml(k)}</th>`).join('')}
                             </tr>
                         </thead>
                         <tbody>
-                            ${records.map(r => `
-                                <tr style="border-bottom: 1px solid var(--border-subtle);">
-                                    ${Object.values(r).map(v => `<td style="padding: 8px; color: var(--content-primary);">${escapeHtml(String(v))}</td>`).join('')}
-                                </tr>
-                            `).join('')}
+                            ${records.map((r, idx) => {
+                                const rowId = `db-row-${table}-${idx}`;
+                                window.currentDbRows[rowId] = r;
+                                return `
+                                    <tr onclick="selectDatabaseRow('${rowId}', this)">
+                                        ${headers.map(k => {
+                                            const val = r[k];
+                                            let cellText = '';
+                                            if (val === null || val === undefined) {
+                                                cellText = '<span style="opacity:0.3;font-style:italic;">null</span>';
+                                            } else if (typeof val === 'object') {
+                                                cellText = escapeHtml(JSON.stringify(val));
+                                            } else {
+                                                cellText = escapeHtml(String(val));
+                                            }
+                                            return `<td title="${escapeHtml(String(val || ''))}">${cellText}</td>`;
+                                        }).join('')}
+                                    </tr>
+                                `;
+                            }).join('')}
                         </tbody>
                     </table>
                 </div>
             `;
 
             container.innerHTML = html;
+        }
+
+        window.selectDatabaseRow = function(rowId, rowElement) {
+            document.querySelectorAll('.db-table tr').forEach(tr => tr.classList.remove('active'));
+            if (rowElement) rowElement.classList.add('active');
+
+            const record = window.currentDbRows[rowId];
+            const jsonView = document.getElementById('chat-json');
+            if (jsonView && record) {
+                jsonView.textContent = JSON.stringify(record, null, 2);
+                jsonView.className = "language-json";
+                hljs.highlightElement(jsonView);
+            }
         }
 
         async function showNetworkDetail(log, element) {
@@ -1195,7 +1412,36 @@
             document.querySelectorAll('.event-card').forEach(i => i.classList.remove('active'));
             element.classList.add('active');
 
-            renderDualPane(log.type, new Date(log.timestamp).toLocaleString(), 0, 'EVENT', {}, log.data);
+            const detailView = document.getElementById('detail-view');
+            const time = log.timestamp ? new Date(log.timestamp).toLocaleString() : 'N/A';
+            const logStr = JSON.stringify(log.data, null, 2);
+
+            detailView.innerHTML = `
+                <button id="mobile-toggle" class="btn-secondary glass" title="Menu" style="position: fixed; z-index: 50;" onclick="toggleMobileMenu()">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5">
+                        <path d="M3 12h18M3 6h18M3 18h18" stroke-linecap="round" stroke-linejoin="round" />
+                    </svg>
+                </button>
+                <header class="detail-header">
+                    <div>
+                        <h2>${escapeHtml(log.type)}</h2>
+                        <p style="margin: 5px 0 0; font-size: 0.75rem; color: var(--content-muted); font-family: var(--font-mono);">${time}</p>
+                    </div>
+                </header>
+                <div class="panes-container single-pane">
+                    <section class="pane">
+                        <div class="pane-header">
+                            <span class="pane-title">Event Data</span>
+                            <button class="copy-btn" onclick="copyText('event-content', this)">Copy</button>
+                        </div>
+                        <div class="pane-content">
+                            <pre><code id="event-content" style="background:transparent;" class="language-json">${escapeHtml(logStr)}</code></pre>
+                        </div>
+                    </section>
+                </div>
+            `;
+
+            document.querySelectorAll('pre code').forEach(hljs.highlightElement);
         }
 
         function renderDualPane(title, time, duration, mode, req, res, timings, toolCalls = null) {
@@ -1224,14 +1470,17 @@
                         <path d="M3 12h18M3 6h18M3 18h18" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </button>
-                <header class="detail-header" style="padding-left: 72px;">
+                <header class="detail-header">
                     <div>
-                        <h2 style="font-family: var(--font-mono); color: var(--accent); font-size: 1.1rem; margin:0;">${title}</h2>
+                        <h2>${title}</h2>
                         <p style="margin: 5px 0 0; font-size: 0.75rem; color: var(--content-muted); font-family: var(--font-mono);">${time}</p>
                     </div>
-                    <div style="display: flex; gap: 30px;">
+                    <div class="detail-header-stats">
                         ${duration ? `<div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Compute</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${duration.toFixed(2)}s</span></div>` : ''}
-                        ${timings && timings.predicted_per_second ? `<div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Speed</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${timings.predicted_per_second.toFixed(1)} t/s</span></div>` : ''}
+                        ${timings && timings.prompt_n ? `<div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Prompt Tok</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${timings.prompt_n}</span></div>` : ''}
+                        ${timings && (timings.predicted_n !== undefined) ? `<div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Gen Tok</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${timings.predicted_n}</span></div>` : ''}
+                        ${timings && timings.prompt_per_second ? `<div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Prefill</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${timings.prompt_per_second.toFixed(1)} t/s</span></div>` : ''}
+                        ${timings && timings.predicted_per_second ? `<div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Decode</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${timings.predicted_per_second.toFixed(1)} t/s</span></div>` : ''}
                         <div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Mode</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${mode.toUpperCase()}</span></div>
                     </div>
                 </header>
@@ -1274,7 +1523,6 @@
             document.querySelectorAll('.event-card').forEach(i => i.classList.remove('active'));
             element.classList.add('active');
 
-            // Parse log format: timestamp | level | name | message
             const parts = log.split(' | ');
             const time = parts.length > 0 ? parts[0] : '';
             const level = parts.length > 1 ? parts[1] : '';
@@ -1288,16 +1536,16 @@
                         <path d="M3 12h18M3 6h18M3 18h18" stroke-linecap="round" stroke-linejoin="round" />
                     </svg>
                 </button>
-                <header class="detail-header" style="padding-left: 72px;">
+                <header class="detail-header">
                     <div>
-                        <h2 style="font-family: var(--font-mono); color: var(--accent); font-size: 1.1rem; margin:0;">${escapeHtml(name || 'App Log')}</h2>
+                        <h2>${escapeHtml(name || 'App Log')}</h2>
                         <p style="margin: 5px 0 0; font-size: 0.75rem; color: var(--content-muted); font-family: var(--font-mono);">${escapeHtml(time)}</p>
                     </div>
-                    <div style="display: flex; gap: 30px;">
+                    <div class="detail-header-stats">
                         <div style="text-align:right"><span style="display:block;font-size:0.6rem;color:var(--content-muted);text-transform:uppercase;font-weight:700;">Level</span><span style="font-family:var(--font-mono);font-size:0.9rem; color: var(--content-primary);">${escapeHtml(level)}</span></div>
                     </div>
                 </header>
-                <div class="panes-container">
+                <div class="panes-container single-pane">
                     <section class="pane">
                         <div class="pane-header">
                             <span class="pane-title">Log Entry</span>
