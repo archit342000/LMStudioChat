@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.7.4
+* **Skill Store & Chat Enhancements**:
+    - **Multimodal Skill Invocations**: Fixed an issue where the skill name wasn't getting replaced with the instructions when the user message had an image or file attachment (multimodal list payloads).
+* **Version Bump**: Incremented version globally to 4.7.4.
+
 ## v4.7.3
 * **UI Refinements & Fixes**:
     - **Logs Page UI**: Refined logs page UI and updated it to be compatible with the refactored app.
