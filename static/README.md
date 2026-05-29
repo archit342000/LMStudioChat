@@ -21,4 +21,4 @@
 
 ## 🛠️ Usage & Conventions
 *   **Patterns:** Vanilla JS, DOM manipulation, fetch API for backend communication. CSS custom properties for styling. No frontend frameworks are allowed.
-*   **Testing:** Location or commands for tests: `static/tests/`.
+*   **Testing:** Location or commands for tests: run all tests with `node --test static/tests/test_script.js static/tests/test_logs.js`.
