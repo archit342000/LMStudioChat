@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v4.7.5
+* **UI Refinements & Fixes**:
+    - **Mermaid Schematic Viewer**: Added mermaid schematic viewer to navigate mermaid.js schematics effectively.
+    - **LaTeX Equation Scrolling**: Added logic for latex equations to scroll within callouts.
+    - **Table Scrolling**: Added hybrid rendering logic making tables scrollable when exceeding thresholds.
+    - **Chat Timestamp Logic**: Fixed a discrepancy in time units between the backend and JS for chats.
+    - **Log Base64 Truncation**: Added logic to truncate base64-encoded elements in logs.
+* **Version Bump**: Incremented version globally to 4.7.5.
+
 ## v4.7.4
 * **Skill Store & Chat Enhancements**:
     - **Multimodal Skill Invocations**: Fixed an issue where the skill name wasn't getting replaced with the instructions when the user message had an image or file attachment (multimodal list payloads).
