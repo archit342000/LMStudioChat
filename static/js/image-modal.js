@@ -26,12 +26,16 @@ window.closeImageModal = function() {
     }
 };
 
-// Close image modal on Escape key
+// Close modals on Escape key
 document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape') {
-        const modal = document.getElementById('image-modal');
-        if (modal && modal.classList.contains('open')) {
+        const imgModal = document.getElementById('image-modal');
+        if (imgModal && imgModal.classList.contains('open')) {
             window.closeImageModal();
+        }
+        const mermaidModal = document.getElementById('mermaid-modal');
+        if (mermaidModal && mermaidModal.classList.contains('open')) {
+            window.closeMermaidModal();
         }
     }
 });

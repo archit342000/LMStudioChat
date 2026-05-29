@@ -25,7 +25,25 @@ if (typeof marked !== "undefined" && typeof hljs !== "undefined") {
     if (langVal === 'mermaid') {
       // Escape HTML to prevent DOMPurify from breaking diagram code (like `<` or `>`)
       const escaped = typeof escapeHtml === 'function' ? escapeHtml(textVal) : textVal.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-      return `<pre class="mermaid">${escaped}</pre>`;
+      return `<div class="mermaid-wrapper-container">
+                <div class="mermaid-controls">
+                  <button class="mermaid-ctrl-btn zoom-in-btn" title="Zoom In">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  </button>
+                  <button class="mermaid-ctrl-btn zoom-out-btn" title="Zoom Out">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                  </button>
+                  <button class="mermaid-ctrl-btn zoom-reset-btn" title="Reset Zoom">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+                  </button>
+                  <button class="mermaid-ctrl-btn zoom-popout-btn" title="Pop Out / Fullscreen">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>
+                  </button>
+                </div>
+                <div class="mermaid-pan-viewport">
+                  <pre class="mermaid">${escaped}</pre>
+                </div>
+              </div>`;
     }
 
     const highlighted = hljs.highlight(textVal, {

@@ -61,6 +61,13 @@ describe('markdown-renderer.js', () => {
         const html = window.marked.parse(markdown);
 
         assert.ok(html.includes('<pre class="mermaid">graph TD;\n  A--&gt;B;</pre>'));
+        assert.ok(html.includes('class="mermaid-wrapper-container"'));
+        assert.ok(html.includes('class="mermaid-controls"'));
+        assert.ok(html.includes('class="mermaid-pan-viewport"'));
+        assert.ok(html.includes('class="mermaid-ctrl-btn zoom-in-btn"'));
+        assert.ok(html.includes('class="mermaid-ctrl-btn zoom-out-btn"'));
+        assert.ok(html.includes('class="mermaid-ctrl-btn zoom-reset-btn"'));
+        assert.ok(html.includes('class="mermaid-ctrl-btn zoom-popout-btn"'));
     });
 
     test('image rendering', () => {

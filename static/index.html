@@ -1628,6 +1628,32 @@
         </div>
     </div>
 
+    <!-- Mermaid Detail Modal -->
+    <div id="mermaid-modal" class="modal-backdrop hidden" style="z-index: 20000;" onclick="closeMermaidModal()">
+        <div class="mermaid-modal-container" onclick="event.stopPropagation()" ontouchend="event.stopPropagation()">
+            <div class="mermaid-modal-header">
+                <h3>Mermaid Schematic Viewer</h3>
+                <div class="mermaid-modal-controls">
+                    <button class="mermaid-modal-btn" id="mermaid-modal-zoom-in" title="Zoom In">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <button class="mermaid-modal-btn" id="mermaid-modal-zoom-out" title="Zoom Out">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                    </button>
+                    <button class="mermaid-modal-btn" id="mermaid-modal-zoom-reset" title="Reset Zoom">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><polyline points="3 3 3 8 8 8"></polyline></svg>
+                    </button>
+                    <button class="mermaid-modal-btn close-btn" id="close-mermaid-modal" title="Close Viewer">
+                        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
+                    </button>
+                </div>
+            </div>
+            <div class="mermaid-modal-body" id="mermaid-modal-body">
+                <!-- SVG content will be copied here -->
+            </div>
+        </div>
+    </div>
+
     <script src="/js/utils.js"></script>
     <script src="/js/constants.js"></script>
     <script src="/js/bg-animation.js"></script>

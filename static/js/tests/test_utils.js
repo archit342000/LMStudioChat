@@ -109,4 +109,34 @@ describe('utils.js', () => {
         renderMermaidBlocks();
         assert.strictEqual(runCalled, true);
     });
+
+    test('renderMermaidBlocks with container initialization', () => {
+        const doc = window.document;
+        const container = doc.createElement('div');
+        container.className = 'mermaid-wrapper-container';
+        
+        const viewport = doc.createElement('div');
+        viewport.className = 'mermaid-pan-viewport';
+        
+        const pre = doc.createElement('pre');
+        pre.className = 'mermaid';
+        
+        viewport.appendChild(pre);
+        container.appendChild(viewport);
+        doc.body.appendChild(container);
+
+        window.mermaid = {
+            run: () => Promise.resolve()
+        };
+
+        window.renderMermaidBlocks();
+
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                assert.strictEqual(container.dataset.mermaidInitialized, 'true');
+                doc.body.removeChild(container);
+                resolve();
+            }, 200);
+        });
+    });
 });

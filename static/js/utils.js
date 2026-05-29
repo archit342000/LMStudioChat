@@ -5,6 +5,9 @@
  * Load order: utils.js → bg-animation.js → script.js
  */
 
+// Global modal placeholders
+window.closeMermaidModal = function() {};
+
 // ---------------------------------------------------------------------------
 // Environment / Device Detection
 // ---------------------------------------------------------------------------
@@ -175,11 +178,347 @@ function formatMarkdown(text) {
 window.renderMermaidBlocks = function() {
     if (typeof mermaid !== 'undefined') {
         try {
-            mermaid.run({ querySelector: '.mermaid' });
+            const runPromise = mermaid.run({ querySelector: '.mermaid' });
+            Promise.resolve(runPromise).then(() => {
+                setTimeout(() => {
+                    const containers = document.querySelectorAll('.mermaid-wrapper-container');
+                    containers.forEach(container => {
+                        if (!container.dataset.mermaidInitialized) {
+                            container.dataset.mermaidInitialized = 'true';
+                            initMermaidZoomPan(container);
+                        }
+                    });
+                }, 100);
+            }).catch(err => {
+                console.warn("Mermaid run promise rejected:", err);
+            });
         } catch (e) {
             console.warn("Mermaid rendering failed or no elements found.", e);
         }
     }
+};
+
+function bindMermaidButton(btn, action) {
+    if (!btn) return;
+    btn.ontouchend = (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        action();
+    };
+    btn.onclick = (e) => {
+        e.stopPropagation();
+        action();
+    };
+}
+
+function initMermaidZoomPan(container) {
+    const viewport = container.querySelector('.mermaid-pan-viewport');
+    const pre = container.querySelector('pre.mermaid');
+    const zoomInBtn = container.querySelector('.zoom-in-btn');
+    const zoomOutBtn = container.querySelector('.zoom-out-btn');
+    const zoomResetBtn = container.querySelector('.zoom-reset-btn');
+    const zoomPopoutBtn = container.querySelector('.zoom-popout-btn');
+
+    if (!viewport || !pre) return;
+
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+
+    function applyTransform() {
+        pre.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
+
+    // Apply the initial scale (1 is default, forced to fit via CSS)
+    applyTransform();
+
+    function zoomIn() {
+        scale = Math.min(scale + 0.15, 4);
+        applyTransform();
+    }
+
+    function zoomOut() {
+        scale = Math.max(scale - 0.15, 0.1);
+        applyTransform();
+    }
+
+    function reset() {
+        scale = 1;
+        translateX = 0;
+        translateY = 0;
+        applyTransform();
+    }
+
+    bindMermaidButton(zoomInBtn, zoomIn);
+    bindMermaidButton(zoomOutBtn, zoomOut);
+    bindMermaidButton(zoomResetBtn, reset);
+    bindMermaidButton(zoomPopoutBtn, () => {
+        let svgHtml = "";
+        const svg = pre.querySelector('svg');
+        if (svg) {
+            svgHtml = svg.outerHTML;
+        } else if (pre.innerHTML && pre.innerHTML.includes('<svg')) {
+            svgHtml = pre.innerHTML;
+        }
+
+        if (svgHtml) {
+            window.openMermaidModal(svgHtml);
+        } else {
+            console.warn("No SVG element or markup found in mermaid pre block");
+            if (window.showToast) {
+                window.showToast("Unable to open viewer: Mermaid SVG not found.", "warning");
+            }
+        }
+    });
+
+    // Mouse Drag to Pan
+    viewport.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // Only left click
+        isPanning = true;
+        viewport.classList.add('panning');
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        e.preventDefault();
+    });
+
+    window.addEventListener('mousemove', (e) => {
+        if (!isPanning) return;
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        applyTransform();
+    });
+
+    window.addEventListener('mouseup', () => {
+        if (isPanning) {
+            isPanning = false;
+            viewport.classList.remove('panning');
+        }
+    });
+
+    // Touch support
+    let touchStartX = 0;
+    let touchStartY = 0;
+    viewport.addEventListener('touchstart', (e) => {
+        if (e.touches.length === 1) {
+            isPanning = true;
+            touchStartX = e.touches[0].clientX - translateX;
+            touchStartY = e.touches[0].clientY - translateY;
+        }
+    }, { passive: true });
+
+    viewport.addEventListener('touchmove', (e) => {
+        if (!isPanning || e.touches.length !== 1) return;
+        translateX = e.touches[0].clientX - touchStartX;
+        translateY = e.touches[0].clientY - touchStartY;
+        applyTransform();
+    }, { passive: true });
+
+    viewport.addEventListener('touchend', () => {
+        isPanning = false;
+    });
+
+    // Scroll wheel zoom (only with Ctrl key to not hijack page scrolling)
+    viewport.addEventListener('wheel', (e) => {
+        if (e.ctrlKey) {
+            e.preventDefault();
+            const zoomFactor = 0.05;
+            if (e.deltaY < 0) {
+                scale = Math.min(scale + zoomFactor, 4);
+            } else {
+                scale = Math.max(scale - zoomFactor, 0.4);
+            }
+            applyTransform();
+        }
+    }, { passive: false });
+}
+
+window.openMermaidModal = function(svgHtml) {
+    const modal = document.getElementById('mermaid-modal');
+    const modalBody = document.getElementById('mermaid-modal-body');
+    if (!modal || !modalBody) {
+        console.error("Mermaid modal or body element not found in DOM.");
+        if (window.showToast) {
+            window.showToast("Unable to open viewer: Modal element is missing from the page. Please reload.", "error");
+        }
+        return;
+    }
+
+    modalBody.innerHTML = `<pre class="mermaid-modal-content" style="margin:0; padding:0; background:transparent; border:none; display:flex; align-items:center; justify-content:center; transform-origin:center center; width:100%; height:100%; transition:transform 0.1s ease-out;">${svgHtml}</pre>`;
+    const pre = modalBody.querySelector('.mermaid-modal-content');
+
+    const svg = pre.querySelector('svg');
+    if (svg) {
+        svg.style.maxWidth = 'none';
+        svg.style.maxHeight = 'none';
+        svg.style.pointerEvents = 'none';
+    }
+
+    modal.classList.remove('hidden');
+    void modal.offsetWidth;
+    modal.classList.add('open');
+
+    let scale = 1;
+    let translateX = 0;
+    let translateY = 0;
+    let isPanning = false;
+    let startX = 0;
+    let startY = 0;
+
+    function applyTransform() {
+        pre.style.transform = `translate(${translateX}px, ${translateY}px) scale(${scale})`;
+    }
+
+    // Apply the initial scale (1 is default, forced to fit via CSS)
+    applyTransform();
+
+    function zoomIn() {
+        scale = Math.min(scale + 0.2, 8);
+        applyTransform();
+    }
+
+    function zoomOut() {
+        scale = Math.max(scale - 0.2, 0.05);
+        applyTransform();
+    }
+
+    function reset() {
+        scale = 1;
+        translateX = 0;
+        translateY = 0;
+        applyTransform();
+    }
+
+    bindMermaidButton(document.getElementById('mermaid-modal-zoom-in'), zoomIn);
+    bindMermaidButton(document.getElementById('mermaid-modal-zoom-out'), zoomOut);
+    bindMermaidButton(document.getElementById('mermaid-modal-zoom-reset'), reset);
+    bindMermaidButton(document.getElementById('close-mermaid-modal'), () => window.closeMermaidModal());
+    bindMermaidButton(modal, () => window.closeMermaidModal());
+
+    modalBody.onmousedown = function(e) {
+        if (e.button !== 0) return;
+        isPanning = true;
+        modalBody.classList.add('panning');
+        startX = e.clientX - translateX;
+        startY = e.clientY - translateY;
+        e.preventDefault();
+    };
+
+    const mouseMoveHandler = function(e) {
+        if (!isPanning) return;
+        translateX = e.clientX - startX;
+        translateY = e.clientY - startY;
+        applyTransform();
+    };
+
+    const mouseUpHandler = function() {
+        if (isPanning) {
+            isPanning = false;
+            modalBody.classList.remove('panning');
+        }
+    };
+
+    window.addEventListener('mousemove', mouseMoveHandler);
+    window.addEventListener('mouseup', mouseUpHandler);
+
+    // Touch support for mobile panning and pinch-to-zoom
+    let touchStartX = 0;
+    let touchStartY = 0;
+    let initialDistance = 0;
+    let initialMidX = 0;
+    let initialMidY = 0;
+    let startScale = 1;
+    let startTranslateX = 0;
+    let startTranslateY = 0;
+    let touchMode = 'none'; // 'none', 'pan', 'pinch'
+
+    const touchStartHandler = function(e) {
+        if (e.touches.length === 1) {
+            touchMode = 'pan';
+            isPanning = true;
+            touchStartX = e.touches[0].clientX - translateX;
+            touchStartY = e.touches[0].clientY - translateY;
+        } else if (e.touches.length === 2) {
+            touchMode = 'pinch';
+            isPanning = false;
+            initialDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            initialMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            initialMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+            startScale = scale;
+            startTranslateX = translateX;
+            startTranslateY = translateY;
+        }
+    };
+
+    const touchMoveHandler = function(e) {
+        if (touchMode === 'pan' && e.touches.length === 1) {
+            if (e.cancelable) e.preventDefault();
+            translateX = e.touches[0].clientX - touchStartX;
+            translateY = e.touches[0].clientY - touchStartY;
+            applyTransform();
+        } else if (touchMode === 'pinch' && e.touches.length === 2) {
+            if (e.cancelable) e.preventDefault();
+            const currentDistance = Math.hypot(
+                e.touches[0].clientX - e.touches[1].clientX,
+                e.touches[0].clientY - e.touches[1].clientY
+            );
+            const currentMidX = (e.touches[0].clientX + e.touches[1].clientX) / 2;
+            const currentMidY = (e.touches[0].clientY + e.touches[1].clientY) / 2;
+
+            if (initialDistance > 0) {
+                const factor = currentDistance / initialDistance;
+                scale = Math.min(Math.max(startScale * factor, 0.2), 8);
+                translateX = startTranslateX + (currentMidX - initialMidX);
+                translateY = startTranslateY + (currentMidY - initialMidY);
+                applyTransform();
+            }
+        }
+    };
+
+    const touchEndHandler = function(e) {
+        if (e.touches.length === 0) {
+            touchMode = 'none';
+            isPanning = false;
+        } else if (e.touches.length === 1 && touchMode === 'pinch') {
+            touchMode = 'pan';
+            isPanning = true;
+            touchStartX = e.touches[0].clientX - translateX;
+            touchStartY = e.touches[0].clientY - translateY;
+        }
+    };
+
+    modalBody.addEventListener('touchstart', touchStartHandler, { passive: true });
+    modalBody.addEventListener('touchmove', touchMoveHandler, { passive: false });
+    modalBody.addEventListener('touchend', touchEndHandler, { passive: true });
+
+    window.closeMermaidModal = function() {
+        modal.classList.remove('open');
+        setTimeout(() => {
+            modal.classList.add('hidden');
+            modalBody.innerHTML = '';
+        }, 300);
+        window.removeEventListener('mousemove', mouseMoveHandler);
+        window.removeEventListener('mouseup', mouseUpHandler);
+        modalBody.removeEventListener('touchstart', touchStartHandler);
+        modalBody.removeEventListener('touchmove', touchMoveHandler);
+        modalBody.removeEventListener('touchend', touchEndHandler);
+    };
+
+    modalBody.onwheel = function(e) {
+        e.preventDefault();
+        const zoomFactor = 0.08;
+        if (e.deltaY < 0) {
+            scale = Math.min(scale + zoomFactor, 8);
+        } else {
+            scale = Math.max(scale - zoomFactor, 0.2);
+        }
+        applyTransform();
+    };
 };
 
 // ---------------------------------------------------------------------------
