@@ -181,3 +181,15 @@ window.renderMermaidBlocks = function() {
         }
     }
 };
+
+// ---------------------------------------------------------------------------
+// Timestamp Helpers
+// ---------------------------------------------------------------------------
+
+function parseChatTimestamp(ts) {
+    if (!ts) return null;
+    const num = parseFloat(ts);
+    if (isNaN(num)) return new Date(ts);
+    return new Date(num < 1000000000000 ? num * 1000 : num);
+}
+

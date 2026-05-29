@@ -1185,7 +1185,7 @@
                     }
                 };
 
-                const time = chat.timestamp ? new Date(chat.timestamp).toLocaleString() : 'N/A';
+                const time = chat.timestamp ? parseChatTimestamp(chat.timestamp).toLocaleString() : 'N/A';
 
                 // Get message count and model info
                 const msgCount = chat.messages ? chat.messages.length : 0;
@@ -1231,6 +1231,13 @@
             return div.innerHTML;
         }
 
+        function parseChatTimestamp(ts) {
+            if (!ts) return null;
+            const num = parseFloat(ts);
+            if (isNaN(num)) return new Date(ts);
+            return new Date(num < 1000000000000 ? num * 1000 : num);
+        }
+
         async function showDatabaseDetail(chat, id, element) {
             selectedChatId = id;
             selectedTable = null;
@@ -1238,7 +1245,7 @@
             element.classList.add('active');
 
             const detailView = document.getElementById('detail-view');
-            const time = chat.timestamp ? new Date(chat.timestamp).toLocaleString() : 'N/A';
+            const time = chat.timestamp ? parseChatTimestamp(chat.timestamp).toLocaleString() : 'N/A';
             const msgCount = chat.messages ? chat.messages.length : 0;
 
             detailView.innerHTML = `

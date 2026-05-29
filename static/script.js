@@ -1172,7 +1172,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
           
           const dateSpan = document.createElement("span");
           dateSpan.className = "workspace-chat-row-date";
-          const dateStr = new Date(chat.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
+          const dateStr = parseChatTimestamp(chat.timestamp).toLocaleString([], { dateStyle: "short", timeStyle: "short" });
           dateSpan.textContent = dateStr;
 
           const actionsDiv = document.createElement("div");
