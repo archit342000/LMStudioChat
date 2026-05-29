@@ -1,5 +1,15 @@
 # CHANGELOG
 
+## v4.7.3
+* **UI Refinements & Fixes**:
+    - **Logs Page UI**: Refined logs page UI and updated it to be compatible with the refactored app.
+    - **Padding Adjustments**: Fixed excessive padding on the right due to compounding push of the file editor and file sidebar.
+    - **Clarification Box Scrollability**: Resolved scrollability issues in the clarification tool box.
+* **Skill Store & Chat Enhancements**:
+    - **Skills Highlighting**: Added visual highlighting for skills in chat.
+    - **Background Transparency**: Decreased background transparency for the user preference and skills stores.
+* **Version Bump**: Incremented version globally to 4.7.3.
+
 ## v4.7.2
 * **Inference Proxy Timeout & Retry Alignment**:
     - **Stream Read Timeout Upgrade**: Aligned the default `TIMEOUT_LLM_STREAM_READ` parameter from 60 seconds to **1800 seconds** (30 minutes) in the `inference_proxy` to tolerate prolonged prompt prefills on consumer hardware.
