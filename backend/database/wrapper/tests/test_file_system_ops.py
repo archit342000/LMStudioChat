@@ -125,15 +125,6 @@ def test_file_system_ops(temp_db):
     db.delete_file_system_versions_after(fs_id, chat_id=chat_id, up_to_version=1)
     versions_after = db.get_file_system_versions(fs_id, chat_id=chat_id)
     assert len(versions_after) == 1
-    
-    # 16. share & unshare
-    db.share_fs_file(fs_id, chat_id=chat_id, user_id="user1", permission="write")
-    shared_users = db.get_shared_users(fs_id, chat_id=chat_id)
-    assert any(u['user_id'] == "user1" for u in shared_users)
-
-    db.unshare_fs_file(fs_id, chat_id=chat_id, user_id="user1")
-    shared_users_after = db.get_shared_users(fs_id, chat_id=chat_id)
-    assert "user1" not in shared_users_after
 
     # 17. migrate_file_system_owner
     chat_id_new = "chat_migrated"

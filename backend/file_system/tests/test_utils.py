@@ -16,6 +16,11 @@ def test_sanitize_path():
     assert sanitize_path("../../foo/bar") == "foo/bar"
     assert sanitize_path("foo/./bar") == "foo/bar"
     assert sanitize_path("foo/*?bar") == "foo/__bar"
+    assert sanitize_path("foo/bar (1).txt") == "foo/bar (1).txt"
+    assert sanitize_path("foo/bar[2].txt") == "foo/bar[2].txt"
+    assert sanitize_path("foo/bar+baz.txt") == "foo/bar+baz.txt"
+    assert sanitize_path("foo/v=2.txt") == "foo/v=2.txt"
+    assert sanitize_path("foo/bar,baz.txt") == "foo/bar,baz.txt"
     assert sanitize_path("") == ""
     assert sanitize_path("///") == ""
     assert sanitize_path(".") == ""
@@ -50,6 +55,12 @@ def test_resolve_owner_and_physical_path_workspace(mock_get_ws):
     assert chat is None
     assert ws == "ws_1"
     assert phys.endswith("ws_1")
+
+    # Test "default" workspace fallback
+    chat, ws, phys = resolve_owner_and_physical_path("chat1", "workspace/path.txt", workspace_id="default")
+    assert chat is None
+    assert ws == "ws_1"
+    assert phys.endswith(os.path.join("ws_1", "path.txt"))
 
 @patch("backend.file_system.utils.get_workspace_for_chat")
 def test_resolve_owner_and_physical_path_workspace_missing(mock_get_ws):

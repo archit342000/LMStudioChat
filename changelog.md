@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v4.7.6
+* **Virtual File System & API Enhancements**:
+    - **Blocked Virtual Workspace Path Arguments**: Modified `execute_git` subcommand to block `workspace/` prefixed arguments in git commands across all contexts, preventing incorrect physical folders from being created.
+    - **Workspace ID Normalization**: Added a `before_request` hook and path resolution helper to automatically normalize `"default"` workspace IDs into the chat's actual registered workspace ID.
+    - **Cleaned Sharing Code**: Completely removed all traces of the unused `/share`, `/unshare`, and `/shared-users` endpoints, database operations, manager functions, and test cases.
+* **Version Bump**: Incremented version globally to 4.7.6.
+
 ## v4.7.5
 * **UI Refinements & Fixes**:
     - **Mermaid Schematic Viewer**: Added mermaid schematic viewer to navigate mermaid.js schematics effectively.

@@ -154,26 +154,16 @@ def execute_git(
     except ValueError as e:
         return f"Error: {e}"
 
-    # 2.5. Prevent cloning/creation inside 'workspace/' path prefix if chat is outside workspace context
-    from backend.file_system.utils import get_workspace_for_chat
-    has_workspace = False
-    if workspace_id:
-        has_workspace = True
-    elif chat_id:
-        try:
-            if get_workspace_for_chat(chat_id):
-                has_workspace = True
-        except Exception:
-            pass
-            
-    if not has_workspace:
-        for arg in sanitized_args:
-            clean_arg = arg.replace('\\', '/').lstrip('./').strip('/')
-            if clean_arg.startswith("workspace/") or clean_arg == "workspace":
-                return (
-                    "Error: The 'workspace/' directory is reserved for Workspace Folders. "
-                    "Since this chat is not in a workspace, you cannot clone or create git folders inside 'workspace/'."
-                )
+    # 2.5. Prevent cloning/creation inside 'workspace/' path prefix
+    for arg in sanitized_args:
+        clean_arg = arg.replace('\\', '/').lstrip('./').strip('/')
+        if clean_arg.startswith("workspace/") or clean_arg == "workspace":
+            return (
+                "Error: The 'workspace/' directory is a virtual mount. "
+                "You cannot use 'workspace/' prefixed paths as command arguments. "
+                "Instead, set the tool's working directory to 'workspace/' (or a path under it) "
+                "and use relative paths without the 'workspace/' prefix."
+            )
 
     # 3. Resolve working_directory to physical path
     try:

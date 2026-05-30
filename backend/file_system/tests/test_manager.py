@@ -256,30 +256,6 @@ def test_get_fs_file_diff(mock_utils):
         assert res["added_lines"] == ["line3"]
         assert res["removed_lines"] == ["line2"]
 
-def test_share_fs_file(mock_db, mock_utils):
-    mock_utils["get_workspace_for_chat"].return_value = None
-    mock_db.get_file_system_meta.return_value = {"chat_id": "c1", "workspace_id": None}
-    mock_db.share_fs_file.return_value = {"success": True}
-    
-    res = manager.share_fs_file("fs_1", "chat_1", "u1")
-    assert res["success"] is True
-
-def test_unshare_fs_file(mock_db, mock_utils):
-    mock_utils["get_workspace_for_chat"].return_value = None
-    mock_db.get_file_system_meta.return_value = {"chat_id": "c1", "workspace_id": None}
-    mock_db.unshare_fs_file.return_value = {"success": True}
-    
-    res = manager.unshare_fs_file("fs_1", "chat_1", "u1")
-    assert res["success"] is True
-
-def test_get_shared_users(mock_db, mock_utils):
-    mock_utils["get_workspace_for_chat"].return_value = None
-    mock_db.get_file_system_meta.return_value = {"chat_id": "c1", "workspace_id": None}
-    mock_db.get_shared_users.return_value = [{"user": "u1"}]
-    
-    res = manager.get_shared_users("fs_1", "chat_1")
-    assert res == [{"user": "u1"}]
-
 def test_delete_chat_fs_files(mock_db, mock_os):
     mock_os.path.exists.return_value = True
     mock_db.delete_chat_file_system_files.return_value = {"success": True}

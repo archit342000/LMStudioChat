@@ -92,6 +92,13 @@ def test_delete_directory_route(client):
         assert response.status_code == 200
         assert response.get_json() == {"success": True}
         
+        # Test default workspace resolution
+        with patch('backend.file_system.utils.get_workspace_for_chat') as mock_get_ws:
+            mock_get_ws.return_value = "resolved_ws_id"
+            response = client.delete('/api/file_system/directory?chat_id=c1&workspace_id=default&path=dir')
+            assert response.status_code == 200
+            mock_delete_dir.assert_called_with(chat_id="c1", path="dir", workspace_id="resolved_ws_id")
+
         # Error from tool
         mock_delete_dir.return_value = {"success": False, "error": "Not empty"}
         response = client.delete('/api/file_system/directory?chat_id=c1&path=dir')
@@ -185,16 +192,35 @@ def test_get_raw_file_by_name_endpoint(client):
         # File not found
         mock_db.get_chat_file_systems.return_value = []
         mock_db.get_owner_file_systems.return_value = []
-        response = client.get('/api/file_system/raw?chat_id=c1&filename=style.css')
-        assert response.status_code == 404
+        with patch('backend.file_system.utils.resolve_owner_and_physical_path') as mock_resolve, \
+             patch('backend.file_system.router.os.path.exists') as mock_exists:
+            mock_resolve.return_value = ("c1", None, "/nonexistent/style.css")
+            mock_exists.return_value = False
+            response = client.get('/api/file_system/raw?chat_id=c1&filename=style.css')
+            assert response.status_code == 404
         
-        # Success
+        # Success from DB
         mock_db.get_chat_file_systems.return_value = [{'id': 'fs1', 'chat_id': 'c1', 'filename': 'style.css'}]
         mock_get_content.return_value = b"body { color: red; }"
         response = client.get('/api/file_system/raw?chat_id=c1&filename=style.css')
         assert response.status_code == 200
         assert response.content_type == 'text/css; charset=utf-8'
         assert response.data == b"body { color: red; }"
+
+        # Success from Disk Fallback
+        mock_db.get_chat_file_systems.return_value = []
+        mock_db.get_owner_file_systems.return_value = []
+        from unittest.mock import mock_open
+        with patch('backend.file_system.utils.resolve_owner_and_physical_path') as mock_resolve, \
+             patch('backend.file_system.router.os.path.exists') as mock_exists, \
+             patch('backend.file_system.router.os.path.isfile') as mock_isfile, \
+             patch('builtins.open', mock_open(read_data=b"body { color: blue; }")):
+            mock_resolve.return_value = ("c1", None, "/some/path/style.css")
+            mock_exists.return_value = True
+            mock_isfile.return_value = True
+            response = client.get('/api/file_system/raw?chat_id=c1&filename=style.css')
+            assert response.status_code == 200
+            assert response.data == b"body { color: blue; }"
 
 def test_get_raw_file_by_id_endpoint(client):
     with patch('backend.file_system.router.db') as mock_db, \
@@ -383,26 +409,6 @@ def test_versioning_endpoints(client):
         resp = client.post('/api/file_system/fs1/delete-future-versions', json={"chat_id": "c1", "up_to_version": 1})
         assert resp.status_code == 200
 
-def test_sharing_endpoints(client):
-    with patch('backend.file_system.router.db') as mock_db, \
-         patch('backend.file_system.manager.share_fs_file') as mock_share, \
-         patch('backend.file_system.manager.unshare_fs_file') as mock_unshare, \
-         patch('backend.file_system.manager.get_shared_users') as mock_get_users:
-         
-        mock_db.get_file_system_meta.return_value = {'chat_id': 'c1'}
-        
-        mock_share.return_value = {"success": True}
-        resp = client.post('/api/file_system/fs1/share', json={"chat_id": "c1"})
-        assert resp.status_code == 200
-        
-        mock_unshare.return_value = {"success": True}
-        resp = client.post('/api/file_system/fs1/unshare', json={"chat_id": "c1"})
-        assert resp.status_code == 200
-        
-        mock_get_users.return_value = ["u1"]
-        resp = client.get('/api/file_system/fs1/shared-users?chat_id=c1')
-        assert resp.status_code == 200
-
 def test_channel_status(client):
     with patch('backend.file_system.router.FileSystemChannelManager') as mock_channel:
         mock_channel.get_status.return_value = {"locked": False}
@@ -418,15 +424,12 @@ def test_channel_status(client):
 def test_restore_fs_file_version_endpoint(): pass
 def test_delete_future_versions_endpoint(): pass
 def test_get_fs_file_version_endpoint(): pass
-def test_get_shared_users_endpoint(): pass
 def test_export_fs_file_pdf_endpoint(): pass
-def test_share_fs_file_endpoint(): pass
 def test_export_fs_file_html_endpoint(): pass
 def test_get_channel_status(): pass
 def test_remove_fs_file_tag(): pass
 def test_navigate_to_version_endpoint(): pass
 def test_add_file_system_tag(): pass
-def test_unshare_fs_file_endpoint(): pass
 def test_get_file_system_current_version_endpoint(): pass
 def test_set_file_system_tags(): pass
 def test_get_fs_file_diff_endpoint(): pass

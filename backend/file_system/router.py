@@ -19,6 +19,43 @@ file_system_bp = Blueprint('file_system', __name__)
 
 FILE_SYSTEMS_DIR = os.path.join(config.DATA_DIR, "file_systems")
 
+@file_system_bp.before_request
+def normalize_workspace_id():
+    """
+    If workspace_id is "default" and chat_id is present, resolve it to the chat's actual workspace ID.
+    This handles cases where the client sends "default" as a workspace_id fallback.
+    """
+    chat_id = request.args.get('chat_id')
+    workspace_id = request.args.get('workspace_id')
+    
+    # Check request JSON body
+    data = None
+    if request.is_json:
+        try:
+            data = request.get_json(silent=True)
+            if data:
+                if not chat_id:
+                    chat_id = data.get('chat_id')
+                if not workspace_id:
+                    workspace_id = data.get('workspace_id')
+        except Exception:
+            pass
+
+    if workspace_id == "default" and chat_id:
+        from backend.file_system.utils import get_workspace_for_chat
+        resolved_ws_id = get_workspace_for_chat(chat_id)
+        if resolved_ws_id:
+            # Update request query arguments
+            from werkzeug.datastructures import MultiDict
+            args = MultiDict(request.args)
+            if 'workspace_id' in args:
+                args['workspace_id'] = resolved_ws_id
+            request.args = args
+            
+            # Update request JSON dictionary
+            if data and 'workspace_id' in data:
+                data['workspace_id'] = resolved_ws_id
+
 @file_system_bp.route('', methods=['POST'])
 @file_system_bp.route('/', methods=['POST'])
 async def create_fs_file_route():
@@ -192,7 +229,12 @@ async def list_file_systems_endpoint():
                     new_rel = f"{rel_path}/{item}" if rel_path else item
                     
                     if os.path.isdir(full_item_path):
-                        items.append({"type": "directory", "filename": new_rel, "title": item})
+                        items.append({
+                            "id": f"disk:{new_rel}",
+                            "type": "directory",
+                            "filename": new_rel,
+                            "title": item
+                        })
                         items.extend(scan_physical_items(full_item_path, new_rel))
                     elif os.path.isfile(full_item_path):
                         mtime = os.path.getmtime(full_item_path)
@@ -321,6 +363,20 @@ async def get_raw_file_by_name_endpoint():
         target_fs = next((fs for fs in ws_file_systems if fs['filename'] == clean_ws_filename), None)
         
     if not target_fs:
+        from backend.file_system.utils import resolve_owner_and_physical_path
+        try:
+            target_chat_id, target_workspace_id, physical_path = resolve_owner_and_physical_path(chat_id, filename, workspace_id=workspace_id)
+            if os.path.exists(physical_path) and os.path.isfile(physical_path):
+                with open(physical_path, 'rb') as f:
+                    content = f.read()
+                mime_type, _ = mimetypes.guess_type(filename)
+                if not mime_type:
+                    mime_type = 'application/octet-stream'
+                return Response(content, mimetype=mime_type)
+        except Exception as e:
+            logger.error(f"Error fetching raw disk file by name {filename}: {e}")
+
+    if not target_fs:
         return jsonify({"error": "File not found"}), 404
         
     from backend.file_system.manager import get_fs_file_content
@@ -416,7 +472,7 @@ async def get_file_system_endpoint(file_system_id):
                     "title": os.path.basename(virtual_path),
                     "filename": filename,
                     "timestamp": os.path.getmtime(physical_path),
-                    "folder": os.path.dirname(virtual_path),
+                    "folder": os.path.dirname(virtual_path).replace("workspace/", ""),
                     "tags": [],
                     "file_system_type": "custom",
                     "current_version": 1,
@@ -1001,69 +1057,6 @@ async def delete_future_versions_endpoint(file_system_id):
         "file_system_id": file_system_id,
         "deleted_versions": deleted_count,
         "up_to_version": up_to_version
-    })
-
-
-@file_system_bp.route('/<path:file_system_id>/share', methods=['POST'])
-def share_fs_file_endpoint(file_system_id):
-    """Share a file_system with another user."""
-    data = request.json or {}
-    chat_id = data.get('chat_id') or request.args.get('chat_id')
-    if not chat_id:
-        return jsonify({"error": "chat_id is required"}), 400
-
-    file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
-    if not file_system:
-        return jsonify({"error": "FileSystem not found"}), 404
-
-    user_id = data.get('user_id', 'any_user')
-    permission = data.get('permission', 'write')
-
-    from backend.file_system.manager import share_fs_file
-    result = share_fs_file(file_system_id, chat_id, user_id, permission)
-    if result['success']:
-        return jsonify(result)
-    return jsonify(result), 400
-
-
-@file_system_bp.route('/<path:file_system_id>/unshare', methods=['POST'])
-def unshare_fs_file_endpoint(file_system_id):
-    """Remove user access to a file_system."""
-    data = request.json or {}
-    chat_id = data.get('chat_id') or request.args.get('chat_id')
-    if not chat_id:
-        return jsonify({"error": "chat_id is required"}), 400
-
-    file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
-    if not file_system:
-        return jsonify({"error": "FileSystem not found"}), 404
-
-    user_id = data.get('user_id', 'any_user')
-
-    from backend.file_system.manager import unshare_fs_file
-    result = unshare_fs_file(file_system_id, chat_id, user_id)
-    if result['success']:
-        return jsonify(result)
-    return jsonify(result), 400
-
-
-@file_system_bp.route('/<path:file_system_id>/shared-users', methods=['GET'])
-def get_shared_users_endpoint(file_system_id):
-    """Get list of users who have access to a file_system."""
-    chat_id = request.args.get('chat_id')
-    if not chat_id:
-        return jsonify({"error": "chat_id is required"}), 400
-
-    file_system = db.get_file_system_meta(file_system_id=file_system_id, chat_id=chat_id)
-    if not file_system:
-        return jsonify({"error": "FileSystem not found"}), 404
-
-    from backend.file_system.manager import get_shared_users
-    users = get_shared_users(file_system_id, chat_id)
-    return jsonify({
-        "success": True,
-        "file_system_id": file_system_id,
-        "users": users
     })
 
 

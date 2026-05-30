@@ -546,27 +546,6 @@ def get_fs_file_diff(file_system_id: str, chat_id: str, version_a: int, version_
             if l2: added.append(l2)
     return {"success": True, "file_system_id": file_system_id, "from_version": version_a, "to_version": version_b, "added_lines": added, "removed_lines": removed, "stats": {"lines_added": len(added), "lines_removed": len(removed)}}
 
-def share_fs_file(file_system_id: str, chat_id: str, user_id: str = "any_user", permission: str = "read") -> Dict[str, Any]:
-    """Share a file_system with a user."""
-    workspace_id = get_workspace_for_chat(chat_id)
-    file_system_meta = db.get_file_system_meta(file_system_id, chat_id=chat_id, workspace_id=workspace_id)
-    if not file_system_meta: return {"success": False, "error": "FileSystem not found"}
-    return db.share_fs_file(file_system_id, chat_id=file_system_meta.get('chat_id'), workspace_id=file_system_meta.get('workspace_id'), user_id=user_id, permission=permission)
-
-def unshare_fs_file(file_system_id: str, chat_id: str, user_id: str = "any_user") -> Dict[str, Any]:
-    """Stop sharing a file_system with a user."""
-    workspace_id = get_workspace_for_chat(chat_id)
-    file_system_meta = db.get_file_system_meta(file_system_id, chat_id=chat_id, workspace_id=workspace_id)
-    if not file_system_meta: return {"success": False, "error": "FileSystem not found"}
-    return db.unshare_fs_file(file_system_id, chat_id=file_system_meta.get('chat_id'), workspace_id=file_system_meta.get('workspace_id'), user_id=user_id)
-
-def get_shared_users(file_system_id: str, chat_id: str) -> List[Dict[str, Any]]:
-    """Get list of users a file_system is shared with."""
-    workspace_id = get_workspace_for_chat(chat_id)
-    file_system_meta = db.get_file_system_meta(file_system_id, chat_id=chat_id, workspace_id=workspace_id)
-    if not file_system_meta: return []
-    return db.get_shared_users(file_system_id, chat_id=file_system_meta.get('chat_id'), workspace_id=file_system_meta.get('workspace_id'))
-
 
 def delete_chat_fs_files(chat_id):
     import shutil

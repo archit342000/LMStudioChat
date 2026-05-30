@@ -17,8 +17,8 @@ def sanitize_path(path: str) -> str:
     for part in parts:
         if part in ('..', '.'):
             continue # ignore parent/current traversal
-        # Allow dots for file extensions
-        safe_part = re.sub(r'[^\w\s\-.]', '_', part).strip()
+        # Allow dots for file extensions and other safe filename characters
+        safe_part = re.sub(r'[^\w\s\-.\(\)\[\]\+=,]', '_', part).strip()
         if safe_part:
             safe_parts.append(safe_part)
     return '/'.join(safe_parts)
@@ -44,7 +44,8 @@ def resolve_owner_and_physical_path(chat_id: Optional[str], virtual_path: str, e
     
     # Intercept 'workspace/' mount or workspace context
     if safe_path.startswith("workspace/") or safe_path == "workspace" or (chat_id is None and workspace_id is not None):
-        target_ws_id = workspace_id or get_workspace_for_chat(chat_id)
+        ws_id_param = workspace_id if workspace_id != "default" else None
+        target_ws_id = ws_id_param or (get_workspace_for_chat(chat_id) if chat_id else None)
         if not target_ws_id:
             raise ValueError("The 'workspace/' directory is reserved for Workspace Folders. Please add this chat to a workspace to use workspace file_systems, or choose a different path.")
             

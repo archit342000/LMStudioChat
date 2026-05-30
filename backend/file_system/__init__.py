@@ -13,9 +13,6 @@ from .manager import (
     restore_fs_file_version,
     get_fs_file_version,
     get_fs_file_diff,
-    share_fs_file,
-    unshare_fs_file,
-    get_shared_users,
     delete_chat_fs_files
 )
 from .channel import FileSystemChannelManager
@@ -41,9 +38,6 @@ __all__ = [
     'restore_fs_file_version',
     'get_fs_file_version',
     'get_fs_file_diff',
-    'share_fs_file',
-    'unshare_fs_file',
-    'get_shared_users',
     'delete_chat_fs_files',
     'FileSystemChannelManager',
     'ChannelState',

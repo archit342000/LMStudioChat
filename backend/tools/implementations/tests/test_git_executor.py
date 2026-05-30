@@ -80,7 +80,7 @@ def test_execute_git_flow(mock_run, mock_which, mock_allowed):
         # Should delete corresponding cached file records
         mock_delete.assert_called_once()
 
-def test_execute_git_workspace_restriction_outside_workspace():
+def test_execute_git_workspace_restriction():
     # 1. Prohibited case: Outside workspace, target directory argument contains workspace prefix
     with patch("backend.file_system.utils.get_workspace_for_chat", return_value=None), \
          patch("backend.tools.implementations.git_executor._get_allowed_commands", return_value=["clone"]):
@@ -91,7 +91,7 @@ def test_execute_git_workspace_restriction_outside_workspace():
             working_directory=".",
             chat_id="chat_outside"
         )
-        assert "The 'workspace/' directory is reserved for Workspace Folders" in res
+        assert "The 'workspace/' directory is a virtual mount" in res
 
     # 2. Prohibited case with relative dots/backslashes
     with patch("backend.file_system.utils.get_workspace_for_chat", return_value=None), \
@@ -103,19 +103,11 @@ def test_execute_git_workspace_restriction_outside_workspace():
             working_directory=".",
             chat_id="chat_outside"
         )
-        assert "The 'workspace/' directory is reserved for Workspace Folders" in res
+        assert "The 'workspace/' directory is a virtual mount" in res
 
-    # 3. Allowed case: Chat has workspace ID
+    # 3. Prohibited case: Even with workspace context
     with patch("backend.file_system.utils.get_workspace_for_chat", return_value="ws_id"), \
-         patch("backend.tools.implementations.git_executor._get_allowed_commands", return_value=["clone"]), \
-         patch("shutil.which", return_value="/usr/bin/git"), \
-         patch("subprocess.run") as mock_run:
-        
-        mock_result = MagicMock()
-        mock_result.returncode = 0
-        mock_result.stdout = "cloned successfully"
-        mock_result.stderr = ""
-        mock_run.return_value = mock_result
+         patch("backend.tools.implementations.git_executor._get_allowed_commands", return_value=["clone"]):
         
         res = execute_git(
             subcommand="clone",
@@ -123,7 +115,7 @@ def test_execute_git_workspace_restriction_outside_workspace():
             working_directory=".",
             chat_id="chat_inside"
         )
-        assert "The 'workspace/' directory is reserved" not in res
+        assert "The 'workspace/' directory is a virtual mount" in res
 
 def test_git_executor_clone_subdirectory_forcing():
     from backend.tools.implementations.git_executor import _extract_repo_name
