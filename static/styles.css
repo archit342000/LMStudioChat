@@ -5901,6 +5901,7 @@ max-height: 70vh;
   font-weight: 700;
   color: var(--content-primary);
   margin: 0;
+  line-height: 1.2;
 }
 .workspace-actions {
   display: flex;
