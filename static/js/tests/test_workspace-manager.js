@@ -266,4 +266,19 @@ describe('workspace-manager.js', () => {
         assert.strictEqual(JSON.parse(fetchCalls[1].options.body).workspace_id, 'new-ws-id');
         assert.ok(loadChatsCalled);
     });
+
+    test('updateWorkspaceIcon PATCHes API and reloads chats', async () => {
+        window.fetch = async (url, options = {}) => {
+            fetchCalls.push({ url, options });
+            return { ok: true };
+        };
+
+        await window.WorkspaceManager.updateWorkspaceIcon('ws-123', '🚀');
+
+        assert.strictEqual(fetchCalls.length, 1);
+        assert.strictEqual(fetchCalls[0].options.method, 'PATCH');
+        assert.ok(fetchCalls[0].url.includes('/workspaces/ws-123'));
+        assert.strictEqual(JSON.parse(fetchCalls[0].options.body).icon, '🚀');
+        assert.ok(loadChatsCalled);
+    });
 });

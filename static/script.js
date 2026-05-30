@@ -1125,14 +1125,27 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       chatTitleHeader.classList.remove("hidden");
     }
     if (chatTitleDisplay) {
-      chatTitleDisplay.textContent = `Workspace: ${displayName}`;
+      if (workspace && workspace.icon) {
+        const iconHtml = window.getWorkspaceIconHtml(workspace.icon, 18, "var(--color-primary-600)", 2.5);
+        chatTitleDisplay.innerHTML = `<span style="display: inline-flex; align-items: center; gap: 6px; vertical-align: middle;">${iconHtml}<span>Workspace: ${displayName}</span></span>`;
+      } else {
+        chatTitleDisplay.textContent = `Workspace: ${displayName}`;
+      }
     }
 
-    // Update workspace title and stats in view
+    // Update workspace title, icon, and stats in view
     const viewTitle = document.getElementById("workspace-view-title");
     const viewStats = document.getElementById("workspace-view-stats");
     if (viewTitle) {
       viewTitle.textContent = displayName;
+    }
+    const viewIconContainer = document.getElementById("workspace-view-icon-container");
+    if (viewIconContainer) {
+      if (workspace && workspace.icon) {
+        viewIconContainer.innerHTML = window.getWorkspaceIconHtml(workspace.icon, 24, "var(--color-primary)", 2.5);
+      } else {
+        viewIconContainer.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`;
+      }
     }
 
     // Render workspace chats grid
@@ -1380,6 +1393,29 @@ const chatTitleHeader = document.getElementById("chat-title-header");
         }
       });
     }
+
+    const triggerWorkspaceIconPicker = async () => {
+      if (currentWorkspaceId && window.showWorkspaceIconPicker) {
+        const workspaces = window.WorkspaceManager.getChatWorkspaces();
+        const workspace = workspaces.find(w => w.name === currentWorkspaceId);
+        const currentIcon = workspace ? workspace.icon : "";
+        const chosenIcon = await window.showWorkspaceIconPicker(currentIcon);
+        if (chosenIcon !== null) {
+          await window.WorkspaceManager.updateWorkspaceIcon(currentWorkspaceId, chosenIcon);
+          await loadWorkspace(currentWorkspaceId, false);
+        }
+      }
+    };
+
+    const wsIconBtn = document.getElementById("workspace-icon-btn");
+    if (wsIconBtn) {
+      wsIconBtn.addEventListener("click", triggerWorkspaceIconPicker);
+    }
+
+    const wsViewIconContainer = document.getElementById("workspace-view-icon-container");
+    if (wsViewIconContainer) {
+      wsViewIconContainer.addEventListener("click", triggerWorkspaceIconPicker);
+    }
   }
 
   /**
@@ -1553,6 +1589,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       folderHeader.className = "folder-header";
 
       const folderIconSvg = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="opacity: 0.7;" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>`;
+      const folderIconHtml = workspace.icon ? window.getWorkspaceIconHtml(workspace.icon, 14, "currentColor", 2.5) : folderIconSvg;
       const chevronSvg = `<svg class="folder-chevron" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M9 18l6-6-6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
 
       const nameWrapper = document.createElement("div");
@@ -1564,7 +1601,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
         "overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 0.8125rem; font-weight: 600; color: var(--content-primary);";
       nameSpan.textContent = workspace.displayName || workspace.name;
 
-      nameWrapper.innerHTML = folderIconSvg;
+      nameWrapper.innerHTML = folderIconHtml;
       nameWrapper.appendChild(nameSpan);
 
       const countSpan = document.createElement("span");
@@ -4740,6 +4777,7 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     startNewChat: startNewChat,
     renameWorkspace: (id, ev) => window.WorkspaceManager.renameWorkspace(id, ev),
     deleteWorkspace: (id, ev) => window.WorkspaceManager.deleteWorkspace(id, ev),
+    updateWorkspaceIcon: (id, icon) => window.WorkspaceManager.updateWorkspaceIcon(id, icon),
     showPromptModal: showPromptModal,
     showFileExplorerModal: showFileExplorerModal,
     renameOrMoveFileSystemPath: renameOrMoveFileSystemPath,

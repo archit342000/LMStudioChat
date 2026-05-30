@@ -265,6 +265,10 @@
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.8;"><path d="M12 20h9M16.5 3.5a2.121 2.121 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
           Rename Workspace
         </button>
+        <button class="sidebar-context-menu-item" data-action="change-icon">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.8;"><circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2M9 9h.01M15 9h.01"/></svg>
+          Change Icon
+        </button>
         <button class="sidebar-context-menu-item" data-action="uncategorize-all">
           <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="opacity: 0.8;"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
           Uncategorize All Chats
@@ -315,6 +319,17 @@
         } else if (action === "rename") {
           this.close();
           if (this.deps.renameWorkspace) this.deps.renameWorkspace(id, event);
+        } else if (action === "change-icon") {
+          this.close();
+          if (window.showWorkspaceIconPicker && this.deps.getChatWorkspaces && this.deps.updateWorkspaceIcon) {
+            const workspaces = this.deps.getChatWorkspaces();
+            const workspace = workspaces.find(w => w.name === id);
+            const currentIcon = workspace ? workspace.icon : "";
+            const chosenIcon = await window.showWorkspaceIconPicker(currentIcon);
+            if (chosenIcon !== null) {
+              await this.deps.updateWorkspaceIcon(id, chosenIcon);
+            }
+          }
         } else if (action === "uncategorize-all") {
           this.close();
           if (this.deps.getSavedChats) {

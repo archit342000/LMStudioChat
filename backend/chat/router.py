@@ -47,11 +47,15 @@ def create_workspace():
 
 @chat_bp.route('/workspaces/<workspace_id>', methods=['PATCH'])
 def rename_workspace(workspace_id):
-    data = request.json
+    data = request.json or {}
     new_name = data.get('name')
-    if not new_name:
-        return jsonify({"error": "Missing workspace name"}), 400
-    db.rename_workspace(workspace_id, new_name)
+    has_icon = 'icon' in data
+    if not new_name and not has_icon:
+        return jsonify({"error": "Missing workspace update fields (name or icon)"}), 400
+    if has_icon:
+        db.update_workspace_icon(workspace_id, data.get('icon'))
+    if new_name:
+        db.rename_workspace(workspace_id, new_name)
     return jsonify({"success": True})
 
 @chat_bp.route('/workspaces/<workspace_id>', methods=['DELETE'])

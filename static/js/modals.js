@@ -264,3 +264,108 @@ window.showConfirm = async function(title, message, isDanger = false) {
 window.showAlert = async function(title, message) {
     return await window.showModal(title, message, { type: "alert" });
 };
+
+window.showWorkspaceIconPicker = async function(currentIcon = "") {
+    return new Promise((resolve) => {
+        const modal = document.getElementById("workspace-icon-modal");
+        const previewCircle = document.getElementById("workspace-icon-preview-circle");
+        const confirmBtn = document.getElementById("workspace-icon-confirm-btn");
+        const cancelBtn = document.getElementById("workspace-icon-cancel-btn");
+        const clearBtn = document.getElementById("workspace-icon-clear-btn");
+        const emojiGrid = modal?.querySelector(".emoji-grid");
+
+        if (!modal || !previewCircle || !confirmBtn || !cancelBtn || !clearBtn || !emojiGrid) {
+            resolve(null);
+            return;
+        }
+
+        let selectedIcon = currentIcon || "";
+
+        // Function to update the preview state
+        const updatePreview = (iconKey) => {
+            selectedIcon = iconKey;
+            previewCircle.innerHTML = window.getWorkspaceIconHtml(iconKey, 28, "var(--accent)");
+            
+            // Highlight selected in the grid
+            emojiGrid.querySelectorAll(".emoji-grid-item").forEach(item => {
+                if (item.getAttribute("data-icon-key") === iconKey) {
+                    item.classList.add("selected");
+                    item.style.borderColor = "var(--accent)";
+                    item.style.background = "rgba(var(--accent-rgb, 59, 130, 246), 0.15)";
+                } else {
+                    item.classList.remove("selected");
+                    item.style.borderColor = "var(--border-luminous)";
+                    item.style.background = "var(--surface-secondary)";
+                }
+            });
+        };
+
+        // Populate icon grid
+        emojiGrid.innerHTML = "";
+        if (window.WORKSPACE_ICONS) {
+            Object.keys(window.WORKSPACE_ICONS).forEach(key => {
+                const btn = document.createElement("button");
+                btn.type = "button";
+                btn.className = "emoji-grid-item";
+                btn.setAttribute("data-icon-key", key);
+                btn.style.cssText = "background: var(--surface-secondary); border: 1px solid var(--border-luminous); border-radius: 10px; width: 2.75rem; height: 2.75rem; display: flex; align-items: center; justify-content: center; color: var(--content-primary); cursor: pointer; transition: all 0.2s ease;";
+                btn.innerHTML = window.getWorkspaceIconSvg(key, 20);
+                btn.onclick = () => updatePreview(key);
+                
+                // Hover effects
+                btn.onmouseenter = () => {
+                    if (!btn.classList.contains("selected")) {
+                        btn.style.borderColor = "var(--content-muted)";
+                        btn.style.transform = "scale(1.08)";
+                    }
+                };
+                btn.onmouseleave = () => {
+                    if (!btn.classList.contains("selected")) {
+                        btn.style.borderColor = "var(--border-luminous)";
+                        btn.style.transform = "scale(1)";
+                    }
+                };
+                emojiGrid.appendChild(btn);
+            });
+        }
+
+        // Setup current state
+        updatePreview(selectedIcon);
+
+        const onKeyDown = (e) => {
+            if (e.key === "Escape") cancelBtn.click();
+            if (e.key === "Enter") confirmBtn.click();
+        };
+        document.addEventListener("keydown", onKeyDown);
+
+        const cleanup = () => {
+            modal.classList.remove("open");
+            setTimeout(() => {
+                modal.style.display = "none";
+            }, 300);
+            confirmBtn.onclick = null;
+            cancelBtn.onclick = null;
+            clearBtn.onclick = null;
+            document.removeEventListener("keydown", onKeyDown);
+        };
+
+        confirmBtn.onclick = () => {
+            cleanup();
+            resolve(selectedIcon);
+        };
+
+        cancelBtn.onclick = () => {
+            cleanup();
+            resolve(null);
+        };
+
+        clearBtn.onclick = () => {
+            cleanup();
+            resolve("");
+        };
+
+        modal.style.display = "flex";
+        void modal.offsetWidth; // Force reflow
+        modal.classList.add("open");
+    });
+};

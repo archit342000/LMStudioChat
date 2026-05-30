@@ -45,7 +45,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS workspaces (
                 id TEXT PRIMARY KEY,
                 name TEXT,
-                timestamp REAL
+                timestamp REAL,
+                icon TEXT DEFAULT NULL
             )
         ''')
 
@@ -627,6 +628,16 @@ def init_db():
                     c.execute(f"ALTER TABLE {tbl} ADD COLUMN workspace_id TEXT REFERENCES workspaces(id) ON DELETE CASCADE")
                 except sqlite3.OperationalError:
                     pass # Already exists
+            
+            # Ensure icon column exists on workspaces
+            c.execute("PRAGMA table_info(workspaces)")
+            workspace_cols = [col[1] for col in c.fetchall()]
+            if 'icon' not in workspace_cols:
+                logger.info("MIGRATION: Adding 'icon' column to 'workspaces' table.")
+                try:
+                    c.execute("ALTER TABLE workspaces ADD COLUMN icon TEXT DEFAULT NULL")
+                except Exception as e:
+                    logger.error(f"Error adding icon column to workspaces: {e}")
             
             # RECREATION MIGRATION: Ensure file_systems has the correct UNIQUE constraint
             # This is necessary because ALTER TABLE cannot modify constraints in SQLite

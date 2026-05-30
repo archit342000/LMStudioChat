@@ -529,6 +529,25 @@ class TestWorkspaceOps:
         workspaces = temp_db.get_all_workspaces()
         assert not any(w["id"] == ws["id"] for w in workspaces)
 
+    def test_create_workspace_with_icon(self, temp_db):
+        ws = temp_db.create_workspace("Iconic Workspace", "🚀")
+        assert ws["icon"] == "🚀"
+        workspaces = temp_db.get_all_workspaces()
+        workspace_in_list = next(w for w in workspaces if w["id"] == ws["id"])
+        assert workspace_in_list["icon"] == "🚀"
+
+    def test_update_workspace_icon(self, temp_db):
+        ws = temp_db.create_workspace("Temp Iconic", "💼")
+        temp_db.update_workspace_icon(ws["id"], "🎨")
+        workspaces = temp_db.get_all_workspaces()
+        workspace_in_list = next(w for w in workspaces if w["id"] == ws["id"])
+        assert workspace_in_list["icon"] == "🎨"
+        # Test clearing the icon
+        temp_db.update_workspace_icon(ws["id"], None)
+        workspaces2 = temp_db.get_all_workspaces()
+        workspace_in_list2 = next(w for w in workspaces2 if w["id"] == ws["id"])
+        assert workspace_in_list2["icon"] is None
+
 
 # ---------------------------------------------------------------------------
 # Persona snapshot — isolation guarantee

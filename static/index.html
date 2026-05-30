@@ -343,7 +343,9 @@
                 <div class="workspace-page-content">
                     <div class="workspace-header-card glass">
                         <div class="workspace-info">
-                            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                            <div id="workspace-view-icon-container" style="display: flex; align-items: center; justify-content: center; width: 32px; height: 32px; cursor: pointer; transition: transform 0.2s ease; font-size: 1.5rem;" title="Change Workspace Icon">
+                                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="var(--color-primary)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="7"></rect><rect x="14" y="3" width="7" height="7"></rect><rect x="14" y="14" width="7" height="7"></rect><rect x="3" y="14" width="7" height="7"></rect></svg>
+                            </div>
                             <div>
                                 <h1 id="workspace-view-title" class="font-heading">Workspace</h1>
                                 <p id="workspace-view-stats" style="font-size: 0.85rem; color: var(--content-muted); margin: 4px 0 0 0; line-height: 1.2;">0 chats</p>
@@ -357,6 +359,7 @@
                                 </svg>
                                 <span>New Chat</span>
                             </button>
+                            <button id="workspace-icon-btn" class="btn-secondary glass" title="Change Workspace Icon">Change Icon</button>
                             <button id="workspace-rename-btn" class="btn-secondary glass" title="Rename Workspace">Rename</button>
                             <button id="workspace-delete-btn" class="btn-secondary glass" style="color: var(--color-rose); border-color: rgba(244, 63, 94, 0.25);" title="Delete Workspace">Delete</button>
                         </div>
@@ -1145,7 +1148,26 @@
         </div>
     </div>
 
-    <!-- File Explorer Modal -->
+    <!-- Workspace Icon Picker Modal -->
+    <div id="workspace-icon-modal" class="modal-backdrop" style="display: none; z-index: 18000;">
+        <div class="modal-content hardware-surface" style="max-width: 420px; width: 90%; text-align: center; border-radius: 20px;">
+            <div class="modal-body" style="padding: 2.5rem 2rem;">
+                <div class="hardware-surface" style="width: 3.5rem; height: 3.5rem; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: var(--accent); margin: 0 auto 1.25rem; font-size: 1.75rem;" id="workspace-icon-preview-circle">
+                </div>
+                <h3 class="font-heading" style="font-size: 1.25rem; font-weight: 800; color: var(--content-primary); margin-bottom: 0.5rem;">Workspace Icon</h3>
+                <p style="color: var(--content-muted); font-size: 0.875rem; margin-bottom: 1.5rem; line-height: 1.4;">Select a visual icon to personalize this workspace.</p>
+                
+                <div class="emoji-grid custom-scroll" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(2.75rem, 1fr)); gap: 0.5rem; margin-bottom: 1.5rem; justify-items: center; justify-content: center; max-height: 200px; overflow-y: auto; overflow-x: hidden; padding: 0.75rem; border: 1px solid var(--border-luminous); border-radius: 12px; background: rgba(0, 0, 0, 0.1); width: 100%; box-sizing: border-box;">
+                </div>
+
+                <div style="display: flex; gap: 0.5rem;">
+                    <button id="workspace-icon-cancel-btn" class="btn-secondary" style="flex: 1; height: 3rem; border-radius: 12px; font-weight: 600;">Cancel</button>
+                    <button id="workspace-icon-clear-btn" class="btn-secondary" style="flex: 1; height: 3rem; border-radius: 12px; font-weight: 600; color: var(--color-rose); border-color: rgba(244, 63, 94, 0.25);">Clear</button>
+                    <button id="workspace-icon-confirm-btn" class="btn-primary" style="flex: 1; height: 3rem; border-radius: 12px; font-weight: 600;">Save</button>
+                </div>
+            </div>
+        </div>
+    </div>    <!-- File Explorer Modal -->
     <div id="file-explorer-modal" class="modal-backdrop" style="display: none; z-index: 16000;">
         <div class="modal-content hardware-surface" style="max-width: 500px; width: 90%; text-align: left;">
             <div class="modal-body" style="padding: 1.5rem;">

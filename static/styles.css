@@ -6242,5 +6242,14 @@ max-height: 70vh;
   pointer-events: none;
 }
 
+/* Workspace Icon Custom Styles */
+#workspace-view-icon-container:hover {
+  transform: scale(1.15) !important;
+  opacity: 0.95;
+}
+.emoji-grid-item.selected {
+  box-shadow: 0 0 12px rgba(var(--accent-rgb, 59, 130, 246), 0.3);
+}
+
 
 

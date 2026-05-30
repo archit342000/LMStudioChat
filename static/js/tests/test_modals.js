@@ -7,6 +7,7 @@ import { JSDOM } from 'jsdom';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
+const iconsCode = fs.readFileSync(path.resolve(__dirname, '../icons.js'), 'utf8');
 const modalsCode = fs.readFileSync(path.resolve(__dirname, '../modals.js'), 'utf8');
 
 describe('modals.js', () => {
@@ -40,12 +41,26 @@ describe('modals.js', () => {
                 <button id="prompt-action-btn"></button>
                 <button id="prompt-cancel-btn"></button>
             </div>
+            
+            <div id="workspace-icon-modal" class="hidden">
+                <div id="workspace-icon-preview-circle"></div>
+                <div class="emoji-grid"></div>
+                <button id="workspace-icon-confirm-btn"></button>
+                <button id="workspace-icon-cancel-btn"></button>
+                <button id="workspace-icon-clear-btn"></button>
+            </div>
         </body></html>`, { runScripts: "dangerously" });
         
         window = dom.window;
         document = window.document;
         window.setTimeout = (cb) => cb(); // mock timeout
 
+        // Load icons first
+        const iconsScript = window.document.createElement("script");
+        iconsScript.textContent = iconsCode;
+        window.document.body.appendChild(iconsScript);
+
+        // Load modals second
         const scriptEl = window.document.createElement("script");
         scriptEl.textContent = modalsCode;
         window.document.body.appendChild(scriptEl);
@@ -84,5 +99,24 @@ describe('modals.js', () => {
         document.getElementById('prompt-action-btn').click();
         const result = await promise;
         assert.strictEqual(result, 'New Folder Name');
+    });
+
+    test('showWorkspaceIconPicker resolves chosen icon or empty string', async () => {
+        const promise = window.showWorkspaceIconPicker('code');
+        
+        const preview = document.getElementById('workspace-icon-preview-circle');
+        assert.ok(preview.innerHTML.includes('<svg'));
+        
+        // Find grid button for briefcase
+        const grid = document.querySelector('.emoji-grid');
+        const briefcaseBtn = grid.querySelector('[data-icon-key="briefcase"]');
+        assert.ok(briefcaseBtn);
+        briefcaseBtn.click();
+        
+        assert.ok(preview.innerHTML.includes('<svg'));
+        
+        document.getElementById('workspace-icon-confirm-btn').click();
+        const result = await promise;
+        assert.strictEqual(result, 'briefcase');
     });
 });

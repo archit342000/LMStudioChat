@@ -87,6 +87,7 @@
             newWorkspaces.push({
               name: ws.id, // Store ID as name for internal logic backward compatibility
               displayName: ws.name,
+              icon: ws.icon || null,
               expanded: existing ? existing.expanded : true
             });
           });
@@ -95,6 +96,29 @@
         }
       } catch (e) {
         console.error("Error fetching workspaces from API:", e);
+      }
+    },
+
+    /**
+     * Updates the icon of a workspace.
+     * @param {string} workspaceId - The target workspace ID.
+     * @param {string|null} icon - The new icon/emoji.
+     */
+    async updateWorkspaceIcon(workspaceId, icon) {
+      try {
+        const base = window.API_MODULES?.CHATS || "/api/chats";
+        const res = await fetch(`${base}/workspaces/${workspaceId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ icon: icon || null })
+        });
+        if (res.ok) {
+          if (this.deps.loadChats) {
+            await this.deps.loadChats();
+          }
+        }
+      } catch (e) {
+        console.error("Error updating workspace icon:", e);
       }
     },
 

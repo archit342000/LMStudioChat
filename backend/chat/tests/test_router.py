@@ -46,15 +46,28 @@ def test_create_workspace(mock_db, client):
 
 @patch('backend.chat.router.db')
 def test_rename_workspace(mock_db, client):
-    # Test missing name
+    # Test missing update fields (neither name nor icon)
     response = client.patch('/api/chats/workspaces/ws1', json={})
     assert response.status_code == 400
     
-    # Test success
+    # Test success renaming only
     response = client.patch('/api/chats/workspaces/ws1', json={"name": "Renamed WS"})
     assert response.status_code == 200
     assert response.json == {"success": True}
     mock_db.rename_workspace.assert_called_with('ws1', 'Renamed WS')
+    
+    # Test success icon only
+    response = client.patch('/api/chats/workspaces/ws1', json={"icon": "🚀"})
+    assert response.status_code == 200
+    assert response.json == {"success": True}
+    mock_db.update_workspace_icon.assert_called_with('ws1', '🚀')
+    
+    # Test success both
+    response = client.patch('/api/chats/workspaces/ws1', json={"name": "Renamed Again", "icon": "💼"})
+    assert response.status_code == 200
+    assert response.json == {"success": True}
+    mock_db.rename_workspace.assert_called_with('ws1', 'Renamed Again')
+    mock_db.update_workspace_icon.assert_called_with('ws1', '💼')
 
 @patch('backend.chat.router.db')
 def test_delete_workspace(mock_db, client):

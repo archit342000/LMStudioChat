@@ -50,4 +50,31 @@ describe('icons.js', () => {
         assert.ok(icon.includes('<svg'));
         assert.ok(icon.includes('M12 8V4H8')); // defaults
     });
+
+    test('getWorkspaceIconSvg - returns valid svg', () => {
+        const getWorkspaceIconSvg = window.getWorkspaceIconSvg;
+        const icon = getWorkspaceIconSvg('code');
+        assert.ok(icon.includes('<svg'));
+        assert.ok(icon.includes('polyline points="16 18')); // specific to code paths
+    });
+
+    test('getWorkspaceIconHtml - returns SVG for workspace icon in registry', () => {
+        const getWorkspaceIconHtml = window.getWorkspaceIconHtml;
+        const iconHtml = getWorkspaceIconHtml('code');
+        assert.ok(iconHtml.includes('<svg'));
+    });
+
+    test('getWorkspaceIconHtml - returns text span fallback for legacy/emojis', () => {
+        const getWorkspaceIconHtml = window.getWorkspaceIconHtml;
+        const iconHtml = getWorkspaceIconHtml('💼');
+        assert.ok(iconHtml.includes('<span'));
+        assert.ok(iconHtml.includes('💼'));
+    });
+
+    test('getWorkspaceIconHtml - returns default grid SVG if empty/null', () => {
+        const getWorkspaceIconHtml = window.getWorkspaceIconHtml;
+        const iconHtml = getWorkspaceIconHtml(null);
+        assert.ok(iconHtml.includes('<svg'));
+        assert.ok(iconHtml.includes('rect x="3"')); // grid
+    });
 });

@@ -58,7 +58,7 @@ class ChatOpsMixin(BaseMixin):
                 conn.close()
         return cache_layer.get_table("workspaces", _fetch, key_extractor=lambda row: row.get('id', ''), ttl=300)
 
-    def create_workspace(self, name: str):
+    def create_workspace(self, name: str, icon: str = None):
         """Create a new workspace."""
         import uuid
         workspace_id = f"ws_{uuid.uuid4().hex}"
@@ -67,14 +67,14 @@ class ChatOpsMixin(BaseMixin):
             conn = make_connection()
             try:
                 c = conn.cursor()
-                c.execute("INSERT INTO workspaces (id, name, timestamp) VALUES (?, ?, ?)", (workspace_id, name, time.time()))
+                c.execute("INSERT INTO workspaces (id, name, timestamp, icon) VALUES (?, ?, ?, ?)", (workspace_id, name, time.time(), icon))
                 conn.commit()
             finally:
                 conn.close()
                 
         _write()
         cache_layer.invalidate("workspaces")
-        return {"id": workspace_id, "name": name, "timestamp": time.time()}
+        return {"id": workspace_id, "name": name, "timestamp": time.time(), "icon": icon}
 
     def rename_workspace(self, workspace_id: str, new_name: str):
         """Rename an existing workspace."""
@@ -90,6 +90,22 @@ class ChatOpsMixin(BaseMixin):
         _write()
         cache_layer.invalidate("workspaces")
         # Invalidate chats since workspace name might be embedded or cached
+        cache_layer.invalidate("chats")
+        cache_layer.clear_cache()
+
+    def update_workspace_icon(self, workspace_id: str, icon: str):
+        """Update workspace icon."""
+        def _write():
+            conn = make_connection()
+            try:
+                c = conn.cursor()
+                c.execute("UPDATE workspaces SET icon = ?, timestamp = ? WHERE id = ?", (icon if icon else None, time.time(), workspace_id))
+                conn.commit()
+            finally:
+                conn.close()
+                
+        _write()
+        cache_layer.invalidate("workspaces")
         cache_layer.invalidate("chats")
         cache_layer.clear_cache()
         
