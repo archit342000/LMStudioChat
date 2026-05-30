@@ -528,4 +528,47 @@ describe('script.js', () => {
             }, 100);
         });
     });
+
+    test('file sidebar new-file-button structure and styling', async () => {
+        return new Promise((resolve, reject) => {
+            const virtualConsole = new VirtualConsole();
+            virtualConsole.on("jsdomError", (error) => reject(error));
+            virtualConsole.on("error", (...args) => {
+                const errorStr = args.map(a => a ? a.toString() : '').join(' ');
+                if (errorStr.includes('Failed to fetch')) return;
+                if (errorStr.includes('Model config fetch error')) return;
+                reject(new Error(`Console Error: ${errorStr}`));
+            });
+
+            const htmlContent = loadFile('index.html').replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '');
+            const dom = new JSDOM(htmlContent, { 
+                runScripts: "dangerously",
+                url: "http://localhost/",
+                virtualConsole 
+            });
+            const window = dom.window;
+
+            // Assertions for "New File" button relocation and styling:
+            const rightSidebar = window.document.getElementById("right-sidebar");
+            assert.ok(rightSidebar, "Right sidebar element should exist");
+
+            // 1. "New File" button should be in the sidebar-header
+            const newFileBtn = window.document.getElementById("new-file-system-btn");
+            assert.ok(newFileBtn, "New file button should exist");
+
+            const headerActions = rightSidebar.querySelector(".sidebar-header-actions");
+            assert.ok(headerActions, "Right sidebar header actions container should exist");
+            assert.ok(headerActions.contains(newFileBtn), "New file button should be a child of sidebar header actions");
+
+            // 2. Styling check: It should have the sidebar-icon-btn class, not btn-primary
+            assert.ok(newFileBtn.classList.contains("sidebar-icon-btn"), "New file button should have sidebar-icon-btn class");
+            assert.ok(!newFileBtn.classList.contains("btn-primary"), "New file button should not have btn-primary class");
+
+            // 3. Footer check: The right sidebar should not contain a sidebar-footer container
+            const footer = rightSidebar.querySelector(".sidebar-footer");
+            assert.strictEqual(footer, null, "Right sidebar should not have a sidebar-footer container");
+
+            resolve();
+        });
+    });
 });
