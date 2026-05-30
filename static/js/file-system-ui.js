@@ -306,7 +306,45 @@ window.FileSystemUI = {
                 folderHeader.appendChild(nameWrapper);
                 folderHeader.appendChild(countSpan);
 
-                folderHeader.onclick = () => {
+                // Long press support for folders
+                let fLongPressTimer;
+                let fIsLongPress = false;
+                let fStartY = 0;
+                let fStartX = 0;
+
+                folderHeader.addEventListener("touchstart", (e) => {
+                    fIsLongPress = false;
+                    fStartY = e.touches[0].clientY;
+                    fStartX = e.touches[0].clientX;
+                    fLongPressTimer = setTimeout(() => {
+                        fIsLongPress = true;
+                        if (navigator.vibrate) navigator.vibrate(50);
+                        this.deps.onContextMenu("file-system-folder", folderPath, null, e);
+                    }, 600);
+                }, { passive: true });
+
+                folderHeader.addEventListener("touchmove", (e) => {
+                    if (Math.abs(e.touches[0].clientY - fStartY) > 10 || Math.abs(e.touches[0].clientX - fStartX) > 10) {
+                        clearTimeout(fLongPressTimer);
+                    }
+                }, { passive: true });
+
+                folderHeader.addEventListener("touchend", (e) => {
+                    clearTimeout(fLongPressTimer);
+                    if (fIsLongPress) {
+                        if (e.cancelable) e.preventDefault();
+                    }
+                }, { passive: false });
+
+                folderHeader.addEventListener("touchcancel", () => {
+                    clearTimeout(fLongPressTimer);
+                });
+
+                folderHeader.onclick = (e) => {
+                    if (fIsLongPress) {
+                        e.preventDefault();
+                        return;
+                    }
                     const expanding = !folderDiv.classList.contains("expanded");
                     folderDiv.classList.toggle("expanded", expanding);
                     this.state.expandedFolders[folderPath] = expanding;

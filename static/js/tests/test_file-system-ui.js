@@ -81,4 +81,81 @@ describe('file-system-ui.js', () => {
         const filesRendered = document.querySelectorAll('.file-system-item');
         assert.strictEqual(filesRendered.length, 3);
     });
+
+    test('folder long press triggers context menu and prevents toggle on click', () => {
+        const files = [
+            { id: 'file1', title: 'TestFolder/File 1', content: '' }
+        ];
+        
+        let contextMenuCalled = false;
+        let lastMenuType = null;
+        let lastPath = null;
+        
+        window.FileSystemUI.init({
+            getActiveFileId: () => null,
+            onContextMenu: (type, path, title, e) => {
+                contextMenuCalled = true;
+                lastMenuType = type;
+                lastPath = path;
+            }
+        });
+        
+        window.FileSystemUI.updateData(files);
+        
+        const folderHeader = document.querySelector('.folder-header');
+        const folderDiv = document.querySelector('.folder-item');
+        
+        // Assert initial state is expanded
+        assert.ok(folderDiv.classList.contains('expanded'));
+        
+        const touchstartEvt = new window.TouchEvent('touchstart', {
+            touches: [{ clientX: 100, clientY: 100 }]
+        });
+        const touchendEvt = new window.TouchEvent('touchend', {
+            cancelable: true
+        });
+        
+        folderHeader.dispatchEvent(touchstartEvt);
+        
+        return new Promise((resolve) => {
+            setTimeout(() => {
+                folderHeader.dispatchEvent(touchendEvt);
+                
+                const clickEvt = new window.MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true
+                });
+                folderHeader.dispatchEvent(clickEvt);
+                
+                // Verify context menu was called
+                assert.ok(contextMenuCalled);
+                assert.strictEqual(lastMenuType, 'file-system-folder');
+                assert.strictEqual(lastPath, 'TestFolder');
+                
+                // Verify that the folder did NOT collapse
+                assert.ok(folderDiv.classList.contains('expanded'));
+                
+                // Reset longpress state by triggering a touchstart and touchmove (to cancel it), or just click
+                const startEvt2 = new window.TouchEvent('touchstart', {
+                    touches: [{ clientX: 100, clientY: 100 }]
+                });
+                const endEvt2 = new window.TouchEvent('touchend', {
+                    cancelable: true
+                });
+                folderHeader.dispatchEvent(startEvt2);
+                folderHeader.dispatchEvent(endEvt2);
+                
+                const clickEvtNormal = new window.MouseEvent('click', {
+                    bubbles: true,
+                    cancelable: true
+                });
+                folderHeader.dispatchEvent(clickEvtNormal);
+                
+                // Now it should collapse
+                assert.ok(!folderDiv.classList.contains('expanded'));
+                
+                resolve();
+            }, 700);
+        });
+    });
 });
