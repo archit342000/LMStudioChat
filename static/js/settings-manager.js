@@ -211,6 +211,9 @@
           }
         });
         this.nodes.maxTokensSlider.addEventListener("change", () => this.saveSamplingParams());
+        if (typeof makeBadgeEditable === "function") {
+          makeBadgeEditable(this.nodes.maxTokensVal, this.nodes.maxTokensSlider);
+        }
       }
 
       if (this.nodes.thinkingBudgetSlider) {
@@ -221,6 +224,9 @@
           }
         });
         this.nodes.thinkingBudgetSlider.addEventListener("change", () => this.saveSamplingParams());
+        if (typeof makeBadgeEditable === "function") {
+          makeBadgeEditable(this.nodes.thinkingBudgetVal, this.nodes.thinkingBudgetSlider);
+        }
       }
 
       if (this.nodes.thinkingProfileSelector) {
@@ -269,6 +275,9 @@
         this.nodes.defaultMaxTokensSlider.addEventListener("change", () => {
           localStorage.setItem("my_ai_chat_defaults", JSON.stringify(this.chatDefaults));
         });
+        if (typeof makeBadgeEditable === "function") {
+          makeBadgeEditable(this.nodes.defaultMaxTokensVal, this.nodes.defaultMaxTokensSlider);
+        }
       }
 
       // New Chat Defaults - Thinking budget slider
@@ -282,6 +291,9 @@
         this.nodes.defaultThinkingBudgetSlider.addEventListener("change", () => {
           localStorage.setItem("my_ai_chat_defaults", JSON.stringify(this.chatDefaults));
         });
+        if (typeof makeBadgeEditable === "function") {
+          makeBadgeEditable(this.nodes.defaultThinkingBudgetVal, this.nodes.defaultThinkingBudgetSlider);
+        }
       }
 
       // Danger Zone Action Listeners

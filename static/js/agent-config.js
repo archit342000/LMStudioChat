@@ -74,6 +74,9 @@ window.AgentConfig = {
           }
         }
       });
+      if (typeof makeBadgeEditable === "function") {
+        makeBadgeEditable(this.elements.maxTokensVal, this.elements.maxTokensSlider);
+      }
     }
 
     if (this.elements.thinkingBudgetSlider) {
@@ -86,6 +89,9 @@ window.AgentConfig = {
           }
         }
       });
+      if (typeof makeBadgeEditable === "function") {
+        makeBadgeEditable(this.elements.thinkingBudgetVal, this.elements.thinkingBudgetSlider);
+      }
     }
 
     if (this.elements.saveBtn) {

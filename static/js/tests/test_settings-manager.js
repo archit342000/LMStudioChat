@@ -9,6 +9,7 @@ const { JSDOM } = jsdom;
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const settingsManagerCode = fs.readFileSync(path.resolve(__dirname, '../settings-manager.js'), 'utf8');
+const utilsCode = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
 
 describe('settings-manager.js', () => {
     let window;
@@ -143,6 +144,11 @@ describe('settings-manager.js', () => {
                 json: async () => ({})
             };
         };
+
+        // Load utils code in window environment first
+        const utilsScriptEl = document.createElement("script");
+        utilsScriptEl.textContent = utilsCode;
+        document.body.appendChild(utilsScriptEl);
 
         // Load settings-manager code in window environment
         const scriptEl = document.createElement("script");
@@ -318,5 +324,43 @@ describe('settings-manager.js', () => {
         assert.strictEqual(fetchCalls[0].url, 'http://localhost/api/tools/preferences/reset');
         assert.strictEqual(fetchCalls[0].options.method, 'POST');
         assert.ok(showAlertCalled);
+    });
+
+    test('badges click-to-edit flow updates sliders and settings state', async () => {
+        window.SettingsManager.init({
+            getCurrentChatId: () => 'chat-123',
+            getIsTemporaryChat: () => false,
+            getChatHistoryLength: () => 5,
+            setScrollLock: () => {},
+        });
+
+        const maxTokensVal = document.getElementById('max-tokens-val');
+        const maxTokensSlider = document.getElementById('max-tokens-slider');
+
+        assert.ok(maxTokensVal);
+        assert.ok(maxTokensSlider);
+
+        maxTokensSlider.value = '16384';
+        maxTokensVal.textContent = '16384';
+
+        // Click the badge to trigger inline editing input
+        maxTokensVal.click();
+
+        // Find the created input element
+        const input = maxTokensVal.querySelector('input');
+        assert.ok(input, 'Input element should be created inside the badge');
+        assert.strictEqual(input.value, '16384');
+
+        // Change input value
+        input.value = '8000';
+        
+        // Dispatch Enter key down
+        const keydownEvent = new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+        input.dispatchEvent(keydownEvent);
+
+        // Verify the slider is updated and the badge has restored its text content
+        assert.strictEqual(maxTokensSlider.value, '8000');
+        assert.strictEqual(maxTokensVal.textContent, '8000');
+        assert.strictEqual(window.SettingsManager.getSamplingParams().max_tokens, 8000);
     });
 });

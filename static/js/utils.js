@@ -532,3 +532,74 @@ function parseChatTimestamp(ts) {
     return new Date(num < 1000000000000 ? num * 1000 : num);
 }
 
+// ---------------------------------------------------------------------------
+// Inline Badge Input Helpers
+// ---------------------------------------------------------------------------
+
+function makeBadgeEditable(badgeElement, sliderElement, onUpdateCallback) {
+    if (!badgeElement || !sliderElement) return;
+
+    badgeElement.classList.add("badge-interactive");
+    badgeElement.title = "Click to enter value";
+
+    badgeElement.addEventListener("click", function () {
+        if (badgeElement.querySelector("input")) return;
+
+        const currentVal = parseInt(sliderElement.value);
+
+        const input = document.createElement("input");
+        input.type = "number";
+        input.className = "badge-input";
+        input.value = currentVal;
+        input.min = sliderElement.min || 0;
+        input.max = sliderElement.max || 32768;
+        input.step = sliderElement.step || 1;
+
+        badgeElement.textContent = "";
+        badgeElement.appendChild(input);
+        input.focus();
+        input.select();
+
+        let finished = false;
+
+        function finishEdit(save) {
+            if (finished) return;
+            finished = true;
+
+            let finalVal = currentVal;
+            if (save) {
+                const parsedVal = parseInt(input.value);
+                if (!isNaN(parsedVal)) {
+                    const min = parseInt(input.min);
+                    const max = parseInt(input.max);
+                    finalVal = Math.max(min, Math.min(max, parsedVal));
+                }
+            }
+
+            badgeElement.textContent = finalVal;
+
+            if (save && finalVal !== currentVal) {
+                sliderElement.value = finalVal;
+                sliderElement.dispatchEvent(new Event("input", { bubbles: true }));
+                sliderElement.dispatchEvent(new Event("change", { bubbles: true }));
+                if (typeof onUpdateCallback === "function") {
+                    onUpdateCallback(finalVal);
+                }
+            }
+        }
+
+        input.addEventListener("keydown", function (e) {
+            if (e.key === "Enter") {
+                finishEdit(true);
+            } else if (e.key === "Escape") {
+                finishEdit(false);
+            }
+        });
+
+        input.addEventListener("blur", function () {
+            finishEdit(true);
+        });
+    });
+}
+
+

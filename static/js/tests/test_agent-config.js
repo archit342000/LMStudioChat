@@ -8,6 +8,7 @@ import { JSDOM } from 'jsdom';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 const agentConfigCode = fs.readFileSync(path.resolve(__dirname, '../agent-config.js'), 'utf8');
+const utilsCode = fs.readFileSync(path.resolve(__dirname, '../utils.js'), 'utf8');
 
 describe('agent-config.js', () => {
     let window;
@@ -63,6 +64,11 @@ describe('agent-config.js', () => {
             }
             return mockFetchResponse;
         };
+
+        // Inject utils script first
+        const utilsScriptEl = window.document.createElement("script");
+        utilsScriptEl.textContent = utilsCode;
+        window.document.body.appendChild(utilsScriptEl);
 
         // Inject script
         const scriptEl = window.document.createElement("script");
@@ -188,5 +194,35 @@ describe('agent-config.js', () => {
 
         assert.strictEqual(mockAlertCalls.length, 1);
         assert.strictEqual(mockAlertCalls[0].title, 'Error');
+    });
+
+    test('agent config badges click-to-edit flow updates sliders and agentConfig state', async () => {
+        window.AgentConfig.openAgentConfig('browsing_agent');
+
+        const maxTokensVal = document.getElementById('agent-max-tokens-val');
+        const maxTokensSlider = document.getElementById('agent-max-tokens-slider');
+
+        assert.ok(maxTokensVal);
+        assert.ok(maxTokensSlider);
+
+        // Click the badge to trigger inline editing input
+        maxTokensVal.click();
+
+        // Find the created input element
+        const input = maxTokensVal.querySelector('input');
+        assert.ok(input, 'Input element should be created inside the badge');
+        assert.strictEqual(input.value, '2000');
+
+        // Change input value
+        input.value = '3500';
+        
+        // Dispatch Enter key down
+        const keydownEvent = new window.KeyboardEvent('keydown', { key: 'Enter', bubbles: true });
+        input.dispatchEvent(keydownEvent);
+
+        // Verify the slider is updated and the badge has restored its text content
+        assert.strictEqual(maxTokensSlider.value, '3500');
+        assert.strictEqual(maxTokensVal.textContent, '3500');
+        assert.strictEqual(window.AgentConfig.getAgentsConfig().browsing_agent.max_tokens, 3500);
     });
 });
