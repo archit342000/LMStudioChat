@@ -75,6 +75,29 @@ describe('attachment-manager.js', () => {
         assert.strictEqual(am.elements.previewContainer.innerHTML, '');
     });
 
+    test('clearStagedFiles tracks and defers revoking sent localUrls', () => {
+        const am = window.AttachmentManager;
+        let revokedUrl = null;
+        window.URL.revokeObjectURL = (url) => { revokedUrl = url; };
+
+        am.state.sentLocalUrls = [];
+        am.state.uploadedFiles = [
+            { file_id: '1', name: 'img1.png', localUrl: 'blob:123' },
+            { file_id: '2', name: 'doc1.pdf', localUrl: null }
+        ];
+
+        am.clearStagedFiles();
+
+        assert.strictEqual(am.state.uploadedFiles.length, 0);
+        assert.strictEqual(am.state.sentLocalUrls.length, 1);
+        assert.strictEqual(am.state.sentLocalUrls[0], 'blob:123');
+        assert.strictEqual(revokedUrl, null); // Not revoked immediately
+
+        am.revokeSentUrls();
+        assert.strictEqual(revokedUrl, 'blob:123'); // Revoked on call
+        assert.strictEqual(am.state.sentLocalUrls.length, 0);
+    });
+
     test('getStagedFiles returns a copy of the array', () => {
         const am = window.AttachmentManager;
         am.state.uploadedFiles = [{ file_id: '1' }];

@@ -1048,6 +1048,10 @@ const chatTitleHeader = document.getElementById("chat-title-header");
 
       renderChatList();
       
+      if (window.AttachmentManager && typeof window.AttachmentManager.revokeSentUrls === "function") {
+        window.AttachmentManager.revokeSentUrls();
+      }
+
       // Render mermaid blocks that may be in the history
       setTimeout(window.renderMermaidBlocks, 100);
 
@@ -2688,12 +2692,16 @@ ${customSkillsList}
         });
       } else {
         const sentFiles = window.AttachmentManager.getStagedFiles();
+        const sentImages = sentFiles
+          .filter((f) => f.mime_type && f.mime_type.startsWith("image/"))
+          .map((f) => f.localUrl || `/api/files/${f.file_id}`)
+          .filter(Boolean);
         appendMessage(
           "User",
           content,
           "user",
           null,
-          [],
+          sentImages,
           sentFiles,
           chatHistory.length,
         );

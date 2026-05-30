@@ -7,7 +7,8 @@
 window.AttachmentManager = {
     // Internal State
     state: {
-        uploadedFiles: [] // Array of { file_id, name, size, mime_type }
+        uploadedFiles: [], // Array of { file_id, name, size, mime_type }
+        sentLocalUrls: []
     },
 
     // Dependencies (Injected via init)
@@ -40,6 +41,12 @@ window.AttachmentManager = {
     },
 
     clearStagedFiles: function() {
+        if (!this.state.sentLocalUrls) this.state.sentLocalUrls = [];
+        this.state.uploadedFiles.forEach((f) => {
+            if (f.localUrl) {
+                this.state.sentLocalUrls.push(f.localUrl);
+            }
+        });
         this.state.uploadedFiles = [];
         if (this.elements.previewContainer) {
             this.elements.previewContainer.innerHTML = "";
@@ -49,6 +56,17 @@ window.AttachmentManager = {
             this.elements.fileInput.value = "";
         }
         this.deps.onUploadStateChange();
+    },
+
+    revokeSentUrls: function() {
+        if (this.state.sentLocalUrls) {
+            this.state.sentLocalUrls.forEach((url) => {
+                if (typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+                    URL.revokeObjectURL(url);
+                }
+            });
+            this.state.sentLocalUrls = [];
+        }
     },
 
     bindEvents: function() {
@@ -213,6 +231,10 @@ window.AttachmentManager = {
         const removeBtn = fileItem.querySelector(".remove-file-btn");
         removeBtn.addEventListener("click", () => {
             if (currentFileId) {
+                const target = this.state.uploadedFiles.find((f) => f.file_id !== currentFileId);
+                if (target && target.localUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+                    URL.revokeObjectURL(target.localUrl);
+                }
                 this.state.uploadedFiles = this.state.uploadedFiles.filter((f) => f.file_id !== currentFileId);
             } else {
                 this.state.uploadedFiles = this.state.uploadedFiles.filter((f) => !(f.name === file.name && !f.file_id));
@@ -255,6 +277,9 @@ window.AttachmentManager = {
                 name: uploadResult.original_filename,
                 size: uploadResult.file_size,
                 mime_type: uploadResult.mime_type,
+                localUrl: (fileType.startsWith("image/") && typeof URL !== "undefined" && typeof URL.createObjectURL === "function") 
+                    ? URL.createObjectURL(file) 
+                    : null
             };
             this.state.uploadedFiles.push(fileData);
 
@@ -286,6 +311,10 @@ window.AttachmentManager = {
                                 `;
                                 const newRemoveBtn = fileItem.querySelector(".remove-file-btn");
                                 newRemoveBtn.addEventListener("click", () => {
+                                    const target = this.state.uploadedFiles.find((f) => f.file_id === fileData.file_id);
+                                    if (target && target.localUrl && typeof URL !== "undefined" && typeof URL.revokeObjectURL === "function") {
+                                        URL.revokeObjectURL(target.localUrl);
+                                    }
                                     this.state.uploadedFiles = this.state.uploadedFiles.filter((f) => f.file_id !== fileData.file_id);
                                     if (fileItem.parentNode) fileItem.parentNode.removeChild(fileItem);
                                     if (this.state.uploadedFiles.length === 0 && this.elements.previewContainer) {
