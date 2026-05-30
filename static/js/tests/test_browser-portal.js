@@ -22,11 +22,13 @@ describe('browser-portal.js', () => {
             <button id="close-browser-portal"></button>
             <button id="portal-retry-btn"></button>
             <div id="browser-portal-modal" class="modal-backdrop">
-                <p id="portal-status-text">Initializing...</p>
-                <div id="portal-loading-overlay" style="display: none;"></div>
-                <div id="portal-error-overlay" class="hidden"></div>
-                <div id="portal-error-message"></div>
-                <div id="portal-iframe"></div>
+                <div class="modal-content">
+                    <p id="portal-status-text">Initializing...</p>
+                    <div id="portal-loading-overlay" style="display: none;"></div>
+                    <div id="portal-error-overlay" class="hidden"></div>
+                    <div id="portal-error-message"></div>
+                    <div id="portal-iframe"></div>
+                </div>
             </div>
         </body></html>`, { runScripts: "dangerously" });
         
@@ -103,6 +105,25 @@ describe('browser-portal.js', () => {
         assert.strictEqual(loadingOverlay.style.display, "flex");
         assert.ok(errorOverlay.classList.contains("hidden"));
         assert.strictEqual(statusText.textContent, "Initializing browser session...");
+
+        // Verify full-screen inline !important styles applied to modal-content wrapper
+        const wrapper = modal.querySelector('.modal-content');
+        assert.ok(wrapper, 'modal-content wrapper should exist');
+        assert.strictEqual(wrapper.style.getPropertyValue('width'), '100%');
+        assert.strictEqual(wrapper.style.getPropertyPriority('width'), 'important');
+        assert.strictEqual(wrapper.style.getPropertyValue('height'), '100%');
+        assert.strictEqual(wrapper.style.getPropertyPriority('height'), 'important');
+        assert.strictEqual(wrapper.style.getPropertyValue('max-width'), '100%');
+        assert.strictEqual(wrapper.style.getPropertyPriority('max-width'), 'important');
+        assert.strictEqual(wrapper.style.getPropertyValue('max-height'), '100%');
+        assert.strictEqual(wrapper.style.getPropertyPriority('max-height'), 'important');
+        assert.strictEqual(wrapper.style.getPropertyValue('border-radius'), '0px');
+        assert.strictEqual(wrapper.style.getPropertyPriority('border-radius'), 'important');
+        // JSDOM expands 'border' shorthand; check border-style as the key property
+        assert.strictEqual(wrapper.style.getPropertyValue('border-style'), 'none');
+        assert.strictEqual(wrapper.style.getPropertyPriority('border-style'), 'important');
+        assert.strictEqual(wrapper.style.getPropertyValue('margin'), '0px');
+        assert.strictEqual(wrapper.style.getPropertyPriority('margin'), 'important');
 
         // Allow promises to resolve
         await new Promise(resolve => process.nextTick(resolve));
@@ -188,6 +209,16 @@ describe('browser-portal.js', () => {
         assert.ok(!modal.classList.contains("open"));
         assert.strictEqual(iframe.src, "");
         assert.strictEqual(statusText.textContent, "Disconnected.");
+
+        // Verify full-screen inline styles are removed on close so translateY
+        // on closed modal-content cannot cause invisible overflow on iOS.
+        const wrapper = modal.querySelector('.modal-content');
+        assert.ok(wrapper, 'modal-content wrapper should exist');
+        assert.strictEqual(wrapper.style.getPropertyValue('width'), '');
+        assert.strictEqual(wrapper.style.getPropertyValue('height'), '');
+        assert.strictEqual(wrapper.style.getPropertyValue('max-height'), '');
+        assert.strictEqual(wrapper.style.getPropertyValue('border-radius'), '');
+        assert.strictEqual(wrapper.style.getPropertyValue('margin'), '');
     });
 
     test('timeout fallback hides spinner and updates status', async () => {

@@ -51,6 +51,20 @@ window.BrowserPortal = {
     const { portalModal } = this.elements;
     if (portalModal) {
       portalModal.classList.add("open");
+      // Apply full-screen overrides as inline !important, which per the CSS cascade
+      // beats any author stylesheet !important (including iOS modal-content overrides).
+      // Using 100% instead of viewport units: the backdrop is already position:fixed
+      // inset:0 so 100% == full viewport, with no risk of overflow side-effects.
+      const wrapper = portalModal.querySelector('.modal-content');
+      if (wrapper) {
+        wrapper.style.setProperty('width', '100%', 'important');
+        wrapper.style.setProperty('max-width', '100%', 'important');
+        wrapper.style.setProperty('height', '100%', 'important');
+        wrapper.style.setProperty('max-height', '100%', 'important');
+        wrapper.style.setProperty('border-radius', '0', 'important');
+        wrapper.style.setProperty('border', 'none', 'important');
+        wrapper.style.setProperty('margin', '0', 'important');
+      }
       this.initBrowserPortal();
     }
   },
@@ -59,6 +73,16 @@ window.BrowserPortal = {
     const { portalModal, portalIframe, portalStatusText } = this.elements;
     if (portalModal) {
       portalModal.classList.remove("open");
+      // Remove the inline full-screen overrides so the element reverts to its
+      // normal CSS-controlled state. This is critical: while closed the
+      // modal-content has transform:scale(0.92) translateY(8px); if height were
+      // still 100% that translateY would cause invisible overflow and break
+      // iOS scroll on the rest of the page.
+      const wrapper = portalModal.querySelector('.modal-content');
+      if (wrapper) {
+        ['width', 'max-width', 'height', 'max-height', 'border-radius', 'border', 'margin']
+          .forEach(p => wrapper.style.removeProperty(p));
+      }
     }
     if (portalIframe) {
       portalIframe.src = ""; // Disconnect VNC
