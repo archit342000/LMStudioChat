@@ -3699,8 +3699,26 @@ ${customSkillsList}
 
   // Auto-resize textarea
   textArea.addEventListener("input", () => {
+    const oldScrollTop = textArea.scrollTop;
     textArea.style.height = "auto";
-    textArea.style.height = textArea.scrollHeight + "px";
+
+    // Cap inline height at computed max-height to prevent iPad/iOS touch scrolling disablement.
+    // When inline height is set equal to scrollHeight, Safari WebKit detects no overflow and disables touch scrolls.
+    const computedMaxHeight = window.getComputedStyle(textArea).maxHeight;
+    const maxHeight = parseInt(computedMaxHeight, 10) || 200;
+
+    if (textArea.scrollHeight > maxHeight) {
+      textArea.style.height = maxHeight + "px";
+    } else {
+      textArea.style.height = textArea.scrollHeight + "px";
+    }
+
+    textArea.scrollTop = oldScrollTop;
+
+    // Also sync the backdrop scroll if it exists
+    if (window.SlashAutocomplete && typeof window.SlashAutocomplete.syncBackdrop === "function") {
+      window.SlashAutocomplete.syncBackdrop();
+    }
   });
 
   textArea.addEventListener("keydown", (e) => {

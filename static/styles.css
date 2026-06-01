@@ -355,7 +355,10 @@ body {
   box-shadow:
     0 10px 30px rgba(0, 0, 0, 0.4),
     0 0 0 3px var(--accent-subtle);
-}#chat-textarea {
+}
+#chat-textarea {
+  position: relative;
+  z-index: 2;
   flex: 1;
   background: transparent;
   border: none;
@@ -364,9 +367,19 @@ body {
   font-size: 1rem;
   resize: none;
   min-height: 40px;
+  max-height: 200px;
+  overflow-y: auto;
   padding: 8px 0;
   line-height: 1.5;
   color: inherit;
+  scrollbar-width: none; /* Hide scrollbar for Firefox */
+  -ms-overflow-style: none; /* Hide scrollbar for IE/Edge */
+  -webkit-overflow-scrolling: touch; /* Smooth touch scrolling on iOS/iPad */
+  touch-action: pan-y; /* Constrain touch actions to vertical swipe on iPad/touch devices */
+  overscroll-behavior-y: contain; /* Prevent scrolling parent viewport on iPad when bounds hit */
+}
+#chat-textarea::-webkit-scrollbar {
+  display: none; /* Hide scrollbar for Chrome, Safari, and iOS */
 }#send-btn-wrapper {
   display: flex;
   align-items: center;
@@ -6020,6 +6033,7 @@ max-height: 70vh;
 
 #chat-textarea-backdrop {
   position: absolute;
+  z-index: 1;
   top: 0;
   left: 0;
   right: 0;
