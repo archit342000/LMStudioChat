@@ -67,7 +67,16 @@ function scrollToBottom(behavior = "auto", forced = false) {
 
   if (forced || isNearBottom) {
     requestAnimationFrame(() => {
-      messages.scrollTo({ top: messages.scrollHeight, behavior: behavior });
+      if (behavior === "auto") {
+        const originalStyle = messages.style.scrollBehavior;
+        messages.style.scrollBehavior = "auto";
+        messages.scrollTo({ top: messages.scrollHeight, behavior: "auto" });
+        requestAnimationFrame(() => {
+          messages.style.scrollBehavior = originalStyle;
+        });
+      } else {
+        messages.scrollTo({ top: messages.scrollHeight, behavior: behavior });
+      }
     });
   }
 }

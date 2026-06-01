@@ -3550,7 +3550,7 @@ ${customSkillsList}
   messagesContainer.addEventListener(
     "load",
     (e) => {
-      if (e.target.tagName === "IMG") {
+      if (e.target.tagName === "IMG" && !isChatLoading) {
         scrollToBottom("smooth");
       }
     },
