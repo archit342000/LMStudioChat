@@ -3549,7 +3549,7 @@ background: var(--accent-border);
   overflow: auto;
   font-family: var(--font-mono);
 }.file-system-editor-container .cm-gutters {
-  background-color: var(--surface-1);
+  background-color: var(--surface-secondary);
   border-right: 1px solid var(--border-subtle);
   color: var(--content-muted);
 }.file-system-editor-container .cm-activeLine {
@@ -3622,6 +3622,10 @@ background: var(--accent-border);
   -webkit-backdrop-filter: var(--glass-blur);
   z-index: -1;
   pointer-events: none;
+}
+#file-system-panel .file-system-header,
+#file-system-panel .file-system-body {
+  background: var(--bg-primary) !important;
 }
 
 /* Side-by-side layout for desktop */

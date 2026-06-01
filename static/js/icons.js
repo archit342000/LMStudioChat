@@ -63,6 +63,42 @@ window.WORKSPACE_ICONS = {
         label: "Tag",
         paths: '<path d="M20.59 13.41l-7.17 7.17a2 2 0 0 1-2.83 0L2 12V2h10l8.59 8.59a2 2 0 0 1 0 2.82z"/><line x1="7" y1="7" x2="7.01" y2="7"/>',
     },
+    "bell": {
+        label: "Bell",
+        paths: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    },
+    "trash": {
+        label: "Trash",
+        paths: '<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>',
+    },
+    "help-circle": {
+        label: "Help",
+        paths: '<circle cx="12" cy="12" r="10"/><path d="M9.09 9a3 3 0 0 1 5.83 1c0 2-3 3-3 3"/><line x1="12" y1="17" x2="12.01" y2="17"/>',
+    },
+    "check-circle": {
+        label: "Check",
+        paths: '<path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/>',
+    },
+    "arrow-up": {
+        label: "Up",
+        paths: '<line x1="12" y1="19" x2="12" y2="5"/><polyline points="5 12 12 5 19 12"/>',
+    },
+    "arrow-down": {
+        label: "Down",
+        paths: '<line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/>',
+    },
+    "smile": {
+        label: "Smile",
+        paths: '<circle cx="12" cy="12" r="10"/><path d="M8 14s1.5 2 4 2 4-2 4-2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>',
+    },
+    "frown": {
+        label: "Frown",
+        paths: '<circle cx="12" cy="12" r="10"/><path d="M16 16s-1.5-2-4-2-4 2-4 2"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>',
+    },
+    "laughing": {
+        label: "Grin",
+        paths: '<circle cx="12" cy="12" r="10"/><path d="M8 13c0 2.5 1.8 4 4 4s4-1.5 4-4H8z"/><line x1="9" y1="9" x2="9.01" y2="9"/><line x1="15" y1="9" x2="15.01" y2="9"/>',
+    },
 
     // ── Work & Productivity ──────────────────────────────────
     "briefcase": {
@@ -89,6 +125,22 @@ window.WORKSPACE_ICONS = {
         label: "Chart",
         paths: '<line x1="12" y1="20" x2="12" y2="10"/><line x1="18" y1="20" x2="18" y2="4"/><line x1="6" y1="20" x2="6" y2="16"/>',
     },
+    "activity": {
+        label: "Activity",
+        paths: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    },
+    "archive": {
+        label: "Archive",
+        paths: '<polyline points="21 8 21 21 3 21 3 8"/><rect x="1" y="3" width="22" height="5"/><line x1="10" y1="12" x2="14" y2="12"/>',
+    },
+    "file": {
+        label: "File",
+        paths: '<path d="M13 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><polyline points="13 2 13 9 20 9"/>',
+    },
+    "file-text": {
+        label: "Doc",
+        paths: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>',
+    },
 
     // ── Creative & Media ─────────────────────────────────────
     "pen-tool": {
@@ -110,6 +162,14 @@ window.WORKSPACE_ICONS = {
     "edit": {
         label: "Write",
         paths: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+    },
+    "play": {
+        label: "Play",
+        paths: '<polygon points="5 3 19 12 5 21 5 3"/>',
+    },
+    "scissors": {
+        label: "Cut",
+        paths: '<circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><line x1="20" y1="4" x2="8.12" y2="15.88"/><line x1="14.47" y1="14.48" x2="20" y2="20"/><line x1="8.12" y1="8.12" x2="12" y2="12"/>',
     },
 
     // ── Science & Tech ───────────────────────────────────────
@@ -141,6 +201,26 @@ window.WORKSPACE_ICONS = {
         label: "Lightning",
         paths: '<polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>',
     },
+    "git-branch": {
+        label: "Git",
+        paths: '<line x1="6" y1="3" x2="6" y2="15"/><circle cx="18" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M18 9a9 9 0 0 1-9 9"/>',
+    },
+    "monitor": {
+        label: "Monitor",
+        paths: '<rect x="2" y="3" width="20" height="14" rx="2" ry="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/>',
+    },
+    "server": {
+        label: "Server",
+        paths: '<rect x="2" y="2" width="20" height="8" rx="2" ry="2"/><rect x="2" y="14" width="20" height="8" rx="2" ry="2"/><line x1="6" y1="6" x2="6.01" y2="6"/><line x1="6" y1="18" x2="6.01" y2="18"/>',
+    },
+    "hard-drive": {
+        label: "Disk",
+        paths: '<line x1="22" y1="12" x2="2" y2="12"/><path d="M5.45 5.11L2 12v6a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-6l-3.45-6.89A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><line x1="6" y1="16" x2="6.01" y2="16"/><line x1="10" y1="16" x2="10.01" y2="16"/>',
+    },
+    "wifi": {
+        label: "Wifi",
+        paths: '<path d="M5 13a10 10 0 0 1 14 0"/><path d="M8.5 16.5a5 5 0 0 1 7 0"/><path d="M2 10a15 15 0 0 1 20 0"/><line x1="12" y1="20" x2="12.01" y2="20"/>',
+    },
 
     // ── Communication ────────────────────────────────────────
     "message-circle": {
@@ -159,6 +239,14 @@ window.WORKSPACE_ICONS = {
         label: "Person",
         paths: '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>',
     },
+    "send": {
+        label: "Send",
+        paths: '<line x1="22" y1="2" x2="11" y2="13"/><polygon points="22 2 15 22 11 13 2 9 22 2"/>',
+    },
+    "message-square": {
+        label: "Note",
+        paths: '<path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>',
+    },
 
     // ── Nature & Places ──────────────────────────────────────
     "globe": {
@@ -176,6 +264,38 @@ window.WORKSPACE_ICONS = {
     "leaf": {
         label: "Leaf",
         paths: '<path d="M11 20A7 7 0 0 1 9.8 6.9C15.5 4.9 20 2 20 2s-2.9 4.5-4.9 10.1A7 7 0 0 1 11 20z"/><path d="M2 21c0-3 1.85-5.36 5.08-6C9.5 14.52 12 13 13 12"/>',
+    },
+    "map": {
+        label: "Map",
+        paths: '<polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/><line x1="9" y1="3" x2="9" y2="18"/><line x1="15" y1="6" x2="15" y2="21"/>',
+    },
+    "cloud": {
+        label: "Cloud",
+        paths: '<path d="M18 10h-1.26A8 8 0 1 0 9 20h9a5 5 0 0 0 0-10z"/>',
+    },
+    "thermometer": {
+        label: "Temp",
+        paths: '<path d="M14 14.76V3.5a2.5 2.5 0 0 0-5 0v11.26a4.5 4.5 0 1 0 5 0z"/>',
+    },
+    "wind": {
+        label: "Wind",
+        paths: '<path d="M9.59 4.59A2 2 0 1 1 11 8H2m10.59 11.41A2 2 0 1 0 14 16H2m15.73-8.27A2.5 2.5 0 1 1 19.5 12H2"/>',
+    },
+    "flower": {
+        label: "Flower",
+        paths: '<path d="M12 12a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm0 0a3 3 0 1 0 6 0 3 3 0 0 0-6 0Zm0 0a3 3 0 1 0 0 6 3 3 0 0 0 0-6Zm0 0a3 3 0 1 0-6 0 3 3 0 0 0 6 0Z"/><circle cx="12" cy="12" r="1"/>',
+    },
+    "tree-pine": {
+        label: "Forest",
+        paths: '<path d="m12 19 8-6h-6.27l6.27-5.5H13.62L19 3 12 7 5 3l5.38 4.5H4.27l6.27 5.5H4.27l8 6Zm0 0v3"/>',
+    },
+    "droplet": {
+        label: "Fluid",
+        paths: '<path d="M12 22a7 7 0 0 0 7-7c0-4.3-7-13-7-13S5 10.7 5 15a7 7 0 0 0 7 7z"/>',
+    },
+    "tent": {
+        label: "Camp",
+        paths: '<path d="m12 2-10 16v4h20v-4L12 2Z"/><path d="m12 2 5 16H7l5-16Z"/>',
     },
 
     // ── Misc & Symbols ───────────────────────────────────────
@@ -214,6 +334,146 @@ window.WORKSPACE_ICONS = {
     "search": {
         label: "Search",
         paths: '<circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>',
+    },
+    "key": {
+        label: "Key",
+        paths: '<path d="M21 2l-2 2m-7.61 7.61a5.5 5.5 0 1 1-7.778 7.778 5.5 5.5 0 0 1 7.777-7.777zm0 0L15.5 7.5m0 0l3 3L22 7l-3-3m-3.5 3.5L19 4"/>',
+    },
+    "coffee": {
+        label: "Coffee",
+        paths: '<path d="M18 8h1a4 4 0 0 1 0 8h-1M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8zM6 1v3M10 1v3M14 1v3"/>',
+    },
+    "gift": {
+        label: "Gift",
+        paths: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+    },
+    "award": {
+        label: "Award",
+        paths: '<circle cx="12" cy="8" r="7"/><polyline points="8.21 13.89 7 23 12 20 17 23 15.79 13.88"/>',
+    },
+    "tool": {
+        label: "Tool",
+        paths: '<path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"/>',
+    },
+    "shopping-cart": {
+        label: "Cart",
+        paths: '<circle cx="9" cy="21" r="1"/><circle cx="20" cy="21" r="1"/><path d="M1 1h4l2.68 13.39a2 2 0 0 0 2 1.61h9.72a2 2 0 0 0 2-1.61L23 6H6"/>',
+    },
+    "unlock": {
+        label: "Unlock",
+        paths: '<rect x="3" y="11" width="18" height="11" rx="2" ry="2"/><path d="M7 11V7a5 5 0 0 1 9.9-1"/>',
+    },
+    "eye": {
+        label: "Eye",
+        paths: '<path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/>',
+    },
+    "moon": {
+        label: "Moon",
+        paths: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
+    },
+    "umbrella": {
+        label: "Rain",
+        paths: '<path d="M23 12a11.02 11.02 0 0 0-22 0zm-11 0v9a2 2 0 0 0 4 0"/>',
+    },
+    "ghost": {
+        label: "Ghost",
+        paths: '<path d="M9 10h.01M15 10h.01M12 2a8 8 0 0 0-8 8v12a1 1 0 0 0 1.6.8l1.4-1.05 1.4 1.05a1 1 0 0 0 1.2 0l1.4-1.05 1.4 1.05a1 1 0 0 0 1.2 0l1.4-1.05 1.4 1.05a1 1 0 0 0 1.6-.8V10a8 8 0 0 0-8-8z"/>',
+    },
+    "sparkles": {
+        label: "AI",
+        paths: '<path d="m12 3-1.912 5.813a2 2 0 0 1-1.275 1.275L3 12l5.813 1.912a2 2 0 0 1 1.275 1.275L12 21l1.912-5.813a2 2 0 0 1 1.275-1.275L21 12l-5.813-1.912a2 2 0 0 1-1.275-1.275L12 3Z"/><path d="m5 3 1 2.5L8.5 6 6 7 5 9.5 4 7 1.5 6 4 5z"/><path d="m19 17 1 2.5 2.5.5-2.5 1-1 2.5-1-2.5-2.5-1 2.5-1z"/>',
+    },
+    "fire": {
+        label: "Hot",
+        paths: '<path d="M8.5 14.5A2.5 2.5 0 0 0 11 12c0-1.38-.5-2-1-3-1.072-2.143-.224-4.054 2-6 .5 2.5 2 4.9 4 6.5 2 1.6 3 3.5 3 5.5a7 7 0 1 1-14 0c0-1.153.433-2.294 1-3a2.5 2.5 0 0 0 2.5 2.5z"/>',
+    },
+    "crown": {
+        label: "Crown",
+        paths: '<path d="m2 4 3 12h14l3-12-6 7-4-7-4 7-6-7zm3 16h14"/>',
+    },
+    "trophy": {
+        label: "Trophy",
+        paths: '<path d="M6 9H4.5a2.5 2.5 0 0 1 0-5H6M18 9h1.5a2.5 2.5 0 0 0 0-5H18M4 22h16M10 14.66V17c0 .55-.45 1-1 1H4v2h16v-2h-5c-.55 0-1-.45-1-1v-2.34M12 2a7 7 0 0 1 7 7H5a7 7 0 0 1 7-7z"/>',
+    },
+    "gamepad": {
+        label: "Game",
+        paths: '<line x1="6" y1="12" x2="10" y2="12"/><line x1="8" y1="10" x2="8" y2="14"/><circle cx="15" cy="13" r="1"/><circle cx="18" cy="11" r="1"/><rect x="2" y="6" width="20" height="12" rx="3"/>',
+    },
+    "gem": {
+        label: "Gem",
+        paths: '<path d="M6 3h12l4 6-10 12L2 9zM11 3 8 9l4 12 4-12-3-6M2 9h20"/>',
+    },
+    "heart-off": {
+        label: "Broken",
+        paths: '<path d="M12 5.67l-1.06-1.06a5.5 5.5 0 0 0-7.78 7.78l1.06 1.06L12 21.23l3-3-2-3 2-3-3-3zM20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l1.5 3 2.5 3-1.5 3 4.78-4.78a5.5 5.5 0 0 0 0-7.78z"/>',
+    },
+    "cat": {
+        label: "Cat",
+        paths: '<path d="M12 5c.67 0 1.35.09 2 .26L18.5 2 18 7.5c1.63 1.25 2.5 3.03 2.5 5 0 4.69-3.81 8.5-8.5 8.5S3.5 17.19 3.5 12.5c0-1.97.87-3.75 2.5-5L5.5 2 10 5.26c.65-.17 1.33-.26 2-.26z"/><circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/><path d="M8 15c.5 1 1.5 1.5 2.5 1.5s2-.5 2.5-1.5"/>',
+    },
+    "pizza": {
+        label: "Pizza",
+        paths: '<path d="M15 11h.01M11 15h.01M16 16h.01M2 12C2 6.5 6.5 2 12 2c5.5 0 10 4.5 10 10l-10 10Z"/>',
+    },
+    "cookie": {
+        label: "Cookie",
+        paths: '<path d="M12 2a10 10 0 1 0 10 10 4 4 0 0 1-5-5 4 4 0 0 1-5-5c0 2-1.5 3.5-3.5 3.5A3.5 3.5 0 0 1 12 2Zm6 11a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-4 4a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm-6-2a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm3-6a1 1 0 1 0 0-2 1 1 0 0 0 0 2Zm6-2a1 1 0 1 0 0-2 1 1 0 0 0 0 2Z"/>',
+    },
+    "utensils": {
+        label: "Food",
+        paths: '<path d="M3 2v7c0 1.1.9 2 2 2h4a2 2 0 0 0 2-2V2M7 2v4M21 15V2v0a5 5 0 0 0-5 5v8c0 1.1.9 2 2 2h3Zm0 0v5a2 2 0 0 1-2 2h-1"/>',
+    },
+    "beer": {
+        label: "Beer",
+        paths: '<path d="M17 21h-9a3 3 0 0 1-3-3V5a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v13a3 3 0 0 1-3 3ZM5 8h14M19 14h2a2 2 0 0 0 2-2v-2a2 2 0 0 0-2-2h-2"/>',
+    },
+    "cake": {
+        label: "Cake",
+        paths: '<path d="M20 21v-8a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v8M2 21h20M12 8V4M12 4c.6 0 1-.4 1-1v0c0-.6-.4-1-1-1s-1 .4-1 1v0c0 .6.4 1 1 1ZM7 11V8M17 11V8"/>',
+    },
+    "apple": {
+        label: "Apple",
+        paths: '<path d="M12 22c4.97 0 9-4.03 9-9 0-2.12-.74-4.07-1.97-5.61C17.64 5.48 14.98 4 12 4c-2.98 0-5.64 1.48-7.03 3.39C3.74 8.93 3 10.88 3 13c0 4.97 4.03 9 9 9Z"/><path d="M12 4V2"/>',
+    },
+    "dumbbell": {
+        label: "Gym",
+        paths: '<rect x="6" y="10" width="12" height="4" rx="1"/><rect x="2" y="5" width="4" height="14" rx="2"/><rect x="18" y="5" width="4" height="14" rx="2"/>',
+    },
+    "bike": {
+        label: "Bike",
+        paths: '<circle cx="5.5" cy="17.5" r="3.5"/><circle cx="18.5" cy="17.5" r="3.5"/><polyline points="15 7.5 17.5 10 12.5 14 7.5 14"/><path d="M12 7.5L7.5 14M5.5 14h3M15 7.5h3"/>',
+    },
+    "timer": {
+        label: "Timer",
+        paths: '<line x1="10" y1="2" x2="14" y2="2"/><line x1="12" y1="14" x2="15" y2="11"/><circle cx="12" cy="14" r="8"/>',
+    },
+    "anchor": {
+        label: "Anchor",
+        paths: '<circle cx="12" cy="5" r="3"/><line x1="12" y1="22" x2="12" y2="8"/><path d="M5 12H2a10 10 0 0 0 20 0h-3"/><path d="M19 12a7 7 0 0 1-14 0"/>',
+    },
+    "phone": {
+        label: "Phone",
+        paths: '<path d="M22 16.92v3a2 2 0 0 1-2.18 2 19.79 19.79 0 0 1-8.63-3.07 19.5 19.5 0 0 1-6-6 19.79 19.79 0 0 1-3.07-8.67A2 2 0 0 1 4.11 2h3a2 2 0 0 1 2 1.72 12.84 12.84 0 0 0 .7 2.81 2 2 0 0 1-.45 2.11L8.09 9.91a16 16 0 0 0 6 6l1.27-1.27a2 2 0 0 1 2.11-.45 12.84 12.84 0 0 0 2.81.7A2 2 0 0 1 22 16.92z"/>',
+    },
+    "battery": {
+        label: "Power",
+        paths: '<rect x="2" y="7" width="16" height="10" rx="2" ry="2"/><line x1="22" y1="11" x2="22" y2="13"/>',
+    },
+    "headphones": {
+        label: "Audio",
+        paths: '<path d="M3 18v-6a9 9 0 0 1 18 0v6"/><path d="M21 19a2 2 0 0 1-2 2h-1a2 2 0 0 1-2-2v-3a2 2 0 0 1 2-2h3zM3 19a2 2 0 0 0 2 2h1a2 2 0 0 0 2-2v-3a2 2 0 0 0-2-2H3z"/>',
+    },
+    "graduation-cap": {
+        label: "Grad",
+        paths: '<path d="M22 10v6M2 10l10-5 10 5-10 5z"/><path d="M6 12v5c0 2 2 3 6 3s6-1 6-3v-5"/>',
+    },
+    "magnet": {
+        label: "Magnet",
+        paths: '<path d="M17 11c0-2.76-2.24-5-5-5s-5 2.24-5 5v10h4V11c0-.55.45-1 1-1s1 .45 1 1v10h4V11z"/>',
+    },
+    "microscope": {
+        label: "Lab",
+        paths: '<path d="M6 18h8M3 22h18M14 22a7 7 0 1 0-14 0M14 14a2.5 2.5 0 1 0-5 0M12 2v10"/>',
     },
 };
 
