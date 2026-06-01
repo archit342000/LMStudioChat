@@ -11,7 +11,9 @@ document.addEventListener("DOMContentLoaded", function () {
 
     let width, height;
     let particles = [];
-    const count = 900;
+    // Reduce particle count on touch devices to improve main-thread layout performance
+    const isTouchDevice = navigator.maxTouchPoints > 0 || 'ontouchstart' in window;
+    const count = isTouchDevice ? 250 : 900;
     let radius = 350;
     const perspective = 800;
 
@@ -219,26 +221,39 @@ document.addEventListener("DOMContentLoaded", function () {
     // Prevent default touch actions (scrolling/jank) when interacting with background
     canvas.addEventListener("touchstart", (e) => e.preventDefault(), { passive: false });
 
+    // Debounce helper to prevent excessive canvas resizing & context resets during layout transitions
+    function debounce(func, wait) {
+      let timeout;
+      return function (...args) {
+        clearTimeout(timeout);
+        timeout = setTimeout(() => func.apply(this, args), wait);
+      };
+    }
+
     let lastWidth = window.innerWidth;
     let lastHeight = window.innerHeight;
 
     resize();
     createParticles();
     animate();
-    window.addEventListener("resize", () => {
+
+    const debouncedResize = debounce(() => {
       const newWidth = window.innerWidth;
       const newHeight = window.innerHeight;
 
-      // If width hasn't changed (e.g. keyboard showing up vertically), just resize the canvas area without re-randomizing stars
-      if (newWidth === lastWidth && Math.abs(newHeight - lastHeight) < 150) {
+      // Only resize the canvas container/context if the viewport dimensions actually changed.
+      if (newWidth !== lastWidth || newHeight !== lastHeight) {
+        lastWidth = newWidth;
+        lastHeight = newHeight;
         resize();
-        return;
       }
+    }, 150);
 
-      lastWidth = newWidth;
-      lastHeight = newHeight;
-      resize();
-      createParticles();
+    window.addEventListener("resize", () => {
+      // Immediately update centering target to prevent particles drifting off-center during resize/keyboard toggle
+      targetX = window.innerWidth / 2;
+      targetY = window.innerHeight / 2;
+      debouncedResize();
     });
   }
 

@@ -182,6 +182,8 @@ body {
   opacity: 0.6;
   transition: opacity 1.5s ease;
   touch-action: none;
+  will-change: transform;
+  transform: translate3d(0, 0, 0);
 }.dark #bg-stars {
   opacity: 0.45;
 }.dark {
