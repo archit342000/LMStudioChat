@@ -801,14 +801,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
 
       // Header Title
       if (chatTitleHeader) chatTitleHeader.classList.remove("hidden");
-      if (chatTitleDisplay) {
-        let headerHtml = `<span>${chat.title || "Untitled Chat"}</span>`;
-        if (chat.is_vision)
-          headerHtml += ` <span class="badge vision">Vision</span>`;
-        if (chat.research_mode)
-          headerHtml += ` <span class="badge research">Research</span>`;
-        chatTitleDisplay.innerHTML = headerHtml;
-      }
+      updateHeaderTitle();
 
       // FileSystems
       fetchFileSystems(id).then((file_systemCount) => {
@@ -1124,14 +1117,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     if (chatTitleHeader) {
       chatTitleHeader.classList.remove("hidden");
     }
-    if (chatTitleDisplay) {
-      if (workspace && workspace.icon) {
-        const iconHtml = window.getWorkspaceIconHtml(workspace.icon, 18, "var(--color-primary-600)", 2.5);
-        chatTitleDisplay.innerHTML = `<span style="display: inline-flex; align-items: center; gap: 6px; vertical-align: middle;">${iconHtml}<span>Workspace: ${displayName}</span></span>`;
-      } else {
-        chatTitleDisplay.textContent = `Workspace: ${displayName}`;
-      }
-    }
+    updateHeaderTitle();
 
     // Update workspace title, icon, and stats in view
     const viewTitle = document.getElementById("workspace-view-title");
@@ -1487,6 +1473,70 @@ const chatTitleHeader = document.getElementById("chat-title-header");
 
 
 
+  function updateHeaderTitle() {
+    if (!chatTitleDisplay) return;
+
+    if (currentChatId) {
+      const chat = savedChats.find((c) => c.id === currentChatId);
+      if (!chat) return;
+      let headerHtml = `<span class="title-text">${chat.title || "Untitled Chat"}</span>`;
+      if (chat.is_vision)
+        headerHtml += ` <span class="badge vision">Vision</span>`;
+      if (chat.research_mode)
+        headerHtml += ` <span class="badge research">Research</span>`;
+      headerHtml += ` <span class="header-rename-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></span>`;
+      chatTitleDisplay.innerHTML = headerHtml;
+    } else if (currentWorkspaceId) {
+      const workspaces = window.WorkspaceManager.getChatWorkspaces();
+      const workspace = workspaces.find(w => w.name === currentWorkspaceId);
+      const displayName = workspace ? (workspace.displayName || workspace.name) : currentWorkspaceId;
+
+      let headerHtml = "";
+      if (workspace && workspace.icon) {
+        const iconHtml = window.getWorkspaceIconHtml(workspace.icon, 18, "var(--color-primary-600)", 2.5);
+        headerHtml = `<span style="display: inline-flex; align-items: center; gap: 6px; vertical-align: middle;">${iconHtml}<span class="title-text">Workspace: ${displayName}</span></span>`;
+      } else {
+        headerHtml = `<span class="title-text">Workspace: ${displayName}</span>`;
+      }
+      headerHtml += ` <span class="header-rename-icon"><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg></span>`;
+      chatTitleDisplay.innerHTML = headerHtml;
+    }
+  }
+
+  async function renameWorkspaceHeader() {
+    if (!currentWorkspaceId) return;
+    const workspaces = window.WorkspaceManager.getChatWorkspaces();
+    const workspace = workspaces.find(w => w.name === currentWorkspaceId);
+    const displayName = workspace ? workspace.displayName : currentWorkspaceId;
+    const newWorkspaceName = await showPromptModal(
+      "Rename Workspace",
+      "Enter new name for workspace:",
+      displayName,
+    );
+
+    if (
+      newWorkspaceName !== null &&
+      newWorkspaceName.trim() !== "" &&
+      newWorkspaceName.trim() !== displayName
+    ) {
+      const finalWorkspaceName = newWorkspaceName.trim();
+      try {
+        const base = API_MODULES.CHATS || "/api/chats";
+        const res = await fetch(`${base}/workspaces/${currentWorkspaceId}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: finalWorkspaceName }),
+        });
+        if (res.ok) {
+          await loadChats();
+          await loadWorkspace(currentWorkspaceId, false);
+        }
+      } catch (err) {
+        console.error("Error renaming workspace from header:", err);
+      }
+    }
+  }
+
   /**
    * Updates the title of a specific chat in the sidebar and header.
    * @param {string} id - The chat ID.
@@ -1529,8 +1579,8 @@ const chatTitleHeader = document.getElementById("chat-title-header");
           if (chat) chat.title = finalTitle;
           titleSpan.textContent = finalTitle;
           // Also update top header if this is the current chat
-          if (currentChatId === id && chatTitleDisplay) {
-            chatTitleDisplay.textContent = finalTitle;
+          if (currentChatId === id) {
+            updateHeaderTitle();
           }
         }
       } catch (e) {
@@ -2561,6 +2611,14 @@ const chatTitleHeader = document.getElementById("chat-title-header");
     }
   });
 
+  chatTitleDisplay?.addEventListener("click", () => {
+    if (currentChatId) {
+      renameChat(currentChatId);
+    } else if (currentWorkspaceId) {
+      renameWorkspaceHeader();
+    }
+  });
+
 
 
 /**
@@ -2786,7 +2844,7 @@ ${customSkillsList}
             thinking_profile: samplingParams.thinking_profile,
           });
           if (chatTitleHeader) chatTitleHeader.classList.remove("hidden");
-          if (chatTitleDisplay) chatTitleDisplay.textContent = chat.title;
+          updateHeaderTitle();
         }
       }
     }

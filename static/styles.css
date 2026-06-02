@@ -2364,11 +2364,37 @@ background: var(--accent-border);
   border-radius: 12px;
   background: var(--bg-chat-display);
   border: 1px solid var(--border-chat-display);
-}.dark .chat-title-display {
+  cursor: pointer;
+  transition: all 0.2s var(--ease-spring);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.chat-title-display:hover {
+  background: var(--bg-primary-hover, rgba(0, 0, 0, 0.04));
+  border-color: var(--color-primary);
+  transform: translateY(-1px);
+}
+.chat-title-display .header-rename-icon {
+  margin-left: 6px;
+  display: inline-flex;
+  align-items: center;
+  opacity: 0.4;
+  transition: opacity 0.2s ease, color 0.2s ease;
+  vertical-align: middle;
+}
+.chat-title-display:hover .header-rename-icon {
+  opacity: 1;
+  color: var(--color-primary);
+}
+.dark .chat-title-display {
   color: var(--content-muted);
   /* More subtle in dark mode */
   background: var(--bg-chat-display);
   border-color: var(--border-chat-display);
+}
+.dark .chat-title-display:hover {
+  background: rgba(255, 255, 255, 0.06);
 }.utility-btn.glass {
   background: rgba(255, 255, 255, 0.4);
   backdrop-filter: blur(12px);
