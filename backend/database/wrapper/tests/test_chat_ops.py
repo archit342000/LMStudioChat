@@ -548,6 +548,41 @@ class TestWorkspaceOps:
         workspace_in_list2 = next(w for w in workspaces2 if w["id"] == ws["id"])
         assert workspace_in_list2["icon"] is None
 
+    @patch("time.time")
+    def test_workspaces_ordered_by_last_used(self, mock_time, temp_db):
+        # 1. Create three workspaces sequentially.
+        mock_time.return_value = 100.0
+        ws1 = temp_db.create_workspace("Workspace 1")
+        
+        mock_time.return_value = 200.0
+        ws2 = temp_db.create_workspace("Workspace 2")
+        
+        mock_time.return_value = 300.0
+        ws3 = temp_db.create_workspace("Workspace 3")
+        
+        # Default order without chats (sorted by creation timestamp descending): ws3, ws2, ws1.
+        workspaces = temp_db.get_all_workspaces()
+        ids = [w["id"] for w in workspaces]
+        assert ids == [ws3["id"], ws2["id"], ws1["id"]]
+        
+        # 2. Associate a chat with ws1, and set its timestamp to 400.0 (the most recent).
+        temp_db.ensure_chat_exists("chat_ws1")
+        temp_db.save_chat("chat_ws1", "Chat 1", 400.0, enable_thinking=1, workspace_id=ws1["id"])
+        
+        # Now ws1's last used timestamp (via chat_ws1) is 400.0, so order should be: ws1, ws3, ws2.
+        workspaces = temp_db.get_all_workspaces()
+        ids = [w["id"] for w in workspaces]
+        assert ids == [ws1["id"], ws3["id"], ws2["id"]]
+        
+        # 3. Rename ws2 at time 500.0. This will update ws2's workspace timestamp to 500.0.
+        mock_time.return_value = 500.0
+        temp_db.rename_workspace(ws2["id"], "Workspace 2 Renamed")
+        
+        # Now ws2's last used timestamp is 500.0, so order should be: ws2, ws1, ws3.
+        workspaces = temp_db.get_all_workspaces()
+        ids = [w["id"] for w in workspaces]
+        assert ids == [ws2["id"], ws1["id"], ws3["id"]]
+
 
 # ---------------------------------------------------------------------------
 # Persona snapshot — isolation guarantee

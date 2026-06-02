@@ -52,7 +52,17 @@ class ChatOpsMixin(BaseMixin):
             try:
                 conn.row_factory = sqlite3.Row
                 c = conn.cursor()
-                c.execute("SELECT * FROM workspaces ORDER BY name ASC")
+                c.execute('''
+                    SELECT w.*
+                    FROM workspaces w
+                    LEFT JOIN chats c ON w.id = c.workspace_id
+                    GROUP BY w.id
+                    ORDER BY CASE 
+                        WHEN COALESCE(w.timestamp, 0) > COALESCE(MAX(c.timestamp), 0) 
+                        THEN COALESCE(w.timestamp, 0) 
+                        ELSE COALESCE(MAX(c.timestamp), 0) 
+                    END DESC
+                ''')
                 return [dict(row) for row in c.fetchall()]
             finally:
                 conn.close()
@@ -224,6 +234,7 @@ class ChatOpsMixin(BaseMixin):
         db_write_duration = (time.time() - write_start) * 1000
         cache_layer.invalidate("chats", chat_id)
         cache_layer.invalidate("chats_full", chat_id)
+        cache_layer.invalidate("workspaces")
         self._log_db_wrapper_op("SAVE_CHAT_END", chat_id, f"db_ms={db_write_duration:.2f}")
 
     def update_chat(self, chat_id: str, **kwargs):
@@ -247,7 +258,7 @@ class ChatOpsMixin(BaseMixin):
                     'top_k', 'min_p', 'presence_penalty', 'frequency_penalty',
                     'last_user_id', 'last_assistant_id', 'research_state',
                     'resume_suppressed', 'thinking_profile',
-                    'browsing_session_id', 'git_mode'
+                    'browsing_session_id', 'git_mode', 'timestamp'
                 ]
                 for field in allowed_fields:
                     if field in kwargs:
@@ -266,6 +277,7 @@ class ChatOpsMixin(BaseMixin):
         db_write_duration = (time.time() - write_start) * 1000
         cache_layer.invalidate("chats", chat_id)
         cache_layer.invalidate("chats_full", chat_id)
+        cache_layer.invalidate("workspaces")
         self._log_db_wrapper_op("UPDATE_CHAT_END", chat_id, f"duration_ms={db_write_duration:.2f}")
 
     def update_last_user_id(self, chat_id: str, user_id: int):
@@ -351,6 +363,7 @@ class ChatOpsMixin(BaseMixin):
         cache_layer.invalidate("messages", f"chat:{chat_id}")
         cache_layer.invalidate("files", f"chat:{chat_id}")
         cache_layer.invalidate("chats_full", chat_id)
+        cache_layer.invalidate("workspaces")
         self._log_db_wrapper_op("DELETE_CHAT_END", chat_id, f"duration_ms={db_write_duration:.2f}")
 
     def delete_all_chats(self):
