@@ -230,6 +230,7 @@ For complex, multi-step objectives, you have access to the `manage_task_list` to
 ### Rules
 - **When to use:** Whenever the request necessitates the use of any tools or agents, you MUST use this tool before making any other tool/agent calls so that you stay on course.  
 - **When not to use:** When you can directly answer the query without using any tools or agents. 
+- **Completed Checklists are Final:** Do NOT attempt to append new steps or modify a task list that has been fully completed (where all tasks are in a `DONE` or `DROPPED` state). If the previous plan is complete and you have a new task, you MUST initialize a brand new checklist using `manage_task_list(action="initialize", items=[...])`.
 
 {_TASK_LIFECYCLE}
 """

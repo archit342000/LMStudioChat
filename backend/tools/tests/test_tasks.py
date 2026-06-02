@@ -79,3 +79,34 @@ def test_manage_task_list_db_error(mock_db):
     res = manage_task_list(action="view", chat_id="c", parent_message_id="p")
     data = json.loads(res)
     assert "Failed to manage task list: DB Connection Lost" in data["error"]
+
+def test_manage_task_list_copy_forward(mock_db):
+    # Case 1: has incomplete task -> should carry forward
+    mock_db.get_task_list.return_value = []
+    mock_db.get_latest_task_list.return_value = [{"id": 1, "description": "T1", "status": "TODO"}]
+    
+    res = manage_task_list(
+        action="view",
+        chat_id="chat1",
+        parent_message_id="new_msg"
+    )
+    tasks = json.loads(res)
+    assert len(tasks) == 1
+    assert tasks[0]["status"] == "TODO"
+    mock_db.set_task_list.assert_called_once_with("chat1", [{"id": 1, "description": "T1", "status": "TODO"}], parent_id="new_msg", parent_type="main")
+
+def test_manage_task_list_no_copy_forward_if_completed(mock_db):
+    # Case 2: all completed -> should not carry forward
+    mock_db.get_task_list.return_value = []
+    mock_db.get_latest_task_list.return_value = [{"id": 1, "description": "T1", "status": "DONE"}]
+    mock_db.set_task_list.reset_mock()
+    
+    res = manage_task_list(
+        action="view",
+        chat_id="chat1",
+        parent_message_id="new_msg"
+    )
+    tasks = json.loads(res)
+    assert len(tasks) == 0
+    mock_db.set_task_list.assert_not_called()
+

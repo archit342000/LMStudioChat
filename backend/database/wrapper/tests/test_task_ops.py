@@ -51,3 +51,9 @@ def test_task_ops(temp_db):
     retrieved_updated = db.get_task_list(chat_id, parent_id=parent_id)
     assert len(retrieved_updated) == 1
     assert retrieved_updated[0]['task'] == "Do thing A (done)"
+
+    # 4. Get Latest Task List (ignoring specific parent_id anchor)
+    latest_tasks = db.get_latest_task_list(chat_id)
+    assert len(latest_tasks) == 1
+    assert latest_tasks[0]['task'] == "Do thing A (done)"
+

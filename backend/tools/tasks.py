@@ -24,6 +24,15 @@ def manage_task_list(
         
         current_tasks = db.get_task_list(chat_id, parent_id=anchor, parent_type=parent_type)
 
+        # Smart Copy-Forward: carry forward if the current turn has no task list,
+        # and the previous list had incomplete tasks.
+        if not current_tasks and action in ("view", "add_step", "update_status"):
+            prev_tasks = db.get_latest_task_list(chat_id, parent_type=parent_type)
+            has_incomplete = any(t.get("status") in ("TODO", "BLOCKED") for t in prev_tasks)
+            if prev_tasks and has_incomplete:
+                db.set_task_list(chat_id, prev_tasks, parent_id=anchor, parent_type=parent_type)
+                current_tasks = prev_tasks
+
         if action == "initialize":
             new_tasks = []
             if items:
