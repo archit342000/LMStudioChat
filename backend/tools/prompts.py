@@ -48,11 +48,14 @@ The `search_web` tool is a sub-agent designed to isolate verbose search results 
 Use `search_web` for factual lookups, current events, or documentation.
 
 ### How to use
-1.  **Prefer "normal" Depth**: ALWAYS use `depth="normal"` (default) for standard factual lookups, news, or general information. This uses Tavily's native answer generation for maximum speed and minimum token cost.
-2.  **Use "deep" Depth Sparingly**: Use `depth="deep"` ONLY when the information you need is extremely technical, obscure, or requires comparing multiple perspectives from the source text itself.
-3.  **Provide Context**: Always provide detailed `context` explaining *why* you are searching and exactly what information you need extracted. The sub-agent will use this to filter and synthesize the results for you.
-4.  **Raw Results**: Set `return_raw_results=True` ONLY if you need to perform deep, manual analysis of the verbatim text from the sources yourself. Otherwise, leave it false to receive a concise, pre-synthesized answer.
-5.  **Time Range**: Use the `time_range` parameter (e.g., 'day', 'week', 'month', 'year') when you specifically need recent information (e.g., "latest news", "recent developments"). You should usually call `get_time` first to know the current date before using this.
+1.  **Understand Synthesis vs. Non-Synthesis**:
+    - **No Synthesis (`depth="normal"`)**: This is the default. It bypasses LLM synthesis and immediately returns Tavily's native answer or formatted snippets for speed and efficiency.
+    - **Custom Synthesis (`depth="deep"`)**: Set `depth="deep"` and keep `return_raw_results=False` to trigger the Search Web Agent's custom LLM synthesis phase to answer your specific `context` query.
+2.  **How to Request Verbatim Raw Results**:
+    - If you need to perform deep, manual analysis of the verbatim full text from the search sources yourself, you MUST set BOTH `return_raw_results=True` AND `depth="deep"`.
+    - Setting `return_raw_results=True` with `depth="normal"` will NOT return full verbatim text.
+3.  **Provide Detailed Context**: When using `depth="deep"`, always provide detailed `context` explaining *why* you are searching and exactly what information you need synthesized.
+4.  **Time Range**: Use the `time_range` parameter (e.g., 'day', 'week', 'month', 'year') when you need recent info. Usually call `get_time` first to know the current date/year before applying this.
 """
 
 VISIT_PAGE_DIRECTIVES = """
