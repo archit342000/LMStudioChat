@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v4.7.7
+* **UI Enhancements & Polish**:
+    - **Chat & Streaming**: Fixed chat loading logic to appear smoother, and resolved an issue where image preview and full view did not work during response streaming.
+    - **Workspace & Sidebar Navigation**: Added and customized workspace icons, updated workspace header alignment, and moved the 'New File' button to the top of the sidebar.
+    - **Control Panel & Inputs**: Made the max tokens and thinking budget values directly editable (bypassing the slider), and added a size limit to the main input field.
+    - **Mobile & iPad Optimizations**: Fixed iPad background animation glitches, resolved mobile overflow on the Mermaid schematic viewer header, and corrected a folder long-press gesture issue in the file sidebar.
+    - **Browser Portal**: Made the manual browser portal view full screen.
+* **Version Bump**: Incremented version globally to 4.7.7.
+
 ## v4.7.6
 * **Virtual File System & API Enhancements**:
     - **Blocked Virtual Workspace Path Arguments**: Modified `execute_git` subcommand to block `workspace/` prefixed arguments in git commands across all contexts, preventing incorrect physical folders from being created.
