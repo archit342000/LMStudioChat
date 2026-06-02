@@ -131,6 +131,8 @@ async def flow_fn(
                     url = r.get("url")
                     title = r.get("title", "No Title")
                     content = r.get("content", "")
+                    if len(content) > config.SEARCH_WEB_AGENT_MAX_CHARS_PER_RESULT:
+                        content = content[:config.SEARCH_WEB_AGENT_MAX_CHARS_PER_RESULT] + "\n[... Content truncated due to length ...]"
                     formatted_results += f"\n---\nTitle: {title}\nURL: {url}\n{content}\n"
                 
                 agent.result = formatted_results
@@ -149,6 +151,8 @@ async def flow_fn(
             url = r.get("url")
             snip = r.get("raw_content", r.get("content", ""))
             if snip:
+                if len(snip) > config.SEARCH_WEB_AGENT_MAX_CHARS_PER_RESULT:
+                    snip = snip[:config.SEARCH_WEB_AGENT_MAX_CHARS_PER_RESULT] + "\n[... Content truncated due to length ...]"
                 raw_results_str += f"\n---\n[Source]: {url}\n{snip}\n"
                 
         # Step 2: Return early if raw results are requested

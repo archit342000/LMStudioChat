@@ -37,6 +37,7 @@ def mock_config():
     with patch('backend.tools.agents.search_web_agent.agent.config') as mock:
         mock.MAX_SEARCH_RESULTS = 5
         mock.TIMEOUT_TAVILY_SEARCH_ASYNC = 10
+        mock.SEARCH_WEB_AGENT_MAX_CHARS_PER_RESULT = 15000
         mock.SEARCH_WEB_AGENT_MAX_TOKENS = 1000
         mock.SEARCH_WEB_AGENT_THINKING_BUDGET = 500
         yield mock
@@ -209,3 +210,29 @@ async def test_search_web_initialization_failure(mock_agent, mock_tavily, mock_d
         parent_id=123,
         parent_type='search_web'
     )
+
+@pytest.mark.anyio
+async def test_search_web_raw_results_truncation(mock_agent, mock_tavily, mock_db, mock_config):
+    # Mock config to have a very small per result limit
+    mock_config.SEARCH_WEB_AGENT_MAX_CHARS_PER_RESULT = 10
+    
+    mock_res = MagicMock()
+    mock_res.content = [MagicMock(text=json.dumps({
+        "results": [
+            {"url": "url1", "content": "This is a very long snippet that exceeds ten characters"},
+            {"url": "url2", "content": "Short"}
+        ]
+    }))]
+    mock_tavily.execute_tool.return_value = mock_res
+    
+    gen = flow_fn(mock_agent, "search_web", "query", return_raw_results=True)
+    chunks = [c async for c in gen]
+    
+    # Verify first result (long) is truncated
+    assert "This is a " in chunks[0]
+    assert "[... Content truncated due to length ...]" in chunks[0]
+    assert "exceeds" not in chunks[0]
+    
+    # Verify second result (short) is NOT truncated and stays intact
+    assert "Short" in chunks[0]
+    assert "Short\n[... Content truncated due to length ...]" not in chunks[0]

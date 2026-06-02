@@ -327,6 +327,7 @@ BROWSER_STEALTH_LEVEL = os.getenv("BROWSER_STEALTH_LEVEL", "minimal")  # minimal
 # =============================================================================
 # AGENT MAX OUTPUT TOKENS CONFIGURATION
 # =============================================================================
+SEARCH_WEB_AGENT_MAX_CHARS_PER_RESULT = int(os.getenv("SEARCH_WEB_AGENT_MAX_CHARS_PER_RESULT", 40000))
 SEARCH_WEB_AGENT_MAX_TOKENS = int(os.getenv("SEARCH_WEB_AGENT_MAX_TOKENS", 16384))
 DOCUMENT_AGENT_MAX_TOKENS = int(os.getenv("DOCUMENT_AGENT_MAX_TOKENS", 16384))
 FILE_SYSTEM_AGENT_MAX_TOKENS = int(os.getenv("FILE_SYSTEM_AGENT_MAX_TOKENS", 16384))
