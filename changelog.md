@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v4.7.8
+* **Search Web Agent Refinements**:
+    - **Directives & Truncation**: Clarified directives for the web search agent to retrieve raw search results, and added per-search-result truncation logic.
+* **UI & User Experience**:
+    - **Header Actions**: Added ability to rename chats and workspaces directly from the header.
+    - **Mermaid Diagrams**: Fixed rendering issues for Mermaid diagrams in the UI.
+    - **Time-Based Sorting**: Enabled sorting of workspaces based on time.
+* **Multi-Turn Chat Persistence**:
+    - **Task List Persistence**: Added persistence for the main conversation task list across multiple turns.
+* **Version Bump**: Incremented version globally to 4.7.8.
+
 ## v4.7.7
 * **UI Enhancements & Polish**:
     - **Chat & Streaming**: Fixed chat loading logic to appear smoother, and resolved an issue where image preview and full view did not work during response streaming.
