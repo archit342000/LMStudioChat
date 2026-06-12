@@ -1,5 +1,10 @@
 # CHANGELOG
 
+## v4.7.9
+* **Docker Configuration**:
+    - **Project Name**: Added project name `my-ai` to docker compose file.
+* **Version Bump**: Incremented version globally to 4.7.9.
+
 ## v4.7.8
 * **Search Web Agent Refinements**:
     - **Directives & Truncation**: Clarified directives for the web search agent to retrieve raw search results, and added per-search-result truncation logic.
