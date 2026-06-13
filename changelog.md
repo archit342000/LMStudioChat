@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v4.7.10
+* **Speed Test Enhancements**:
+    - **Cancel Button**: Added a button to cancel the speed test execution.
+    - **Illustration & Reasoning**: Fixed illustration rendering logic and disabled reasoning for the speed test.
+* **Version Bump**: Incremented version globally to 4.7.10.
+
 ## v4.7.9
 * **Docker Configuration**:
     - **Project Name**: Added project name `my-ai` to docker compose file.
