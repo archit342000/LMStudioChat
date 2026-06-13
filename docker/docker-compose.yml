@@ -92,6 +92,7 @@ services:
       - ..:/app
     environment:
       - TZ=Asia/Kolkata
+      - PYTHONUNBUFFERED=1
     secrets:
       - AI_URL
       - AI_API_KEY

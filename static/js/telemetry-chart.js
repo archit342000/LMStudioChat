@@ -6,6 +6,7 @@
 window.TelemetryChart = {
   telemetryDataPoints: [],
   config: {},
+  targetContextThreshold: 0,
 
   // Cached DOM elements
   sysTestModelSpeedBtn: null,
@@ -142,18 +143,24 @@ window.TelemetryChart = {
     const ctx = this.telemetryChartFileSystem.getContext("2d");
     if (!ctx) return;
 
-    // Handle high-DPI displays
+    // Handle high-DPI displays only when dimensions change
     const rect = this.telemetryChartFileSystem.getBoundingClientRect();
-    this.telemetryChartFileSystem.width = rect.width * (window.devicePixelRatio || 1);
-    this.telemetryChartFileSystem.height = rect.height * (window.devicePixelRatio || 1);
-    ctx.scale(window.devicePixelRatio || 1, window.devicePixelRatio || 1);
+    const dpr = window.devicePixelRatio || 1;
+    const targetWidth = Math.floor(rect.width * dpr);
+    const targetHeight = Math.floor(rect.height * dpr);
+
+    if (this.telemetryChartFileSystem.width !== targetWidth || this.telemetryChartFileSystem.height !== targetHeight) {
+      this.telemetryChartFileSystem.width = targetWidth;
+      this.telemetryChartFileSystem.height = targetHeight;
+      ctx.scale(dpr, dpr);
+    }
 
     const width = rect.width;
     const height = rect.height;
-    const paddingLeft = 45;
+    const paddingLeft = 55; // Increased padding to prevent label clipping
     const paddingBottom = 35;
     const paddingTop = 20;
-    const paddingRight = 20;
+    const paddingRight = 25; // Slightly increased padding
     const plotWidth = width - paddingLeft - paddingRight;
     const plotHeight = height - paddingTop - paddingBottom;
 
@@ -162,13 +169,14 @@ window.TelemetryChart = {
     if (this.telemetryDataPoints.length === 0) return;
 
     // Determine max values for scaling
-    let minX = this.telemetryDataPoints[0].tokens;
-    let maxX = this.telemetryDataPoints[this.telemetryDataPoints.length - 1].tokens;
+    const minX = 0; // Fixed baseline at 0
+    const maxX = this.targetContextThreshold || Math.max(...this.telemetryDataPoints.map((p) => p.tokens), 2048);
     let rangeX = maxX - minX;
     if (rangeX === 0) rangeX = 1; // Prevent division by zero
 
-    let maxY = Math.max(...this.telemetryDataPoints.map((p) => p.tps), 10); // Floor of 10 TPS
+    let maxY = Math.max(...this.telemetryDataPoints.map((p) => p.tps).filter(t => !isNaN(t) && isFinite(t)), 10); // Floor of 10 TPS
     maxY = maxY * 1.2; // Add 20% headroom
+    if (!isFinite(maxY)) maxY = 12;
 
     // Draw Grid & Labels
     ctx.lineWidth = 1;
@@ -193,21 +201,21 @@ window.TelemetryChart = {
     ctx.stroke();
 
     // Vertical lines (X-axis) - Dynamic 'Nice Ticks'
-    ctx.textAlign = "center";
     ctx.textBaseline = "top";
     ctx.beginPath();
     ctx.strokeStyle = "rgba(255, 255, 255, 0.05)";
 
     // Calculate a clean step size based on range
     let tickStep;
-    if (rangeX <= 500) tickStep = 50;
-    else if (rangeX <= 2500) tickStep = 250;
-    else if (rangeX <= 10000) tickStep = 1000;
-    else if (rangeX <= 50000) tickStep = 5000;
-    else tickStep = 10000;
+    if (rangeX <= 500) tickStep = 100;
+    else if (rangeX <= 2500) tickStep = 500;
+    else if (rangeX <= 10000) tickStep = 2000;
+    else if (rangeX <= 50000) tickStep = 10000;
+    else if (rangeX <= 150000) tickStep = 25000;
+    else if (rangeX <= 500000) tickStep = 100000;
+    else tickStep = 200000;
 
-    // Find the first clean multiple of tickStep that is >= minX
-    let currentTick = Math.ceil(minX / tickStep) * tickStep;
+    let currentTick = 0;
 
     while (currentTick <= maxX) {
       const x = paddingLeft + ((currentTick - minX) / rangeX) * plotWidth;
@@ -216,13 +224,27 @@ window.TelemetryChart = {
       ctx.moveTo(x, paddingTop);
       ctx.lineTo(x, height - paddingBottom);
 
-      // Draw label
-      let labelText;
-      if (tickStep >= 1000) {
-        labelText = (currentTick / 1000).toFixed(0) + "k";
+      // Draw label with boundary-aware text alignment
+      if (x - paddingLeft < 10) {
+        ctx.textAlign = "left";
+      } else if (width - paddingRight - x < 10) {
+        ctx.textAlign = "right";
       } else {
-        // For small steps, use 1 decimal if needed, but drop .0
-        labelText = (currentTick / 1000).toFixed(1).replace(".0", "") + "k";
+        ctx.textAlign = "center";
+      }
+
+      let labelText;
+      if (currentTick === 0) {
+        labelText = "0";
+      } else if (currentTick < 1000) {
+        labelText = currentTick.toString();
+      } else {
+        const kVal = currentTick / 1000;
+        if (kVal % 1 === 0) {
+          labelText = kVal.toFixed(0) + "k";
+        } else {
+          labelText = kVal.toFixed(1).replace(".0", "") + "k";
+        }
       }
 
       ctx.fillText(labelText, x, height - paddingBottom + 10);
@@ -244,8 +266,10 @@ window.TelemetryChart = {
     // Draw Filled Area
     ctx.beginPath();
     this.telemetryDataPoints.forEach((point, index) => {
-      const x = paddingLeft + ((point.tokens - minX) / rangeX) * plotWidth;
-      const y = height - paddingBottom - (point.tps / maxY) * plotHeight;
+      const pointTokens = !isNaN(point.tokens) && isFinite(point.tokens) ? point.tokens : 0;
+      const pointTps = !isNaN(point.tps) && isFinite(point.tps) ? point.tps : 0;
+      const x = paddingLeft + ((pointTokens - minX) / rangeX) * plotWidth;
+      const y = height - paddingBottom - (pointTps / maxY) * plotHeight;
       if (index === 0) {
         ctx.moveTo(x, height - paddingBottom);
         ctx.lineTo(x, y);
@@ -256,11 +280,13 @@ window.TelemetryChart = {
 
     if (this.telemetryDataPoints.length > 0) {
       const lastPoint = this.telemetryDataPoints[this.telemetryDataPoints.length - 1];
+      const lastPointTokens = !isNaN(lastPoint.tokens) && isFinite(lastPoint.tokens) ? lastPoint.tokens : 0;
       const lastX =
-        paddingLeft + ((lastPoint.tokens - minX) / rangeX) * plotWidth;
+        paddingLeft + ((lastPointTokens - minX) / rangeX) * plotWidth;
       const firstPoint = this.telemetryDataPoints[0];
+      const firstPointTokens = !isNaN(firstPoint.tokens) && isFinite(firstPoint.tokens) ? firstPoint.tokens : 0;
       const firstX =
-        paddingLeft + ((firstPoint.tokens - minX) / rangeX) * plotWidth;
+        paddingLeft + ((firstPointTokens - minX) / rangeX) * plotWidth;
       ctx.lineTo(lastX, height - paddingBottom);
       ctx.lineTo(firstX, height - paddingBottom);
       ctx.fillStyle = gradient;
@@ -277,8 +303,10 @@ window.TelemetryChart = {
     ctx.lineJoin = "round";
 
     this.telemetryDataPoints.forEach((point, index) => {
-      const x = paddingLeft + ((point.tokens - minX) / rangeX) * plotWidth;
-      const y = height - paddingBottom - (point.tps / maxY) * plotHeight;
+      const pointTokens = !isNaN(point.tokens) && isFinite(point.tokens) ? point.tokens : 0;
+      const pointTps = !isNaN(point.tps) && isFinite(point.tps) ? point.tps : 0;
+      const x = paddingLeft + ((pointTokens - minX) / rangeX) * plotWidth;
+      const y = height - paddingBottom - (pointTps / maxY) * plotHeight;
 
       if (index === 0) {
         ctx.moveTo(x, y);
@@ -291,8 +319,10 @@ window.TelemetryChart = {
     // Draw Data Points
     ctx.shadowBlur = 0;
     this.telemetryDataPoints.forEach((point) => {
-      const x = paddingLeft + ((point.tokens - minX) / rangeX) * plotWidth;
-      const y = height - paddingBottom - (point.tps / maxY) * plotHeight;
+      const pointTokens = !isNaN(point.tokens) && isFinite(point.tokens) ? point.tokens : 0;
+      const pointTps = !isNaN(point.tps) && isFinite(point.tps) ? point.tps : 0;
+      const x = paddingLeft + ((pointTokens - minX) / rangeX) * plotWidth;
+      const y = height - paddingBottom - (pointTps / maxY) * plotHeight;
       ctx.beginPath();
       ctx.arc(x, y, 4, 0, Math.PI * 2);
       ctx.fillStyle = "var(--color-neutral-900)";
@@ -316,6 +346,8 @@ window.TelemetryChart = {
     const targetContextThreshold = this.testSpeedContextSlider
       ? parseInt(this.testSpeedContextSlider.value)
       : 2048;
+
+    this.targetContextThreshold = targetContextThreshold;
 
     // Transition UI
     if (this.testModelSpeedModal) {
@@ -365,6 +397,7 @@ window.TelemetryChart = {
       const decoder = new TextDecoder("utf-8");
       let ttftLogged = false;
       let currentTurnTokens = 0;
+      let hasProcessedTimingsForCurrentTurn = false;
 
       let buffer = "";
 
@@ -404,6 +437,9 @@ window.TelemetryChart = {
                 }
                 if (data.test_status.startsWith("Starting Turn")) {
                   ttftLogged = false;
+                  hasProcessedTimingsForCurrentTurn = false;
+                  currentTurnTokens = 0;
+                  currentTurnDecodeTps = null;
                 }
               }
 
@@ -423,14 +459,17 @@ window.TelemetryChart = {
               }
 
               // Handle native timings block if available
-              if (data.timings) {
+              if (data.timings && !hasProcessedTimingsForCurrentTurn) {
+                hasProcessedTimingsForCurrentTurn = true;
                 turnCount++;
-                const ttft = data.timings.prompt_ms;
-                const prefillTps =
-                  data.timings.prompt_n / (data.timings.prompt_ms / 1000);
-                currentTurnDecodeTps =
-                  data.timings.predicted_n /
-                  (data.timings.predicted_ms / 1000);
+                const prompt_ms = data.timings.prompt_ms || 1.0;
+                const predicted_ms = data.timings.predicted_ms || 1.0;
+                const prompt_n = data.timings.prompt_n || 0;
+                const predicted_n = data.timings.predicted_n || 0;
+
+                const ttft = prompt_ms;
+                const prefillTps = prompt_ms > 0 ? (prompt_n / (prompt_ms / 1000)) : 0;
+                currentTurnDecodeTps = predicted_ms > 0 ? (predicted_n / (predicted_ms / 1000)) : 0;
 
                 totalTtftSum += ttft;
                 totalPrefillTpsSum += prefillTps;
@@ -444,8 +483,6 @@ window.TelemetryChart = {
                 if (this.testSpeedPrefillTps) this.testSpeedPrefillTps.textContent = `${avgPrefill}`;
                 if (this.testSpeedCurrentTps) this.testSpeedCurrentTps.textContent = `${avgDecode}`;
 
-                const prompt_n = data.timings.prompt_n || 0;
-                const predicted_n = data.timings.predicted_n || 0;
                 // Fallback context size if usage block doesn't come
                 if (
                   prompt_n + predicted_n > 0 &&
@@ -473,6 +510,7 @@ window.TelemetryChart = {
                 });
                 this.drawTelemetryChart();
                 currentTurnDecodeTps = null; // Reset for next turn
+                currentTurnTokens = 0; // Reset for next turn
               }
             } catch (e) {
               // Ignore parse errors for incomplete chunks

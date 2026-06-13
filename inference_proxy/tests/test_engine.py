@@ -45,14 +45,25 @@ class TestEngine(unittest.IsolatedAsyncioTestCase):
         messages = [
             {"role": "system", "content": "System message", "extra_arg": "ignored"},
             {"role": "user", "content": [{"type": "text", "text": "User text"}]},
+            {"role": "assistant", "content": "Assistant content", "reasoning_content": "Assistant reasoning"},
             {"role": "internal-event", "content": "ignored role"}
         ]
         
-        normalized = engine._normalize_messages(messages)
-        self.assertEqual(len(normalized), 2)
+        # Test default/Standard model (e.g. Qwen/Nemotron)
+        normalized = engine._normalize_messages(messages, "qwen2.5-instruct")
+        self.assertEqual(len(normalized), 3)
         self.assertEqual(normalized[0]["role"], "system")
         self.assertEqual(normalized[1]["role"], "user")
+        self.assertEqual(normalized[2]["role"], "assistant")
         self.assertNotIn("extra_arg", normalized[0])
+        self.assertNotIn("reasoning_content", normalized[2])
+        self.assertEqual(normalized[2]["content"], "<think>\nAssistant reasoning</think>\nAssistant content")
+
+        # Test Gemma model
+        normalized_gemma = engine._normalize_messages(messages, "google/gemma4-26b-it")
+        self.assertEqual(len(normalized_gemma), 3)
+        self.assertNotIn("reasoning_content", normalized_gemma[2])
+        self.assertEqual(normalized_gemma[2]["content"], "<|channel>thought\nAssistant reasoning<channel|>\nAssistant content")
 
     @patch("engine.InferenceEngine.ensure_model_loaded", new_callable=AsyncMock)
     @patch("engine.InferenceEngine._request", new_callable=AsyncMock)

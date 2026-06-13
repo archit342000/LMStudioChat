@@ -190,5 +190,125 @@ class TestRouter(unittest.TestCase):
         self.assertEqual(response.status_code, 400)
         self.assertIn("Missing 'model' or 'input'", response.json["error"])
 
+    @patch("router.config")
+    @patch("router.requests")
+    @patch("router.time.sleep")
+    @patch("router.InferenceEngine")
+    def test_proxy_test_model_speed(self, MockEngine, mock_sleep, mock_requests, mock_config):
+        mock_config.AI_URL = "http://localhost:8080/v1"
+        mock_config.AI_API_KEY = "test-key"
+
+        # Lifecycle mocks (GET /v1/models, POST /models/load)
+        mock_models_resp = MagicMock()
+        mock_models_resp.status_code = 200
+        mock_models_resp.json.return_value = {"data": []}
+        mock_requests.get.return_value = mock_models_resp
+
+        mock_load_resp = MagicMock()
+        mock_load_resp.status_code = 200
+        mock_requests.post.return_value = mock_load_resp
+
+        # Mock engine.stream() to yield one turn and then a usage chunk
+        mock_engine = MagicMock()
+
+        captured_kwargs = []
+
+        async def fake_stream(*args, **kwargs):
+            captured_kwargs.append(dict(kwargs))
+            yield 'data: {"choices": [{"delta": {"content": "Hello"}}]}'
+            yield 'data: {"usage": {"prompt_tokens": 90, "completion_tokens": 10, "total_tokens": 100}, "timings": {"prompt_ms": 10.0, "prompt_n": 90, "predicted_ms": 20.0, "predicted_n": 10}}'
+            yield "data: [DONE]"
+
+        mock_engine.stream = fake_stream
+        MockEngine.return_value = mock_engine
+
+        response = self.client.post(
+            "/api/models/test-speed",
+            json={"model": "model_1", "target_context_threshold": 100}
+        )
+        self.assertEqual(response.status_code, 200)
+        chunks = response.data.decode().split("\n\n")
+
+        self.assertTrue(any("Starting context accumulation test" in chunk for chunk in chunks))
+        self.assertTrue(any("Starting Turn 1" in chunk for chunk in chunks))
+        self.assertTrue(any("timings" in chunk for chunk in chunks))
+
+        # thinking_budget_tokens must be passed as 0 and enable_thinking as False
+        self.assertGreaterEqual(len(captured_kwargs), 1)
+        self.assertEqual(captured_kwargs[0]["thinking_budget_tokens"], 0)
+        self.assertEqual(captured_kwargs[0]["enable_thinking"], False)
+
+    @patch("router.config")
+    @patch("router.requests")
+    @patch("router.time.sleep")
+    @patch("router.InferenceEngine")
+    def test_proxy_test_model_speed_without_reasoning(self, MockEngine, mock_sleep, mock_requests, mock_config):
+        """
+        Tests multi-turn context accumulation with reasoning disabled.
+        """
+        mock_config.AI_URL = "http://localhost:8080/v1"
+        mock_config.AI_API_KEY = "test-key"
+
+        mock_models_resp = MagicMock()
+        mock_models_resp.status_code = 200
+        mock_models_resp.json.return_value = {"data": []}
+        mock_requests.get.return_value = mock_models_resp
+        mock_requests.post.return_value = MagicMock(status_code=200)
+
+        stream_calls = []
+
+        async def fake_stream_turn1(*args, **kwargs):
+            yield 'data: {"choices": [{"delta": {"content": "Response text."}}]}'
+            yield 'data: {"usage": {"prompt_tokens": 40, "completion_tokens": 1000, "total_tokens": 1040}}'
+            yield "data: [DONE]"
+
+        async def fake_stream_turn2(*args, **kwargs):
+            yield 'data: {"choices": [{"delta": {"content": "World"}}]}'
+            yield 'data: {"usage": {"prompt_tokens": 1140, "completion_tokens": 10, "total_tokens": 1150}}'
+            yield "data: [DONE]"
+
+        mock_engine = MagicMock()
+        call_count = [0]
+
+        def fake_stream(*args, **kwargs):
+            import copy
+            call_count[0] += 1
+            # Deep-copy messages now; the list is mutated in-place across turns.
+            stream_calls.append(copy.deepcopy(kwargs))
+            if call_count[0] == 1:
+                return fake_stream_turn1(*args, **kwargs)
+            return fake_stream_turn2(*args, **kwargs)
+
+        mock_engine.stream = fake_stream
+        MockEngine.return_value = mock_engine
+
+        response = self.client.post(
+            "/api/models/test-speed",
+            json={"model": "model_1", "target_context_threshold": 1100}
+        )
+        self.assertEqual(response.status_code, 200)
+        response.data.decode()  # consume generator
+
+        # Two turns must have been executed.
+        self.assertEqual(call_count[0], 2)
+
+        # Turn 2's messages kwarg must include the Turn 1 assistant message.
+        turn2_messages = stream_calls[1]["messages"]
+        self.assertEqual(len(turn2_messages), 3)  # user, assistant, user
+
+        assistant_msg = turn2_messages[1]
+        self.assertEqual(assistant_msg["role"], "assistant")
+        # The visible response text must be preserved.
+        self.assertEqual(assistant_msg["content"], "Response text.")
+        # reasoning_content is empty when reasoning is disabled.
+        self.assertEqual(assistant_msg["reasoning_content"], "")
+
+        self.assertEqual(turn2_messages[2]["role"], "user")
+
+        # thinking_budget_tokens must be passed as 0 and enable_thinking as False on every turn
+        for call_kwargs in stream_calls:
+            self.assertEqual(call_kwargs["thinking_budget_tokens"], 0)
+            self.assertEqual(call_kwargs["enable_thinking"], False)
+
 if __name__ == "__main__":
     unittest.main()

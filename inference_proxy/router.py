@@ -8,6 +8,7 @@ import config
 from loader import load_model_config
 from engine import InferenceEngine
 from lifecycle import ensure_model_loaded
+from logging_utils import log_event
 
 models_bp = Blueprint('models', __name__)
 
@@ -269,103 +270,118 @@ def proxy_test_model_speed():
 
             yield f"data: {json.dumps({'test_status': 'Starting context accumulation test...'})}\n\n"
 
+            topics = [
+                "artificial intelligence and neural networks",
+                "quantum mechanics and computing",
+                "philosophical theories of consciousness",
+                "the history of classical music",
+                "principles of modern architecture",
+                "astrophysics and the life cycle of stars",
+                "macroeconomics and global monetary policy",
+                "the evolution of programming paradigms",
+                "organic chemistry and molecular biology",
+                "ancient civilizations and archaeology"
+            ]
+
+            engine = InferenceEngine()
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+
             messages = []
             total_tokens_tracked = 0
+            last_tokens_tracked = -1
             turn_count = 1
             max_tokens_per_turn = min(8192, max(500, target_context_threshold // 10))
             max_turns_safety = 1000
 
             while total_tokens_tracked < target_context_threshold and turn_count <= max_turns_safety:
-                messages.append({"role": "user", "content": f"Turn {turn_count}: Please write a very detailed and comprehensive essay on a complex topic. Write as much as you possibly can, aiming for length and depth."})
+                topic = topics[(turn_count - 1) % len(topics)]
+                prompt_content = (
+                    f"Turn {turn_count}: Please write a very detailed and comprehensive essay on the following topic: {topic}. "
+                    "Write as much as you possibly can, aiming for maximum length, depth, and structured detail."
+                )
+                messages.append({"role": "user", "content": prompt_content})
                 yield f"data: {json.dumps({'test_status': f'Starting Turn {turn_count} (Current Context: {total_tokens_tracked}/{target_context_threshold} tokens)...'})}\n\n"
 
-                payload = {
+                current_turn_content = ""
+                current_turn_reasoning = ""
+
+                # Route through InferenceEngine — the same path as normal chat completions.
+                # This ensures StreamInterceptor correctly splits <think> tags into
+                # reasoning_content vs content, _normalize_messages() sanitises the history,
+                # and the semaphore serialises the request exactly as the real app does.
+                # Disable thinking/reasoning entirely for the speed test to
+                # avoid issues arising from the template stripping reasoning tokens in history.
+                thinking_budget = 0
+
+                log_event("test_speed_request", {
+                    "turn": turn_count,
                     "model": model,
-                    "messages": messages,
-                    "stream": True,
                     "max_tokens": max_tokens_per_turn,
-                    "stream_options": {"include_usage": True}
-                }
+                    "thinking_budget_tokens": thinking_budget,
+                    "enable_thinking": False,
+                    "message_count": len(messages),
+                    "messages": messages,
+                })
 
-                current_turn_response = ""
-                start_time = time.time()
-                first_token_time = None
-                completion_tokens_count = 0
+                gen = engine.stream(
+                    messages=messages,
+                    model=model,
+                    max_tokens=max_tokens_per_turn,
+                    thinking_budget_tokens=thinking_budget,
+                    enable_thinking=False,
+                    stream_options={"include_usage": True}
+                )
+                try:
+                    while True:
+                        try:
+                            line = loop.run_until_complete(gen.__anext__())
+                            yield line + "\n\n"
 
-                with requests.post(f"{base_url}/v1/chat/completions", json=payload, headers=headers, stream=True, timeout=None) as r:
-                    for chunk in r.iter_lines():
-                        if chunk:
-                            chunk_str = chunk.decode('utf-8')
-                            yield chunk_str + "\n\n"
-                            
-                            chunk_str_stripped = chunk_str.strip()
-                            if chunk_str_stripped.startswith('data: ') and chunk_str_stripped != 'data: [DONE]':
+                            if line.startswith("data: ") and line != "data: [DONE]":
                                 try:
-                                    data_obj = json.loads(chunk_str_stripped[6:])
-                                    has_content = False
-                                    if data_obj.get("choices") and len(data_obj["choices"]) > 0:
-                                        delta = data_obj["choices"][0].get("delta", {})
-                                        if delta.get("reasoning_content"):
-                                            current_turn_response += delta["reasoning_content"]
-                                            has_content = True
-                                        if delta.get("content"):
-                                            current_turn_response += delta["content"]
-                                            has_content = True
-                                        
-                                    if has_content:
-                                        completion_tokens_count += 1
-                                        if first_token_time is None:
-                                            first_token_time = time.time()
-
+                                    data_obj = json.loads(line[6:])
+                                    delta = (data_obj.get("choices") or [{}])[0].get("delta", {})
+                                    if delta.get("reasoning_content"):
+                                        current_turn_reasoning += delta["reasoning_content"]
+                                    if delta.get("content"):
+                                        current_turn_content += delta["content"]
                                     if data_obj.get("usage"):
                                         usage_total = data_obj["usage"].get("total_tokens")
                                         if usage_total:
                                             total_tokens_tracked = usage_total
-                                        usage_completion = data_obj["usage"].get("completion_tokens")
-                                        if usage_completion:
-                                            completion_tokens_count = usage_completion
-
-                                    elif data_obj.get("timings"):
-                                        prompt_n = data_obj["timings"].get("prompt_n", 0)
-                                        predicted_n = data_obj["timings"].get("predicted_n", 0)
-                                        if prompt_n + predicted_n > 0:
-                                            total_tokens_tracked = prompt_n + predicted_n
-                                        if predicted_n > 0:
-                                            completion_tokens_count = predicted_n
                                 except Exception:
                                     pass
-                
-                messages.append({"role": "assistant", "content": current_turn_response})
+                        except StopAsyncIteration:
+                            break
+                except GeneratorExit:
+                    loop.run_until_complete(gen.aclose())
+                    loop.close()
+                    return
+                finally:
+                    try:
+                        loop.run_until_complete(gen.aclose())
+                    except Exception:
+                        pass
 
-                prompt_tokens = sum(len(m["content"]) for m in messages[:-1]) // 4
-                if completion_tokens_count == 0:
-                    completion_tokens_count = len(current_turn_response) // 4
-                
-                estimated_total = prompt_tokens + completion_tokens_count
-                if total_tokens_tracked < estimated_total:
-                    total_tokens_tracked = estimated_total
+                # Preserve both content and reasoning_content in the history message,
+                # exactly as the real app stores assistant turns. reasoning_content is
+                # essential for the model to maintain coherent context across turns —
+                # the chat template re-injects it as <think> for the next request.
+                messages.append({
+                    "role": "assistant",
+                    "content": current_turn_content,
+                    "reasoning_content": current_turn_reasoning
+                })
 
-                ttft_ms = (first_token_time - start_time) * 1000 if first_token_time else (time.time() - start_time) * 1000
-                predicted_ms = (time.time() - (first_token_time or start_time)) * 1000
-
-                synthetic_chunk = {
-                    "choices": [],
-                    "usage": {
-                        "prompt_tokens": prompt_tokens,
-                        "completion_tokens": completion_tokens_count,
-                        "total_tokens": total_tokens_tracked
-                    },
-                    "timings": {
-                        "prompt_n": prompt_tokens,
-                        "prompt_ms": max(1.0, ttft_ms),
-                        "predicted_n": completion_tokens_count,
-                        "predicted_ms": max(1.0, predicted_ms)
-                    }
-                }
-                yield f"data: {json.dumps(synthetic_chunk)}\n\n"
+                if total_tokens_tracked <= last_tokens_tracked:
+                    yield f"data: {json.dumps({'test_status': f'Context accumulation stopped at {total_tokens_tracked} tokens (context limit reached or shifting active). Stopping test.'})}\n\n"
+                    break
+                last_tokens_tracked = total_tokens_tracked
 
                 turn_count += 1
-            
+
+            loop.close()
             yield f"data: {json.dumps({'test_status': f'Completed. Reached threshold of {target_context_threshold} tokens.'})}\n\n"
         except Exception as stream_e:
             yield f"data: {json.dumps({'error': str(stream_e)})}\n\n"

@@ -92,7 +92,7 @@ class InferenceEngine:
                 
                 payload = {
                     "model": model,
-                    "messages": self._normalize_messages(messages),
+                    "messages": self._normalize_messages(messages, model),
                     "stream": False,
                     **params
                 }
@@ -196,7 +196,7 @@ class InferenceEngine:
                 endpoint = f"{self.ai_url}/v1/chat/completions"
                 payload = {
                     "model": model,
-                    "messages": self._normalize_messages(messages),
+                    "messages": self._normalize_messages(messages, model),
                     "stream": True,
                     **params
                 }
@@ -403,7 +403,7 @@ class InferenceEngine:
             headers["Authorization"] = f"Bearer {api_key}"
         return headers
 
-    def _normalize_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    def _normalize_messages(self, messages: List[Dict[str, Any]], model: str) -> List[Dict[str, Any]]:
         """
         Normalizes roles, tool structures, and formatting to ensure compatibility.
         """
@@ -444,6 +444,21 @@ class InferenceEngine:
                     m.pop("tool_calls", None)
                 m.pop("tool_call_id", None)
                 if m.get("name") is None: m.pop("name", None)
+                
+                # Fold reasoning_content into content using model-specific tags
+                reasoning = m.pop("reasoning_content", None)
+                content_val = m.get("content") or ""
+                if reasoning:
+                    parser = get_parser_for_model(model)
+                    start_tag = parser.start_tags[0] if parser.start_tags else None
+                    end_tag = parser.end_tags[0] if parser.end_tags else None
+                    if start_tag and end_tag:
+                        m["content"] = f"{start_tag}{reasoning}{end_tag}{content_val}"
+                    else:
+                        m["content"] = content_val
+                else:
+                    m["content"] = content_val
+
             elif role == "tool":
                 m.pop("tool_calls", None)
                 m.pop("reasoning_content", None)
@@ -451,8 +466,9 @@ class InferenceEngine:
                 if not m.get("name"): m["name"] = "unknown"
 
             if m.get("content") is None: m["content"] = ""
-            m = {k: v for k, v in m.items() if k in ["role", "content", "name", "tool_calls", "tool_call_id", "reasoning_content"]}
+            m = {k: v for k, v in m.items() if k in ["role", "content", "name", "tool_calls", "tool_call_id"]}
             normalized.append(m)
+        log_event("debug_normalize", {"normalized": normalized})
         return normalized
 
     def _log_llm_call(self, payload: dict, response_text: str, model: str, chat_id: str, duration: float, call_type: str, timings: Optional[dict] = None, tool_calls: Optional[list] = None):
