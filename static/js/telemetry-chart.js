@@ -7,6 +7,7 @@ window.TelemetryChart = {
   telemetryDataPoints: [],
   config: {},
   targetContextThreshold: 0,
+  testAbortController: null,
 
   // Cached DOM elements
   sysTestModelSpeedBtn: null,
@@ -25,6 +26,7 @@ window.TelemetryChart = {
   testSpeedTtft: null,
   testSpeedPrefillTps: null,
   testSpeedCurrentTps: null,
+  stopTestBtn: null,
 
   init: function(config = {}) {
     this.config = config;
@@ -46,6 +48,7 @@ window.TelemetryChart = {
     this.testSpeedTtft = document.getElementById("test-speed-ttft");
     this.testSpeedPrefillTps = document.getElementById("test-speed-prefill-tps");
     this.testSpeedCurrentTps = document.getElementById("test-speed-current-tps");
+    this.stopTestBtn = document.getElementById("stop-model-speed-test");
 
     this.setupListeners();
   },
@@ -87,10 +90,18 @@ window.TelemetryChart = {
     // Close Telemetry Dashboard modal click
     if (this.closeTelemetryDashboardBtn) {
       this.closeTelemetryDashboardBtn.addEventListener("click", () => {
+        this.stopModelSpeedTest();
         if (this.telemetryDashboardModal) {
           this.telemetryDashboardModal.classList.remove("open");
           setTimeout(() => (this.telemetryDashboardModal.style.display = "none"), 300);
         }
+      });
+    }
+
+    // Stop Speed Test button click
+    if (this.stopTestBtn) {
+      this.stopTestBtn.addEventListener("click", () => {
+        this.stopModelSpeedTest();
       });
     }
 
@@ -99,6 +110,16 @@ window.TelemetryChart = {
       this.runTestModelSpeedBtn.addEventListener("click", async () => {
         await this.runModelSpeedTest();
       });
+    }
+  },
+
+  stopModelSpeedTest: function() {
+    if (this.testAbortController) {
+      this.testAbortController.abort();
+      this.testAbortController = null;
+    }
+    if (this.stopTestBtn) {
+      this.stopTestBtn.style.display = "none";
     }
   },
 
@@ -373,10 +394,16 @@ window.TelemetryChart = {
     this.telemetryDataPoints = [];
     this.drawTelemetryChart();
 
+    this.testAbortController = new AbortController();
+    if (this.stopTestBtn) {
+      this.stopTestBtn.style.display = "block";
+    }
+
     try {
       const response = await fetch("/api/models/test-speed", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
+        signal: this.testAbortController.signal,
         body: JSON.stringify({
           model: selectedModel,
           target_context_threshold: targetContextThreshold,
@@ -523,12 +550,24 @@ window.TelemetryChart = {
         this.testSpeedStatus.textContent = "Completed";
       }
     } catch (err) {
-      if (this.testSpeedStatus) {
-        this.testSpeedStatus.textContent = "Failed";
-        this.testSpeedStatus.style.color = "var(--color-rose-500)";
+      if (err.name === "AbortError") {
+        if (this.testSpeedStatus) {
+          this.testSpeedStatus.textContent = "Stopped";
+          this.testSpeedStatus.style.color = "var(--color-amber)";
+        }
+      } else {
+        if (this.testSpeedStatus) {
+          this.testSpeedStatus.textContent = "Failed";
+          this.testSpeedStatus.style.color = "var(--color-rose-500)";
+        }
+        if (this.testSpeedCurrentTps) {
+          this.testSpeedCurrentTps.textContent = err.message;
+        }
       }
-      if (this.testSpeedCurrentTps) {
-        this.testSpeedCurrentTps.textContent = err.message;
+    } finally {
+      this.testAbortController = null;
+      if (this.stopTestBtn) {
+        this.stopTestBtn.style.display = "none";
       }
     }
   }

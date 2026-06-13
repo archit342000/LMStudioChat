@@ -40,6 +40,7 @@ describe('telemetry-chart.js', () => {
             <span id="test-speed-ttft"></span>
             <span id="test-speed-prefill-tps"></span>
             <span id="test-speed-current-tps"></span>
+            <button id="stop-model-speed-test" style="display: none;"></button>
         </body></html>`, { runScripts: "dangerously" });
 
         window = dom.window;
@@ -118,6 +119,7 @@ describe('telemetry-chart.js', () => {
         assert.strictEqual(typeof window.TelemetryChart.fetchModelsForDropdown, 'function');
         assert.strictEqual(typeof window.TelemetryChart.drawTelemetryChart, 'function');
         assert.strictEqual(typeof window.TelemetryChart.runModelSpeedTest, 'function');
+        assert.strictEqual(typeof window.TelemetryChart.stopModelSpeedTest, 'function');
     });
 
     test('initializes elements, config, and click listeners', async () => {
@@ -286,5 +288,84 @@ describe('telemetry-chart.js', () => {
         assert.strictEqual(statusText.textContent, 'Failed');
         assert.strictEqual(statusText.style.color, 'var(--color-rose-500)');
         assert.strictEqual(currentTpsText.textContent, 'Model load timeout');
+    });
+
+    test('aborts speed test and handles AbortError correctly', async () => {
+        mockFetchCalls = [];
+        const select = document.getElementById('test-speed-model-select');
+        select.value = 'llama-research-model';
+
+        const stopBtn = document.getElementById('stop-model-speed-test');
+        const statusText = document.getElementById('test-speed-status');
+
+        let originalFetch = window.fetch;
+
+        let signal;
+        window.fetch = async (url, options) => {
+            mockFetchCalls.push({ url, options });
+            signal = options.signal;
+            
+            if (signal && signal.aborted) {
+                const err = new Error('The user aborted a request.');
+                err.name = 'AbortError';
+                throw err;
+            }
+
+            return new Promise((resolve, reject) => {
+                const onAbort = () => {
+                    const err = new Error('The user aborted a request.');
+                    err.name = 'AbortError';
+                    reject(err);
+                };
+                if (signal) {
+                    signal.addEventListener('abort', onAbort);
+                }
+                setTimeout(() => {
+                    if (signal) {
+                        signal.removeEventListener('abort', onAbort);
+                    }
+                    resolve({
+                        ok: true,
+                        body: {
+                            getReader: () => ({
+                                read: async () => {
+                                    if (signal && signal.aborted) {
+                                        const err = new Error('The user aborted a request.');
+                                        err.name = 'AbortError';
+                                        throw err;
+                                    }
+                                    return { done: true, value: undefined };
+                                }
+                            })
+                        }
+                    });
+                }, 50);
+            });
+        };
+
+        const runPromise = window.TelemetryChart.runModelSpeedTest();
+
+        // Verify the stop button is visible
+        assert.strictEqual(stopBtn.style.display, 'block');
+        assert.ok(window.TelemetryChart.testAbortController);
+
+        // Click the stop button
+        stopBtn.click();
+
+        try {
+            await runPromise;
+        } catch (e) {
+            // expected to throw or catch internally
+        }
+
+        // Verify status text changed to "Stopped"
+        assert.strictEqual(statusText.textContent, 'Stopped');
+        assert.strictEqual(statusText.style.color, 'var(--color-amber)');
+        // Verify stop button is hidden and controller is null
+        assert.strictEqual(stopBtn.style.display, 'none');
+        assert.strictEqual(window.TelemetryChart.testAbortController, null);
+
+        // Restore fetch
+        window.fetch = originalFetch;
     });
 });
