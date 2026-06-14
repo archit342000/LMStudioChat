@@ -4,6 +4,7 @@ import time
 import asyncio
 import os
 import logging
+import re
 from typing import List, Dict, Any, Optional, AsyncGenerator, Union
 from backend import config
 from backend.logging import log_llm_call, log_event, log_embedding_call
@@ -360,6 +361,61 @@ class InferenceEngine:
         headers = {"Content-Type": "application/json"}
         return headers
 
+    def _salvage_json_arguments(self, args_str: str) -> Optional[str]:
+        args_str = args_str.strip()
+        if not args_str:
+            return "{}"
+            
+        try:
+            json.loads(args_str)
+            return args_str
+        except Exception:
+            pass
+            
+        # Try python/single-quoted literals parsing first
+        try:
+            import ast
+            parsed = ast.literal_eval(args_str)
+            if isinstance(parsed, dict):
+                return json.dumps(parsed)
+        except Exception:
+            pass
+            
+        # Try simple repairs
+        repaired = args_str
+        
+        # 1. Auto-close unclosed double quote string literals
+        unescaped_quotes = len(re.findall(r'(?<!\\)"', repaired))
+        if unescaped_quotes % 2 == 1:
+            repaired += '"'
+        
+        # 2. Wrap unquoted identifier keys in double quotes
+        repaired = re.sub(r'(?<!["\'a-zA-Z0-9_-])([a-zA-Z0-9_-]+)(?!["\'a-zA-Z0-9_-])\s*:', r'"\1":', repaired)
+        
+        # 3. Remove trailing commas before closing braces/brackets
+        repaired = re.sub(r',\s*(?=[\]}])', '', repaired)
+        
+        # 4. Auto-close unbalanced curly braces
+        if repaired.startswith("{"):
+            open_braces = repaired.count('{')
+            close_braces = repaired.count('}')
+            if open_braces > close_braces:
+                repaired += "}" * (open_braces - close_braces)
+                
+        try:
+            json.loads(repaired)
+            return repaired
+        except Exception:
+            # Try ast.literal_eval on repaired string as a last resort
+            try:
+                import ast
+                parsed = ast.literal_eval(repaired)
+                if isinstance(parsed, dict):
+                    return json.dumps(parsed)
+            except Exception:
+                pass
+            return None
+
     def _is_generation_valid(self, content: str, tool_calls: Optional[List[Dict[str, Any]]]) -> bool:
         has_content = content and content.strip()
         has_tool_calls = tool_calls and len(tool_calls) > 0
@@ -375,7 +431,11 @@ class InferenceEngine:
                     try:
                         json.loads(args_str)
                     except Exception:
-                        return False
+                        repaired = self._salvage_json_arguments(args_str)
+                        if repaired is not None:
+                            func["arguments"] = repaired
+                        else:
+                            return False
         return True
 
     def _normalize_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:

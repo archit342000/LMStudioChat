@@ -235,7 +235,7 @@ VALIDATION_ENABLED = False
 # =============================================================================
 # TOOL CONFIGURATION
 # =============================================================================
-MAX_TOOL_ROUNDS = int(os.getenv("MAX_TOOL_ROUNDS", 8))
+MAX_TOOL_ROUNDS = int(os.getenv("MAX_TOOL_ROUNDS", 100))
 MAX_TOOL_CALLS_BUFFER = int(os.getenv("MAX_TOOL_CALLS_BUFFER", 5))
 
 # =============================================================================

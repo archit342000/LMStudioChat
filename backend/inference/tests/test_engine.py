@@ -270,7 +270,7 @@ async def test_chat_retry_invalid_tool_json(engine):
             "message": {
                 "role": "assistant", 
                 "content": None, 
-                "tool_calls": [{"function": {"name": "test", "arguments": '{"a": 1'}}] # Missing closing brace
+                "tool_calls": [{"function": {"name": "test", "arguments": 'not_json'}}] # Unsalvageable JSON
             }
         }]
     }
@@ -428,3 +428,31 @@ def test_log_llm_call_exception_resilience(engine):
          
          mock_warn.assert_called_once()
          assert "Failed to log LLM call" in mock_warn.call_args[0][0]
+
+def test_salvage_json_arguments(engine):
+    # Test valid JSON passes through unchanged
+    assert engine._salvage_json_arguments('{"a": 1}') == '{"a": 1}'
+    assert engine._salvage_json_arguments('{}') == '{}'
+    
+    # Test unquoted keys are repaired
+    assert engine._salvage_json_arguments('{a: 1}') == '{"a": 1}'
+    assert engine._salvage_json_arguments('{a: "hello", b: 2}') == '{"a": "hello", "b": 2}'
+    
+    # Test trailing commas in dicts/arrays are stripped
+    assert engine._salvage_json_arguments('{"a": 1,}') == '{"a": 1}'
+    assert engine._salvage_json_arguments('[1, 2, ]') == '[1, 2]'
+    
+    # Test auto-closing unbalanced curly braces
+    assert engine._salvage_json_arguments('{"a": 1') == '{"a": 1}'
+    assert engine._salvage_json_arguments('{"a": {"b": 2') == '{"a": {"b": 2}}'
+    
+    # Test single-quoted / Python dictionary parsing
+    assert json.loads(engine._salvage_json_arguments("{'a': 1, 'b': 'val'}")) == {"a": 1, "b": "val"}
+    
+    # Test unclosed double quotes inside string values
+    assert json.loads(engine._salvage_json_arguments('{"a": "hello')) == {"a": "hello"}
+    assert json.loads(engine._salvage_json_arguments('{"a": "hello", "b": "val')) == {"a": "hello", "b": "val"}
+    
+    # Test invalid formatting that cannot be saved returns None
+    assert engine._salvage_json_arguments('not_json') is None
+

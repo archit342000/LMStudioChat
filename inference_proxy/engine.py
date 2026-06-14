@@ -5,6 +5,7 @@ import asyncio
 import multiprocessing
 import os
 import logging
+import re
 from typing import List, Dict, Any, Optional, AsyncGenerator, Union
 import config
 from logging_utils import log_llm_call, log_event, log_embedding_call
@@ -110,11 +111,30 @@ class InferenceEngine:
                     if raw_content:
                         parser_config = get_parser_for_model(model)
                         interceptor = StreamInterceptor(parser_config)
-                        c_emit, r_emit = interceptor.process_chunk(raw_content)
-                        c_flush, r_flush = interceptor.flush()
-                        
-                        msg["content"] = c_emit + c_flush
-                        msg["reasoning_content"] = r_emit + r_flush
+                        try:
+                            c_emit, r_emit, tc_emit = interceptor.process_chunk(raw_content)
+                            c_flush, r_flush, tc_flush = interceptor.flush()
+                            
+                            msg["content"] = c_emit + c_flush
+                            msg["reasoning_content"] = r_emit + r_flush
+                            
+                            parsed_tc = tc_emit + tc_flush
+                            if parsed_tc:
+                                if "tool_calls" not in msg or not msg["tool_calls"]:
+                                    msg["tool_calls"] = parsed_tc
+                                else:
+                                    msg["tool_calls"].extend(parsed_tc)
+                        except ValueError as e:
+                            if attempts < max_attempts:
+                                log_event("inference_retry", {
+                                    "reason": f"malformed_tool_call: {str(e)}", 
+                                    "attempt": attempts, 
+                                    "chat_id": chat_id,
+                                })
+                                await asyncio.sleep(config.LLM_RETRY_DELAY)
+                                continue
+                            else:
+                                raise
                         
                     content = msg.get("content") or ""
                     reasoning = msg.get("reasoning_content") or ""
@@ -215,8 +235,8 @@ class InferenceEngine:
                                     continue
                                 
                                 if line == "data: [DONE]":
-                                    c_flush, r_flush = interceptor.flush()
-                                    if c_flush or r_flush:
+                                    c_flush, r_flush, tc_flush = interceptor.flush()
+                                    if c_flush or r_flush or tc_flush:
                                         flush_chunk = {"choices": [{"delta": {}}]}
                                         if c_flush:
                                             flush_chunk["choices"][0]["delta"]["content"] = c_flush
@@ -224,6 +244,11 @@ class InferenceEngine:
                                         if r_flush:
                                             flush_chunk["choices"][0]["delta"]["reasoning_content"] = r_flush
                                             full_reasoning += r_flush
+                                        if tc_flush:
+                                            flush_chunk["choices"][0]["delta"]["tool_calls"] = tc_flush
+                                            for tc in tc_flush:
+                                                idx = tc.get("index", 0)
+                                                tool_calls[idx] = tc
                                         yield f"data: {json.dumps(flush_chunk)}"
                                     yield "data: [DONE]"
                                     break
@@ -239,7 +264,7 @@ class InferenceEngine:
                                         
                                         raw_content = delta.get("content", "")
                                         if raw_content:
-                                            c_emit, r_emit = interceptor.process_chunk(raw_content)
+                                            c_emit, r_emit, tc_emit = interceptor.process_chunk(raw_content)
                                             if "content" in delta:
                                                 del delta["content"]
                                                 
@@ -249,6 +274,11 @@ class InferenceEngine:
                                             if r_emit:
                                                 delta["reasoning_content"] = r_emit
                                                 full_reasoning += r_emit
+                                            if tc_emit:
+                                                delta["tool_calls"] = tc_emit
+                                                for tc in tc_emit:
+                                                    idx = tc.get("index", 0)
+                                                    tool_calls[idx] = tc
                                                 
                                         if "tool_calls" in delta:
                                             for tc_delta in delta["tool_calls"]:
@@ -259,8 +289,10 @@ class InferenceEngine:
                                                     if "function" in tc_delta and "arguments" in tc_delta["function"]:
                                                         if "function" not in tool_calls[idx]: tool_calls[idx]["function"] = {"arguments": ""}
                                                         tool_calls[idx]["function"]["arguments"] += tc_delta["function"]["arguments"] or ""
-                                        
+                                         
                                         line = f"data: {json.dumps(chunk)}"
+                                except ValueError as e:
+                                    raise e
                                 except Exception:
                                     pass
                                     
@@ -305,6 +337,61 @@ class InferenceEngine:
                             tool_calls=sorted_tool_calls
                         )
 
+    def _salvage_json_arguments(self, args_str: str) -> Optional[str]:
+        args_str = args_str.strip()
+        if not args_str:
+            return "{}"
+            
+        try:
+            json.loads(args_str)
+            return args_str
+        except Exception:
+            pass
+            
+        # Try python/single-quoted literals parsing first
+        try:
+            import ast
+            parsed = ast.literal_eval(args_str)
+            if isinstance(parsed, dict):
+                return json.dumps(parsed)
+        except Exception:
+            pass
+            
+        # Try simple repairs
+        repaired = args_str
+        
+        # 1. Auto-close unclosed double quote string literals
+        unescaped_quotes = len(re.findall(r'(?<!\\)"', repaired))
+        if unescaped_quotes % 2 == 1:
+            repaired += '"'
+        
+        # 2. Wrap unquoted identifier keys in double quotes
+        repaired = re.sub(r'(?<!["\'a-zA-Z0-9_-])([a-zA-Z0-9_-]+)(?!["\'a-zA-Z0-9_-])\s*:', r'"\1":', repaired)
+        
+        # 3. Remove trailing commas before closing braces/brackets
+        repaired = re.sub(r',\s*(?=[\]}])', '', repaired)
+        
+        # 4. Auto-close unbalanced curly braces
+        if repaired.startswith("{"):
+            open_braces = repaired.count('{')
+            close_braces = repaired.count('}')
+            if open_braces > close_braces:
+                repaired += "}" * (open_braces - close_braces)
+                
+        try:
+            json.loads(repaired)
+            return repaired
+        except Exception:
+            # Try ast.literal_eval on repaired string as a last resort
+            try:
+                import ast
+                parsed = ast.literal_eval(repaired)
+                if isinstance(parsed, dict):
+                    return json.dumps(parsed)
+            except Exception:
+                pass
+            return None
+
     def _is_generation_valid(self, content: str, tool_calls: Optional[List[Dict[str, Any]]]) -> bool:
         has_content = content and content.strip()
         has_tool_calls = tool_calls and len(tool_calls) > 0
@@ -320,7 +407,11 @@ class InferenceEngine:
                     try:
                         json.loads(args_str)
                     except json.JSONDecodeError:
-                        return False
+                        repaired = self._salvage_json_arguments(args_str)
+                        if repaired is not None:
+                            func["arguments"] = repaired
+                        else:
+                            return False
         
         return True
 
