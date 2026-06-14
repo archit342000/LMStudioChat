@@ -1,5 +1,12 @@
 # CHANGELOG
 
+## v4.7.11
+* **Robust Tool Call Parsing & Argument Salvaging**:
+    - **Escaped and Unescaped Delimiters**: Updated Gemma 4 tool call parsing to support both `<|"|>` and `<|\"|>` string literal delimiters.
+    - **Robust Key-Wrapping**: Upgraded JSON key wrapping in the proxy and backend validators to support unquoted alphanumeric, dash-based, and digit-based keys.
+    - **Lenient JSON Salvaging**: Integrated `ast.literal_eval` to salvage single-quoted/Python dictionaries, and added an unclosed double-quotes auto-closer to repair truncated string values.
+* **Version Bump**: Incremented version globally to 4.7.11.
+
 ## v4.7.10
 * **Speed Test Enhancements**:
     - **Cancel Button**: Added a button to cancel the speed test execution.
