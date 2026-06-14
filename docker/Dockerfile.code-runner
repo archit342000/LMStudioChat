@@ -1,0 +1,23 @@
+FROM python:3.12-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ \
+    default-jdk \
+    golang \
+    rustc \
+    nodejs npm \
+    php-cli \
+    sqlite3 \
+    default-mysql-client \
+    && npm install -g tsx \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+RUN useradd -m -s /bin/bash runner
+WORKDIR /app
+
+COPY code_runner_mcp/ /app/
+RUN pip install --no-cache-dir -r requirements.txt
+
+USER runner
+EXPOSE 8100
+CMD ["python", "server.py"]

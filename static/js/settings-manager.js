@@ -93,6 +93,15 @@
         gitPatStatus: document.getElementById("git-pat-status"),
         gitAllowedCommandsContainer: document.getElementById("git-allowed-commands-container"),
 
+        // Code Runner Settings
+        codeRunnerTimeout: document.getElementById("code-runner-timeout"),
+        codeRunnerTimeoutVal: document.getElementById("code-runner-timeout-val"),
+        codeRunnerMemory: document.getElementById("code-runner-memory"),
+        codeRunnerCpu: document.getElementById("code-runner-cpu"),
+        codeRunnerOutputSize: document.getElementById("code-runner-output-size"),
+        saveCodeRunnerSettingsBtn: document.getElementById("save-code-runner-settings-btn"),
+        codeRunnerSettingsStatus: document.getElementById("code-runner-settings-status"),
+
         // Theme and Tabs
         themeRadios: document.querySelectorAll('input[name="theme"]'),
         tabItems: document.querySelectorAll(".tab-item"),
@@ -135,6 +144,18 @@
       // Save Git PAT
       if (this.nodes.saveGitPatBtn) {
         this.nodes.saveGitPatBtn.addEventListener("click", () => this.saveGitPat());
+      }
+
+      // Code Runner Event Listeners
+      if (this.nodes.codeRunnerTimeout) {
+        this.nodes.codeRunnerTimeout.addEventListener("input", (e) => {
+          if (this.nodes.codeRunnerTimeoutVal) {
+            this.nodes.codeRunnerTimeoutVal.textContent = e.target.value + "s";
+          }
+        });
+      }
+      if (this.nodes.saveCodeRunnerSettingsBtn) {
+        this.nodes.saveCodeRunnerSettingsBtn.addEventListener("click", () => this.saveCodeRunnerSettings());
       }
 
       // Settings Modal trigger
@@ -496,6 +517,7 @@
       setTimeout(() => this.nodes.systemSettingsModal.classList.add("open"), 10);
       
       this.loadGitSettings();
+      this.loadCodeRunnerSettings();
 
       if (this.deps.setScrollLock) {
         this.deps.setScrollLock(true);
@@ -744,6 +766,73 @@
         });
       } catch (err) {
         console.error("Error saving allowed git commands:", err);
+      }
+    },
+
+    /**
+     * Fetches Code Runner settings and populates the settings UI.
+     */
+    async loadCodeRunnerSettings() {
+      try {
+        const res = await fetch("/api/tools/config/settings");
+        if (!res.ok) return;
+        const data = await res.json();
+        if (this.nodes.codeRunnerTimeout) {
+          this.nodes.codeRunnerTimeout.value = data.code_runner_timeout || 30;
+          this.nodes.codeRunnerTimeoutVal.textContent = (data.code_runner_timeout || 30) + "s";
+        }
+        if (this.nodes.codeRunnerMemory) {
+          this.nodes.codeRunnerMemory.value = data.code_runner_memory_limit || "512M";
+        }
+        if (this.nodes.codeRunnerCpu) {
+          this.nodes.codeRunnerCpu.value = data.code_runner_cpu_limit || "1.0";
+        }
+        if (this.nodes.codeRunnerOutputSize) {
+          this.nodes.codeRunnerOutputSize.value = data.code_runner_max_output_size || 65536;
+        }
+      } catch (err) {
+        console.error("Error loading Code Runner settings:", err);
+      }
+    },
+
+    /**
+     * Saves Code Runner settings configuration parameters.
+     */
+    async saveCodeRunnerSettings() {
+      if (!this.nodes.codeRunnerTimeout) return;
+      const timeout = parseInt(this.nodes.codeRunnerTimeout.value);
+      const memory = this.nodes.codeRunnerMemory.value;
+      const cpu = this.nodes.codeRunnerCpu.value;
+      const outputSize = parseInt(this.nodes.codeRunnerOutputSize.value);
+      const statusSpan = this.nodes.codeRunnerSettingsStatus;
+
+      try {
+        const res = await fetch("/api/tools/config/settings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            code_runner_timeout: timeout,
+            code_runner_memory_limit: memory,
+            code_runner_cpu_limit: cpu,
+            code_runner_max_output_size: outputSize
+          })
+        });
+        if (res.ok) {
+          if (statusSpan) {
+            statusSpan.textContent = "✓ Settings Saved Successfully";
+            statusSpan.style.color = "var(--color-emerald-500)";
+            setTimeout(() => statusSpan.textContent = "", 3000);
+          }
+        } else {
+          throw new Error("Failed to save settings");
+        }
+      } catch (err) {
+        console.error("Error saving Code Runner settings:", err);
+        if (statusSpan) {
+          statusSpan.textContent = "✗ Failed to Save Settings";
+          statusSpan.style.color = "var(--color-rose-500)";
+          setTimeout(() => statusSpan.textContent = "", 3000);
+        }
       }
     }
   };

@@ -55,6 +55,67 @@ function renderTaskListCard(tasks) {
     return html;
   }
 
+function parseExecutionResult(text) {
+    if (typeof text !== "string") return null;
+    
+    const langMatch = text.match(/\*\*Language:\*\*\s*([a-zA-Z0-9+#]+)/i);
+    const exitCodeMatch = text.match(/\*\*Exit Code:\*\*\s*(-?\d+)/i);
+    const timeMatch = text.match(/\*\*Time:\*\*\s*(\d+ms)/i);
+    const fileMatch = text.match(/\*\*File:\*\*\s*([^\s|]+)/i);
+    const timedOut = text.includes("TIMED OUT");
+    
+    let stdout = "";
+    let stderr = "";
+    
+    const stdoutRegex = /\*\*stdout:\*\*\s*\n```[^\n]*\n([\s\S]*?)\n```/i;
+    const stderrRegex = /\*\*stderr:\*\*\s*\n```[^\n]*\n([\s\S]*?)\n```/i;
+    
+    const stdoutMatch = text.match(stdoutRegex);
+    if (stdoutMatch) {
+      stdout = stdoutMatch[1];
+    }
+    const stderrMatch = text.match(stderrRegex);
+    if (stderrMatch) {
+      stderr = stderrMatch[1];
+    }
+    
+    if (langMatch || exitCodeMatch) {
+      return {
+        language: langMatch ? langMatch[1] : "",
+        exitCode: exitCodeMatch ? parseInt(exitCodeMatch[1]) : 0,
+        time: timeMatch ? timeMatch[1] : "",
+        file: fileMatch ? fileMatch[1] : "",
+        timedOut,
+        stdout,
+        stderr
+      };
+    }
+    return null;
+}
+window.parseExecutionResult = parseExecutionResult;
+
+
+// Accordion Toggle Event Listener for Code Execution view source block
+if (typeof document !== "undefined") {
+  document.addEventListener("click", (e) => {
+    const trigger = e.target.closest(".accordion-trigger");
+    if (trigger) {
+      const accordion = trigger.closest(".code-execution-accordion");
+      if (accordion) {
+        const content = accordion.querySelector(".accordion-content");
+        const svg = trigger.querySelector("svg");
+        if (content) {
+          const isHidden = content.classList.contains("hidden");
+          content.classList.toggle("hidden");
+          if (svg) {
+            svg.style.transform = isHidden ? "rotate(180deg)" : "rotate(0deg)";
+          }
+        }
+      }
+    }
+  });
+}
+
 function _renderSubAgentActivityItemHtml(activity) {
     const type = activity.type || "thinking";
     const content = activity.content || "";
@@ -102,6 +163,47 @@ function _renderSubAgentActivityItemHtml(activity) {
         }
       } catch (e) {}
 
+      if (toolName === "run_code" || toolName === "run_file") {
+        typeLabel = toolName === "run_code" ? "Run Code" : "Run File";
+        const isCode = toolName === "run_code";
+        const displayLang = isCode ? (args.language || "code") : "file";
+        const mainLabel = isCode ? `Run Code (${displayLang})` : `Run File: ${args.path || ""}`;
+        
+        let codeContent = "";
+        if (isCode) {
+          codeContent = args.code || "";
+        } else {
+          codeContent = `// Path: ${args.path || ""}\n// Args: ${JSON.stringify(args.args || [])}\n// Stdin: ${args.stdin || ""}`;
+        }
+        
+        contentHtml = `
+          <div class="code-execution-accordion">
+            <div class="accordion-trigger">
+              <span>View Source Code</span>
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition: transform 0.2s ease;"><path d="M6 9l6 6 6-6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </div>
+            <div class="accordion-content hidden">
+              <pre><code class="language-${displayLang}">${escapeHtml(codeContent)}</code></pre>
+            </div>
+          </div>
+        `;
+        
+        const config = TOOL_DISPLAY_CONFIG[toolName] || {
+          name: typeLabel,
+          icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>',
+        };
+        
+        return `
+          <div class="activity-item tool-call-item collapsed ${typeClass} code-execution-call" data-role="tool_call" data-timestamp="${timestamp}">
+              <div class="activity-header">
+                  <div class="activity-type">${config.icon} <span>Call: ${escapeHtml(mainLabel)}</span></div>
+                  ${chevronSvg}
+              </div>
+              <div class="activity-content tool-call-content">${contentHtml}</div>
+          </div>
+        `;
+      }
+
       const config = TOOL_DISPLAY_CONFIG[toolName] || {
         name: toolName,
         icon: '<svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>',
@@ -121,6 +223,62 @@ function _renderSubAgentActivityItemHtml(activity) {
     } else if (type === "tool_result") {
       typeLabel = "Result";
       typeClass = "tool-result-activity";
+      
+      const parsedExec = parseExecutionResult(content);
+      if (parsedExec) {
+        const isZero = parsedExec.exitCode === 0;
+        const statusIcon = isZero 
+          ? `<svg class="status-success" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-emerald)" stroke-width="3"><polyline points="20 6 9 17 4 12"></polyline></svg>`
+          : `<svg class="status-failed" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-rose)" stroke-width="3"><circle cx="12" cy="12" r="10"></circle><line x1="12" y1="8" x2="12" y2="12"></line><line x1="12" y1="16" x2="12.01" y2="16"></line></svg>`;
+        
+        let outputHtml = "";
+        if (parsedExec.stdout) {
+          outputHtml += `<div class="terminal-stdout"><span class="terminal-label">STDOUT:</span>${escapeHtml(parsedExec.stdout)}</div>`;
+        }
+        if (parsedExec.stderr) {
+          outputHtml += `<div class="terminal-stderr"><span class="terminal-label">STDERR:</span>${escapeHtml(parsedExec.stderr)}</div>`;
+        }
+        if (!parsedExec.stdout && !parsedExec.stderr) {
+          outputHtml += `<div class="terminal-empty">No output</div>`;
+        }
+
+        const headerTitle = parsedExec.file ? `File: ${parsedExec.file}` : `Language: ${parsedExec.language}`;
+
+        contentHtml = `
+          <div class="terminal-window">
+            <div class="terminal-header">
+              <div class="terminal-dots">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+              </div>
+              <div class="terminal-title">${escapeHtml(headerTitle)}</div>
+              <div class="terminal-status">
+                ${statusIcon}
+                <span class="exit-code">Exit: ${parsedExec.exitCode}</span>
+              </div>
+            </div>
+            <div class="terminal-body font-mono">
+              ${outputHtml}
+            </div>
+            <div class="terminal-footer">
+              <span>Time: ${parsedExec.time || 'N/A'}</span>
+              ${parsedExec.timedOut ? '<span class="timeout-badge">TIMED OUT</span>' : ''}
+            </div>
+          </div>
+        `;
+
+        return `
+          <div class="activity-item tool-result-item collapsed ${typeClass} code-execution-result" data-role="tool_result" data-timestamp="${timestamp}">
+              <div class="activity-header">
+                  <div class="activity-type">Execution Result: ${escapeHtml(parsedExec.file ? 'File' : parsedExec.language)}</div>
+                  ${chevronSvg}
+              </div>
+              <div class="activity-content tool-result-content">${contentHtml}</div>
+          </div>
+        `;
+      }
+
       let isTaskTool = false;
       try {
         const parsed =

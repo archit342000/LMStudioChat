@@ -97,6 +97,12 @@ window.FileSystemUI = {
         item.className = `file-system-item ${isActive ? "active" : ""}`;
         item.dataset.file_systemId = file_system.id;
 
+        const path = file_system.filename || file_system.title || "";
+        const isDir = file_system.type === "directory";
+        const ext = path.slice((path.lastIndexOf(".") - 1 >>> 0) + 2).toLowerCase();
+        const runnableExtensions = ["py", "c", "cpp", "cc", "cxx", "java", "js", "mjs", "ts", "go", "rs", "sh", "bash", "php", "sql"];
+        const isRunnable = !isDir && runnableExtensions.includes(ext);
+
         let typeBadge = "";
         if (file_system.language && file_system.language !== "markdown") {
             typeBadge = `<span class="type-badge" style="background: var(--surface-2); color: var(--content-muted); border: 1px solid var(--border);">${window.escapeHtml ? window.escapeHtml(file_system.language) : file_system.language}</span>`;
@@ -139,6 +145,12 @@ window.FileSystemUI = {
             </div>
         `;
 
+        const runButton = isRunnable ? `
+            <button class="file-system-action-btn run-btn" title="Run File" style="margin-right: 4px;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-emerald)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polygon points="5 3 19 12 5 21 5 3"></polygon></svg>
+            </button>
+        ` : "";
+
         item.innerHTML = `
             <div class="file-system-item-header">
                 <div class="file-system-item-title">${window.escapeHtml ? window.escapeHtml(displayTitle) : displayTitle}</div>
@@ -147,6 +159,7 @@ window.FileSystemUI = {
             ${snippet}
             <div class="file-system-item-meta">${dateStr}</div>
             <div class="file-system-item-actions">
+                ${runButton}
                 ${downloadButton}
                 <button class="file-system-action-btn delete-btn" title="Delete Artifact">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="var(--color-rose)" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"></path><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2"></path></svg>
@@ -189,6 +202,13 @@ window.FileSystemUI = {
         item.addEventListener("contextmenu", (e) => {
             e.preventDefault();
             this.deps.onContextMenu("file_system", file_system.id, file_system.fullPath || file_system.title, e, file_system.workspace_id);
+        });
+
+        item.querySelector(".run-btn")?.addEventListener("click", (e) => {
+            e.stopPropagation();
+            if (this.deps.onFileRun) {
+                this.deps.onFileRun(path);
+            }
         });
 
         item.querySelector(".download-btn")?.addEventListener("click", (e) => {

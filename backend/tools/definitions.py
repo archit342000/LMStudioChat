@@ -965,6 +965,114 @@ GIT_AGENT_INTERNAL_TOOLS = [
     MANAGE_TASK_LIST_TOOL,
 ]
 
+# Code execution tool definitions
+RUN_CODE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "run_code",
+        "description": "Execute code in a sandboxed environment. Use this for calculations, data processing, algorithm verification, generating charts, or any task that benefits from running actual code. Returns stdout, stderr, and exit code.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "code": {
+                    "type": "string",
+                    "description": "The complete source code to execute."
+                },
+                "language": {
+                    "type": "string",
+                    "enum": ["python", "c", "cpp", "java", "javascript", "typescript", "go", "rust", "bash", "php", "sql"],
+                    "description": "The programming language of the code."
+                },
+                "stdin": {
+                    "type": "string",
+                    "description": "Optional standard input to feed to the program."
+                },
+                "sql_target": {
+                    "type": "string",
+                    "enum": ["mysql", "sqlite"],
+                    "description": "For SQL: which database engine to use. Defaults to 'sqlite'."
+                }
+            },
+            "required": ["code", "language"]
+        }
+    }
+}
+
+RUN_FILE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "run_file",
+        "description": "Execute a code file from the virtual file system. Automatically includes ALL files in the project directory tree (recursively) so that cross-file imports, includes, and package structures resolve correctly.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "description": "The virtual file system path to the main entry file to execute."
+                },
+                "stdin": {
+                    "type": "string",
+                    "description": "Optional standard input to feed to the program."
+                },
+                "args": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "Optional command-line arguments."
+                },
+                "sql_target": {
+                    "type": "string",
+                    "enum": ["mysql", "sqlite"],
+                    "description": "For SQL files: which database engine to use. Defaults to 'sqlite'."
+                }
+            },
+            "required": ["path"]
+        }
+    }
+}
+
+INSTALL_PACKAGES_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "install_packages",
+        "description": "Install packages in the code execution sandbox. Requires user approval before proceeding. Installed packages persist until the code runner container is restarted.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "packages": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": "List of package names to install."
+                },
+                "package_manager": {
+                    "type": "string",
+                    "enum": ["pip", "npm"],
+                    "description": "Which package manager to use."
+                }
+            },
+            "required": ["packages", "package_manager"]
+        }
+    }
+}
+
+LIST_PACKAGES_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "list_packages",
+        "description": "List packages currently installed in the code execution sandbox. Use this to check what's available before writing code that depends on third-party libraries, or before requesting a package installation.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "package_manager": {
+                    "type": "string",
+                    "enum": ["pip", "npm"],
+                    "description": "Which package manager to query."
+                }
+            },
+            "required": ["package_manager"]
+        }
+    }
+}
+
 # Tools available to the main assistant
 MAIN_ASSISTANT_TOOLS = [
     GET_TIME_TOOL,
@@ -977,6 +1085,11 @@ MAIN_ASSISTANT_TOOLS = [
     GIT_AGENT_TOOL,
     BROWSING_AGENT_TOOL,
     SEARCH_WEB_TOOL,
-    MANAGE_TASK_LIST_TOOL
+    MANAGE_TASK_LIST_TOOL,
+    RUN_CODE_TOOL,
+    RUN_FILE_TOOL,
+    INSTALL_PACKAGES_TOOL,
+    LIST_PACKAGES_TOOL,
 ]
+
 

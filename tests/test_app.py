@@ -157,3 +157,36 @@ def test_portal_ws_proxy_connection_failure(mock_create_connection, mock_logger_
     # Check that error was logged
     mock_logger_error.assert_called_once()
     assert "Portal WS proxy error: Connection refused" in mock_logger_error.call_args[0][0]
+
+@patch('app.logger.error')
+@patch('app.ws_client.create_connection')
+@patch('backend.tools.implementations.code_executor.collect_project_files')
+@patch('backend.database.db.get_setting')
+def test_code_execution_ws_proxy(mock_get_setting, mock_collect_project_files, mock_create_connection, mock_logger_error):
+    """Test the code execution WebSocket proxy behaves correctly under mock environments."""
+    mock_get_setting.return_value = 30
+    mock_collect_project_files.return_value = ("python", [{"path": "main.py", "content": "print(1)"}], "main.py")
+    
+    mock_upstream = MagicMock()
+    mock_create_connection.return_value = mock_upstream
+    
+    # Simulate receiving some data then closing
+    import json
+    mock_ws = MagicMock()
+    mock_ws.receive.side_effect = [
+        json.dumps({"type": "init", "filePath": "main.py", "chat_id": "chat123"}),
+        None
+    ]
+    
+    # Run the proxy function
+    flask_app.code_execution_ws_proxy(mock_ws)
+    
+    # Check if correct helper functions are called and upstream receives setup configuration
+    mock_collect_project_files.assert_called_once_with("chat123", "main.py")
+    mock_create_connection.assert_called_once()
+    mock_upstream.send.assert_called_once()
+    
+    sent_payload = json.loads(mock_upstream.send.call_args[0][0])
+    assert sent_payload["language"] == "python"
+    assert sent_payload["entry_file"] == "main.py"
+

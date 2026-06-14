@@ -43,6 +43,29 @@ async def request_clarification(question: str, options=None, **kwargs) -> str:
     
     log_event("clarification_requested", {"chat_id": chat_id, "callback_id": cb_id, "question": question})
 
+    # 1b. Stream a synthetic tool call event through response_cache to notify the frontend
+    try:
+        import json
+        from backend.database import response_cache
+        payload = {
+            "parent_type": kwargs.get('parent_type', 'main'),
+            "choices": [{
+                "delta": {
+                    "tool_calls": [{
+                        "id": cb_id,
+                        "type": "function",
+                        "function": {
+                            "name": "request_clarification",
+                            "arguments": json.dumps({"question": question, "options": options or []})
+                        }
+                    }]
+                }
+            }]
+        }
+        response_cache.append_chunk(chat_id, f"data: {json.dumps(payload)}\n\n")
+    except Exception as e:
+        log_event("clarification_stream_error", {"chat_id": chat_id, "error": str(e)})
+
     try:
         # 2. Wait for user response (1 hour timeout)
         await asyncio.wait_for(event.wait(), timeout=3600)

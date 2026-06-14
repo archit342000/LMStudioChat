@@ -258,7 +258,7 @@ class ChatOpsMixin(BaseMixin):
                     'top_k', 'min_p', 'presence_penalty', 'frequency_penalty',
                     'last_user_id', 'last_assistant_id', 'research_state',
                     'resume_suppressed', 'thinking_profile',
-                    'browsing_session_id', 'git_mode', 'timestamp'
+                    'browsing_session_id', 'git_mode', 'code_execution_mode', 'timestamp'
                 ]
                 for field in allowed_fields:
                     if field in kwargs:
@@ -346,6 +346,7 @@ class ChatOpsMixin(BaseMixin):
                     c.execute("DELETE FROM pending_callbacks WHERE chat_id = ?", (chat_id,))
                     c.execute("DELETE FROM files WHERE chat_id = ?", (chat_id,))
                     c.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
+                    c.execute("DELETE FROM code_execution_history WHERE chat_id = ?", (chat_id,))
                     # Parent row last — all FK children are already gone
                     c.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
                     conn.commit()
@@ -391,6 +392,7 @@ class ChatOpsMixin(BaseMixin):
                     c.execute("DELETE FROM pending_callbacks")
                     c.execute("DELETE FROM files")
                     c.execute("DELETE FROM messages")
+                    c.execute("DELETE FROM code_execution_history")
                     # Parent rows last
                     c.execute("DELETE FROM chats")
                     conn.commit()

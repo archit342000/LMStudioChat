@@ -12,12 +12,14 @@ window.showPromptModal = async function(
     message,
     currentVal = "",
     folderList = null,
+    multiline = false,
 ) {
     return new Promise((resolve) => {
         const modal = document.getElementById("prompt-modal");
         const titleEl = document.getElementById("prompt-title");
         const msgEl = document.getElementById("prompt-message");
         const inputEl = document.getElementById("prompt-input");
+        const textareaEl = document.getElementById("prompt-textarea");
         const selectContainer = document.getElementById("prompt-select-container");
         const selectEl = document.getElementById("prompt-select");
         const confirmBtn = document.getElementById("prompt-action-btn");
@@ -36,6 +38,8 @@ window.showPromptModal = async function(
                 }
             } else if (title && title.toLowerCase().includes("chat")) {
                 iconSvg.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 3a2.828 2.828 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5L17 3z"></path></svg>`;
+            } else if (title && title.toLowerCase().includes("input")) {
+                iconSvg.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 17 10 11 4 5"></polyline><line x1="12" y1="19" x2="20" y2="19"></line></svg>`;
             } else {
                 iconSvg.innerHTML = `<svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path><line x1="12" y1="11" x2="12" y2="17"></line><line x1="9" y1="14" x2="15" y2="14"></line></svg>`;
             }
@@ -44,50 +48,63 @@ window.showPromptModal = async function(
         confirmBtn.textContent = "Confirm";
         cancelBtn.textContent = "Cancel";
 
-        inputEl.value = currentVal;
-
-        // --- Folder/Workspace Choice vs Text Input ---
-        if (folderList !== null) {
-            selectContainer.style.display = "block";
+        // --- Folder/Workspace Choice vs Text Input vs Monospace Textarea ---
+        if (multiline && textareaEl) {
+            textareaEl.value = currentVal;
+            textareaEl.style.display = "block";
             inputEl.style.display = "none";
-
-            selectEl.innerHTML = '<option value="">(No Workspace)</option>';
-            folderList.forEach((f) => {
-                const opt = document.createElement("option");
-                opt.value = f.name;
-                opt.textContent = f.displayName || f.name;
-                if (f.name === currentVal) opt.selected = true;
-                selectEl.appendChild(opt);
-            });
-
-            const optNew = document.createElement("option");
-            optNew.value = "__new__";
-            optNew.textContent = "+ Create New Workspace...";
-            selectEl.appendChild(optNew);
-
-            selectEl.onchange = () => {
-                if (selectEl.value === "__new__") {
-                    inputEl.style.display = "block";
-                    inputEl.value = "";
-                    inputEl.focus();
-                } else {
-                    inputEl.style.display = "none";
-                }
-            };
-
-            if (currentVal && !folderList.find((f) => f.name === currentVal)) {
-                inputEl.style.display = "block";
-                selectEl.value = "__new__";
-            }
-        } else {
             selectContainer.style.display = "none";
-            inputEl.style.display = "block";
+        } else {
+            if (textareaEl) textareaEl.style.display = "none";
+            inputEl.value = currentVal;
+
+            if (folderList !== null) {
+                selectContainer.style.display = "block";
+                inputEl.style.display = "none";
+
+                selectEl.innerHTML = '<option value="">(No Workspace)</option>';
+                folderList.forEach((f) => {
+                    const opt = document.createElement("option");
+                    opt.value = f.name;
+                    opt.textContent = f.displayName || f.name;
+                    if (f.name === currentVal) opt.selected = true;
+                    selectEl.appendChild(opt);
+                });
+
+                const optNew = document.createElement("option");
+                optNew.value = "__new__";
+                optNew.textContent = "+ Create New Workspace...";
+                selectEl.appendChild(optNew);
+
+                selectEl.onchange = () => {
+                    if (selectEl.value === "__new__") {
+                        inputEl.style.display = "block";
+                        inputEl.value = "";
+                        inputEl.focus();
+                    } else {
+                        inputEl.style.display = "none";
+                    }
+                };
+
+                if (currentVal && !folderList.find((f) => f.name === currentVal)) {
+                    inputEl.style.display = "block";
+                    selectEl.value = "__new__";
+                }
+            } else {
+                selectContainer.style.display = "none";
+                inputEl.style.display = "block";
+            }
         }
 
         modal.style.display = "flex";
         void modal.offsetWidth; // Force reflow
         modal.classList.add("open");
-        if (inputEl.style.display !== "none") inputEl.focus();
+        
+        if (multiline && textareaEl) {
+            textareaEl.focus();
+        } else if (inputEl.style.display !== "none") {
+            inputEl.focus();
+        }
 
         const cleanup = () => {
             modal.classList.remove("open");
@@ -97,12 +114,16 @@ window.showPromptModal = async function(
             confirmBtn.onclick = null;
             cancelBtn.onclick = null;
             inputEl.onkeydown = null;
+            if (textareaEl) textareaEl.onkeydown = null;
         };
 
         confirmBtn.onclick = () => {
             let finalVal = inputEl.value;
-            if (folderList !== null && selectEl.value !== "__new__")
+            if (multiline && textareaEl) {
+                finalVal = textareaEl.value;
+            } else if (folderList !== null && selectEl.value !== "__new__") {
                 finalVal = selectEl.value;
+            }
             cleanup();
             resolve(finalVal);
         };
@@ -112,10 +133,17 @@ window.showPromptModal = async function(
             resolve(null);
         };
 
-        inputEl.onkeydown = (e) => {
-            if (e.key === "Enter") confirmBtn.click();
-            if (e.key === "Escape") cancelBtn.click();
-        };
+        if (multiline && textareaEl) {
+            textareaEl.onkeydown = (e) => {
+                if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) confirmBtn.click();
+                if (e.key === "Escape") cancelBtn.click();
+            };
+        } else {
+            inputEl.onkeydown = (e) => {
+                if (e.key === "Enter") confirmBtn.click();
+                if (e.key === "Escape") cancelBtn.click();
+            };
+        }
     });
 };
 
@@ -369,3 +397,49 @@ window.showWorkspaceIconPicker = async function(currentIcon = "") {
         modal.classList.add("open");
     });
 };
+
+/**
+ * Shows a styled terminal execution output modal.
+ * @param {string} title - The title of the modal.
+ * @param {string} contentHtml - The pre-formatted HTML structure representing the terminal output.
+ */
+window.showTerminalModal = function(title, contentHtml) {
+    return new Promise((resolve) => {
+        const modal = document.getElementById("terminal-modal");
+        const titleEl = document.getElementById("terminal-modal-title");
+        const bodyEl = document.getElementById("terminal-modal-body");
+        const closeBtn = document.getElementById("terminal-modal-close");
+        const okBtn = document.getElementById("terminal-modal-ok-btn");
+        
+        if (!modal || !titleEl || !bodyEl || !okBtn || !closeBtn) {
+            console.error("Terminal modal elements not found!");
+            resolve(false);
+            return;
+        }
+        
+        titleEl.textContent = title;
+        bodyEl.innerHTML = contentHtml;
+        
+        const cleanup = () => {
+            modal.classList.remove("open");
+            setTimeout(() => {
+                modal.style.display = "none";
+            }, 300);
+            okBtn.removeEventListener("click", onOk);
+            closeBtn.removeEventListener("click", onOk);
+        };
+        
+        const onOk = () => {
+            cleanup();
+            resolve(true);
+        };
+        
+        okBtn.addEventListener("click", onOk, { once: true });
+        closeBtn.addEventListener("click", onOk, { once: true });
+        
+        modal.style.display = "flex";
+        void modal.offsetWidth; // Force reflow
+        modal.classList.add("open");
+    });
+};
+

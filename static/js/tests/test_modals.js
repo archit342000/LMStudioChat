@@ -38,6 +38,7 @@ describe('modals.js', () => {
                 <p id="prompt-message"></p>
                 <div id="prompt-select-container"><select id="prompt-select"></select></div>
                 <input id="prompt-input" />
+                <textarea id="prompt-textarea"></textarea>
                 <button id="prompt-action-btn"></button>
                 <button id="prompt-cancel-btn"></button>
             </div>
@@ -99,6 +100,18 @@ describe('modals.js', () => {
         document.getElementById('prompt-action-btn').click();
         const result = await promise;
         assert.strictEqual(result, 'New Folder Name');
+    });
+
+    test('showPromptModal multiline option resolves textarea value', async () => {
+        const promise = window.showPromptModal('Stdin Prompt', 'Msg', 'line1\nline2', null, true);
+        
+        const textarea = document.getElementById('prompt-textarea');
+        assert.strictEqual(textarea.value, 'line1\nline2');
+        textarea.value = 'line1\nline2\nline3';
+        
+        document.getElementById('prompt-action-btn').click();
+        const result = await promise;
+        assert.strictEqual(result, 'line1\nline2\nline3');
     });
 
     test('showWorkspaceIconPicker resolves chosen icon or empty string', async () => {

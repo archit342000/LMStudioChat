@@ -173,5 +173,25 @@
     "type": "pure",
     "implementation": "backend.tools.implementations.git_executor.execute_git",
     "description": "Executes a validated git command inside the file system."
+  },
+  "run_code": {
+    "type": "pure",
+    "implementation": "backend.tools.implementations.code_executor.run_code",
+    "description": "Execute code in a sandboxed environment"
+  },
+  "run_file": {
+    "type": "pure",
+    "implementation": "backend.tools.implementations.code_executor.run_file",
+    "description": "Execute a code file from the virtual file system"
+  },
+  "install_packages": {
+    "type": "pure",
+    "implementation": "backend.tools.implementations.code_executor.install_packages",
+    "description": "Install packages in the code execution sandbox (requires user confirmation)"
+  },
+  "list_packages": {
+    "type": "pure",
+    "implementation": "backend.tools.implementations.code_executor.list_packages",
+    "description": "List installed packages in the code execution sandbox"
   }
 }

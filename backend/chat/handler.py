@@ -14,7 +14,8 @@ from backend.task_manager import task_manager
 from backend.tools import MAIN_ASSISTANT_TOOLS, RESEARCH_TOOL, MANAGE_USER_PREFERENCES_TOOL, BROWSING_AGENT_TOOL, FILE_SYSTEM_AGENT_TOOL, GIT_AGENT_TOOL
 from backend import config
 from backend.prompts import BASE_SYSTEM_PROMPT, PREFERENCES_SYSTEM_PROMPT, RESEARCH_MODE_SYSTEM_PROMPT
-from backend.tools.prompts import FILE_SYSTEM_AGENT_DIRECTIVES, GIT_AGENT_DIRECTIVES
+from backend.tools.prompts import FILE_SYSTEM_AGENT_DIRECTIVES, GIT_AGENT_DIRECTIVES, CODE_EXECUTION_DIRECTIVES
+from backend.tools.definitions import RUN_CODE_TOOL, RUN_FILE_TOOL, INSTALL_PACKAGES_TOOL, LIST_PACKAGES_TOOL
 
 logger = logging.getLogger(__name__)
 
@@ -104,7 +105,13 @@ class ChatHandler:
         
         # Sync mode flags from request to DB immediately
         db_updates = {}
-        for flag_name, db_col in [('researchMode', 'research_mode'), ('browsingMode', 'browsing_mode'), ('fileSystemMode', 'file_system_mode'), ('gitMode', 'git_mode')]:
+        for flag_name, db_col in [
+            ('researchMode', 'research_mode'),
+            ('browsingMode', 'browsing_mode'),
+            ('fileSystemMode', 'file_system_mode'),
+            ('gitMode', 'git_mode'),
+            ('codeExecutionMode', 'code_execution_mode')
+        ]:
             val = kwargs.get(flag_name)
             if val is not None:
                 db_updates[db_col] = 1 if val else 0
@@ -313,6 +320,9 @@ class ChatHandler:
                         system_prompt += "\n\n" + FILE_SYSTEM_AGENT_DIRECTIVES
                     if is_git_mode:
                         system_prompt += "\n\n" + GIT_AGENT_DIRECTIVES
+                    is_code_execution_mode = bool(chat_metadata.get('code_execution_mode', 1))
+                    if is_code_execution_mode:
+                        system_prompt += "\n\n" + CODE_EXECUTION_DIRECTIVES
 
                     # Inject custom user persona if selected.
                     # Use persona_snapshot (content frozen at assignment time) to prevent
@@ -479,12 +489,13 @@ class ChatHandler:
 
                     history = [{"role": "system", "content": system_prompt}] + history
 
-                # Gate Tools: Conditionally include preferences and research tools
                 active_tools = []
                 if not tools_disabled:
+                    is_code_execution_mode = bool(chat_metadata.get('code_execution_mode', 1))
                     for t in MAIN_ASSISTANT_TOOLS:
                         tool_name = t.get('function', {}).get('name')
-                        if tool_name in ('research', 'browsing_agent', 'file_system_agent', 'git_agent'):
+                        if tool_name in ('research', 'browsing_agent', 'file_system_agent', 'git_agent',
+                                         'run_code', 'run_file', 'install_packages', 'list_packages'):
                             continue
                         active_tools.append(t)
                     if is_research_mode:
@@ -497,6 +508,11 @@ class ChatHandler:
                         active_tools.append(FILE_SYSTEM_AGENT_TOOL)
                     if is_git_mode:
                         active_tools.append(GIT_AGENT_TOOL)
+                    if is_code_execution_mode:
+                        active_tools.append(RUN_CODE_TOOL)
+                        active_tools.append(RUN_FILE_TOOL)
+                        active_tools.append(INSTALL_PACKAGES_TOOL)
+                        active_tools.append(LIST_PACKAGES_TOOL)
 
                 stream_kwargs = {
                     "messages": history,

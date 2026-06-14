@@ -158,4 +158,35 @@ describe('file-system-ui.js', () => {
             }, 700);
         });
     });
+
+    test('runButton rendering and click callback', () => {
+        let runFileCalled = false;
+        let runFilePath = null;
+
+        window.FileSystemUI.init({
+            getActiveFileId: () => 'file1',
+            onFileRun: (path) => {
+                runFileCalled = true;
+                runFilePath = path;
+            }
+        });
+
+        // 1. Python file is runnable
+        const pythonFile = { id: 'file_py', title: 'script.py', type: 'file', timestamp: Date.now() / 1000 };
+        const pyItem = window.FileSystemUI.buildItem(pythonFile);
+        const pyRunBtn = pyItem.querySelector('.run-btn');
+        assert.ok(pyRunBtn);
+
+        // Click run button
+        const clickEvt = new window.MouseEvent('click', { bubbles: true, cancelable: true });
+        pyRunBtn.dispatchEvent(clickEvt);
+        assert.ok(runFileCalled);
+        assert.strictEqual(runFilePath, 'script.py');
+
+        // 2. Markdown file is not runnable
+        const mdFile = { id: 'file_md', title: 'README.md', type: 'file', timestamp: Date.now() / 1000 };
+        const mdItem = window.FileSystemUI.buildItem(mdFile);
+        const mdRunBtn = mdItem.querySelector('.run-btn');
+        assert.strictEqual(mdRunBtn, null);
+    });
 });

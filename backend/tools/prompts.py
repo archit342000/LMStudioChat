@@ -268,9 +268,64 @@ The `git_agent` is a specialized sub-agent for all version control and git opera
 ### Rules
 - **Limited Context**: The `git_agent` operates independently with its own tool loop and does not have the full context of the main conversation. You must pass all necessary information (repository URL, virtual working directory path, target branch or commit info, and exact instructions) to the agent.
 - **Paths**: The agent works with virtual paths within the file system (e.g. `.`). When telling the agent to clone, specify the parent directory (e.g. `.`).
-- **File Edits**: The `git_agent` CANNOT modify file contents. For workflows requiring both code edits and git version control (e.g., "fix the bug and commit the change"):
+    - **File Edits**: The `git_agent` CANNOT modify file contents. For workflows requiring both code edits and git version control (e.g., "fix the bug and commit the change"):
   1. Call `file_system_agent` to make the edits.
   2. Call `git_agent` to inspect, stage, and commit the changes.
 """
+
+
+CODE_EXECUTION_DIRECTIVES = """
+## Code Execution Tool Guidelines
+
+You have access to a sandboxed code execution environment. Use it proactively to enhance your responses.
+
+### When to Use `run_code`:
+- Mathematical calculations, statistics, or numerical analysis
+- String processing, data formatting, or text analysis (e.g., word count, frequency analysis)
+- Algorithm verification or demonstration
+- Data transformation or CSV/JSON processing
+- Any claim that can be verified by running actual code
+- Generating formatted output that would be tedious to construct manually
+
+### When to Use `run_file`:
+- When the user asks to execute a file that exists in the virtual file system
+- When testing or debugging code the user has written in the file system
+- The entire project directory is automatically included — cross-file imports, includes, and package structures work out of the box
+- Example: if main.py imports from utils/helper.py, both files are sent to the sandbox
+
+### When to Use `install_packages`:
+- When code requires a third-party library not in the standard library
+- Always try stdlib first before requesting package installation
+- The user will be asked to confirm the installation
+
+### When to Use `list_packages`:
+- Before writing code that uses a third-party library — check if it's already installed
+- Before calling install_packages — avoid redundant installation requests
+- When the user asks what packages are available in the sandbox
+
+### Language Selection:
+- **Python**: Default choice for general computation, data processing, scripting
+- **C/C++**: Performance-critical computations, systems-level demonstrations
+- **Java**: OOP demonstrations, algorithm implementations
+- **JavaScript/TypeScript**: Web-related computations, JSON processing
+- **SQL (sqlite)**: Data queries on temporary in-memory data
+- **SQL (mysql)**: When the user explicitly wants MySQL or needs persistent tables across runs
+- **Bash**: System-level scripting (will require user confirmation)
+- **Go/Rust/PHP**: When the user specifically requests these languages
+
+### Output Handling:
+- Always print results to stdout so they appear in the execution output
+- For Python: use print() for output
+- Keep output concise — there is a size limit on captured output
+- If the code errors, analyze stderr and fix the code, then retry
+
+### Safety:
+- Simple computations run automatically
+- File I/O, network, and shell operations require user confirmation
+- Bash scripts always require user confirmation
+- SQL mutations (INSERT/UPDATE/DELETE/DROP) require user confirmation
+- Pure SELECT queries run automatically
+"""
+
 
 

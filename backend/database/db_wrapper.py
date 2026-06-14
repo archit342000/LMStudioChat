@@ -14,6 +14,7 @@ from .wrapper.task_ops import TaskOpsMixin
 from .wrapper.persona_ops import PersonaOperations
 from .wrapper.skill_ops import SkillOpsMixin
 from .wrapper.settings_ops import SettingsOpsMixin
+from .wrapper.code_execution_ops import CodeExecutionOpsMixin
 
 logger = logging.getLogger(__name__)
 
@@ -29,6 +30,7 @@ class DatabaseWrapper(
     PersonaOperations,
     SkillOpsMixin,
     SettingsOpsMixin,
+    CodeExecutionOpsMixin,
     BaseMixin
 ):
 

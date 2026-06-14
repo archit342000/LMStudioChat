@@ -145,6 +145,7 @@ document.addEventListener("DOMContentLoaded", () => {
   const fileSystemModeToggle = document.getElementById("file-system-mode-toggle");
   const browsingModeToggle = document.getElementById("browsing-mode-toggle");
   const gitModeToggle = document.getElementById("git-mode-toggle");
+  const codeExecutionToggle = document.getElementById("code-execution-toggle");
   const fileSystemPanel = document.getElementById("file-system-panel");
   const fileSystemPanelTitle = document.getElementById("file-system-panel-title");
   const closeFileSystemPanelBtn = document.getElementById("close-file-system-panel");
@@ -227,6 +228,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
   let fileSystemMode = false; // If file_system panel is active
   let browsingMode = false; // If browsing agent is enabled
   let gitMode = false; // If git agent is enabled
+  let codeExecutionMode = 1; // 1 = enabled, 0 = disabled (defaults to ON)
   let fileSystemPanelVisible = false;
   let wasUserPreferences = true;
   let currentResearchPlan = null;
@@ -506,6 +508,10 @@ const chatTitleHeader = document.getElementById("chat-title-header");
       gitModeToggle.classList.remove("active");
       gitModeToggle.title = "Enable Git Agent";
     }
+    codeExecutionMode = 1;
+    if (codeExecutionToggle) {
+      codeExecutionToggle.classList.add("active");
+    }
     closeFileSystemPanel();
     if (rightSidebar) {
       rightSidebar.classList.add("collapsed");
@@ -749,6 +755,15 @@ const chatTitleHeader = document.getElementById("chat-title-header");
           gitModeToggle.classList.add("active");
         } else {
           gitModeToggle.classList.remove("active");
+        }
+      }
+
+      codeExecutionMode = chat.code_execution_mode !== undefined ? chat.code_execution_mode : 1;
+      if (codeExecutionToggle) {
+        if (codeExecutionMode) {
+          codeExecutionToggle.classList.add("active");
+        } else {
+          codeExecutionToggle.classList.remove("active");
         }
       }
 
@@ -1276,6 +1291,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
           user_preferences: isUserPreferences,
           research_mode: isResearchMode,
           git_mode: gitMode,
+          code_execution_mode: codeExecutionMode,
           persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
           ...samplingParams,
         }),
@@ -2339,6 +2355,7 @@ const chatTitleHeader = document.getElementById("chat-title-header");
               user_preferences: isUserPreferences,
               research_mode: isResearchMode,
               git_mode: gitMode,
+              code_execution_mode: codeExecutionMode,
               persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
               ...samplingParams,
             }),
@@ -2823,6 +2840,7 @@ ${customSkillsList}
             user_preferences: isUserPreferences,
             research_mode: isResearchMode ? 1 : 0,
             git_mode: gitMode ? 1 : 0,
+            code_execution_mode: codeExecutionMode,
             is_vision: 0,
           };
           savedChats.push(chat);
@@ -2841,6 +2859,7 @@ ${customSkillsList}
             file_system_mode: fileSystemMode ? 1 : 0,
             browsing_mode: browsingMode ? 1 : 0,
             git_mode: gitMode ? 1 : 0,
+            code_execution_mode: codeExecutionMode,
             thinking_profile: samplingParams.thinking_profile,
           });
           if (chatTitleHeader) chatTitleHeader.classList.remove("hidden");
@@ -2936,6 +2955,7 @@ ${customSkillsList}
         fileSystemMode: fileSystemMode,
         browsingMode: browsingMode,
         gitMode: gitMode,
+        code_execution_mode: codeExecutionMode,
         persona_id: window.PersonaManager ? window.PersonaManager.getSelectedPersonaId() : null,
 
         approvedPlan: approvedPlanPayload || undefined,
@@ -4695,6 +4715,16 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     });
   }
 
+  if (codeExecutionToggle) {
+    codeExecutionToggle.addEventListener("click", () => {
+      codeExecutionMode = codeExecutionMode ? 0 : 1;
+      codeExecutionToggle.classList.toggle("active", !!codeExecutionMode);
+      if (chatHistory.length > 0) {
+        patchChat({ code_execution_mode: codeExecutionMode });
+      }
+    });
+  }
+
   if (fileSystemPanelCopyBtn) {
     fileSystemPanelCopyBtn.addEventListener("click", () => {
       if (currentFileSystemContentRaw) {
@@ -4798,6 +4828,7 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
     getActiveFileId: () => currentFileSystemId,
     onFileClick: (id, workspaceId) => loadFileSystem(id, workspaceId),
     onFileDownload: (id, workspaceId) => downloadFileSystem(id, workspaceId),
+    onFileRun: (filePath) => runFileDirectly(filePath),
     onFileDelete: async (id, title, workspaceId) => {
       const confirmed = await showConfirm(
         "Delete Artifact",
@@ -4880,6 +4911,7 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
           }
           browsingMode = !!persona.browsing_mode;
           gitMode = !!persona.git_mode;
+          codeExecutionMode = persona.code_execution_mode !== undefined ? persona.code_execution_mode : 1;
         }
 
         // Apply rules: research_mode overrides others
@@ -4903,6 +4935,9 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
         }
         if (gitModeToggle) {
           gitModeToggle.classList.toggle("active", gitMode);
+        }
+        if (codeExecutionToggle) {
+          codeExecutionToggle.classList.toggle("active", !!codeExecutionMode);
         }
 
         // Check compatibility and fetch models if research mode changes
@@ -5042,6 +5077,146 @@ async function loadFileSystem(file_systemId, workspaceId = null) {
   const urlInitWorkspaceId = urlInitPath.startsWith("/workspace/")
     ? urlInitPath.replace("/workspace/", "")
     : null;
+
+  async function runFileDirectly(filePath) {
+    if (!currentChatId) {
+      showToast("Start a chat first before executing files.", "error");
+      return;
+    }
+    
+    const fileBaseName = filePath.split("/").pop();
+    const escName = window.escapeHtml ? window.escapeHtml(fileBaseName) : fileBaseName;
+    
+    const initialHtml = `
+      <div class="terminal-window" style="background: #18181c; border-radius: 8px; overflow: hidden; border: 1px solid #2d2d34;">
+        <div class="terminal-header" style="display: flex; justify-content: space-between; align-items: center; background: #252529; padding: 8px 12px; border-bottom: 1px solid #2d2d34; font-size: 0.8rem; color: #a1a1a6; user-select: none;">
+          <div class="terminal-dots" style="display: flex; gap: 6px;">
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #ff5f56; display: inline-block;"></span>
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #ffbd2e; display: inline-block;"></span>
+            <span style="width: 10px; height: 10px; border-radius: 50%; background: #27c93f; display: inline-block;"></span>
+          </div>
+          <div class="terminal-title">File: ${escName}</div>
+          <div class="terminal-status" style="font-weight: 600; color: var(--accent);">Connecting...</div>
+        </div>
+        <div class="terminal-body font-mono" style="height: 350px; overflow-y: auto; padding: 12px; background: #1e1e24; color: #f8f8f2; display: flex; flex-direction: column; gap: 6px; font-family: monospace; text-align: left; cursor: text;">
+          <div class="terminal-output" style="white-space: pre-wrap; word-break: break-all;">Establishing interactive connection to sandbox...\n</div>
+          <div class="terminal-input-row" style="display: flex; align-items: center; width: 100%;">
+            <span class="terminal-cursor-indicator" style="color: #50fa7b; margin-right: 4px; display: none;">&gt;</span>
+            <input type="text" class="terminal-input-field" style="flex: 1; background: transparent; border: none; outline: none; color: #50fa7b; font-family: inherit; font-size: inherit; padding: 0; margin: 0;" autocomplete="off" disabled />
+          </div>
+        </div>
+      </div>
+    `;
+
+    const modalPromise = window.showTerminalModal(`Interactive Execution: ${fileBaseName}`, initialHtml);
+    
+    const protocol = window.location.protocol === "https:" ? "wss:" : "ws:";
+    const wsUrl = `${protocol}//${window.location.host}/api/tools/code-execution/ws`;
+    const ws = new WebSocket(wsUrl);
+    
+    let isTerminated = false;
+    
+    modalPromise.then(() => {
+      isTerminated = true;
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        ws.close();
+      }
+    });
+
+    const modalBody = document.getElementById("terminal-modal-body");
+    const outputArea = modalBody.querySelector(".terminal-output");
+    const inputField = modalBody.querySelector(".terminal-input-field");
+    const cursorIndicator = modalBody.querySelector(".terminal-cursor-indicator");
+    const statusText = modalBody.querySelector(".terminal-status");
+    const terminalBody = modalBody.querySelector(".terminal-body");
+
+    terminalBody.addEventListener("click", () => {
+      if (!inputField.disabled) {
+        inputField.focus();
+      }
+    });
+
+    ws.onopen = () => {
+      if (isTerminated) return;
+      
+      ws.send(JSON.stringify({
+        type: "init",
+        filePath: filePath,
+        chat_id: currentChatId,
+        sql_target: "mysql"
+      }));
+      
+      outputArea.textContent += "Connected. Preparing execution...\n";
+      statusText.textContent = "Running";
+      statusText.style.color = "var(--color-emerald)";
+      inputField.disabled = false;
+      if (cursorIndicator) {
+        cursorIndicator.style.display = "inline";
+      }
+      inputField.focus();
+    };
+
+    ws.onmessage = (event) => {
+      if (isTerminated) return;
+      try {
+        const msg = JSON.parse(event.data);
+        if (msg.type === "stdout" || msg.type === "stderr") {
+          outputArea.textContent += msg.data;
+          terminalBody.scrollTop = terminalBody.scrollHeight;
+        } else if (msg.type === "exit") {
+          isTerminated = true;
+          statusText.textContent = `Finished (Exit Code: ${msg.code})`;
+          statusText.style.color = msg.code === 0 ? "var(--color-emerald)" : "var(--color-rose)";
+          outputArea.textContent += `\n\nProcess exited with code ${msg.code}\n`;
+          inputField.disabled = true;
+          inputField.value = "";
+          if (cursorIndicator) {
+            cursorIndicator.style.display = "none";
+          }
+          terminalBody.scrollTop = terminalBody.scrollHeight;
+        }
+      } catch (e) {
+        console.error("Failed to parse websocket message:", e);
+      }
+    };
+
+    ws.onerror = (error) => {
+      if (isTerminated) return;
+      outputArea.textContent += "\nError: Connection failed or encountered an error.\n";
+      statusText.textContent = "Error";
+      statusText.style.color = "var(--color-rose)";
+      inputField.disabled = true;
+      if (cursorIndicator) {
+        cursorIndicator.style.display = "none";
+      }
+    };
+
+    ws.onclose = () => {
+      if (isTerminated) return;
+      statusText.textContent = "Connection Closed";
+      statusText.style.color = "var(--content-muted)";
+      inputField.disabled = true;
+      if (cursorIndicator) {
+        cursorIndicator.style.display = "none";
+      }
+    };
+
+    inputField.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") {
+        const value = inputField.value;
+        outputArea.textContent += value + "\n";
+        terminalBody.scrollTop = terminalBody.scrollHeight;
+        
+        if (ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({
+            type: "stdin",
+            data: value + "\n"
+          }));
+        }
+        inputField.value = "";
+      }
+    });
+  }
 
   loadChats().then(() => {
     if (urlInitChatId) {

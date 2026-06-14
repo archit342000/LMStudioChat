@@ -22,7 +22,8 @@ async def test_request_clarification_success(mock_registry, mock_db):
     mock_db.get_resolved_callback.return_value = None
     
     # Mock wait_for to return immediately
-    with patch('asyncio.wait_for', AsyncMock()):
+    with patch('asyncio.wait_for', AsyncMock()), \
+         patch('backend.database.response_cache') as mock_cache:
         res = await request_clarification(
             question="What is X?",
             chat_id="chat1",
@@ -32,21 +33,29 @@ async def test_request_clarification_success(mock_registry, mock_db):
         assert res == "User Answer"
         mock_registry.register.assert_called_once()
         mock_registry.cleanup.assert_called_once_with("call1")
+        mock_cache.append_chunk.assert_called_once()
+        
+        # Verify call arguments contain the correct JSON chunk structure
+        call_args = mock_cache.append_chunk.call_args[0]
+        assert call_args[0] == "chat1"
+        assert "request_clarification" in call_args[1]
 
 @pytest.mark.anyio
 async def test_request_clarification_recovery(mock_registry, mock_db):
     # Mock crash recovery
     mock_db.get_resolved_callback.return_value = {"response": "Recovered Answer"}
     
-    res = await request_clarification(
-        question="What is X?",
-        chat_id="chat1",
-        tool_call_id="call1"
-    )
-    
-    assert res == "Recovered Answer"
-    assert mock_registry.register.called is False
-    mock_db.cleanup_callback.assert_called_once_with("call1")
+    with patch('backend.database.response_cache') as mock_cache:
+        res = await request_clarification(
+            question="What is X?",
+            chat_id="chat1",
+            tool_call_id="call1"
+        )
+        
+        assert res == "Recovered Answer"
+        assert mock_registry.register.called is False
+        mock_db.cleanup_callback.assert_called_once_with("call1")
+        mock_cache.append_chunk.assert_not_called()
 
 @pytest.mark.anyio
 async def test_request_clarification_timeout(mock_registry, mock_db):

@@ -306,6 +306,13 @@ def get_system_settings():
     
     # Expose known git subcommands and config-level permanently blocked commands
     settings['git_known_commands'] = config.GIT_ALL_KNOWN_COMMANDS
+
+    # Provide defaults for code runner configuration settings
+    settings['code_runner_timeout'] = settings.get('code_runner_timeout', config.CODE_RUNNER_DEFAULT_TIMEOUT)
+    settings['code_runner_memory_limit'] = settings.get('code_runner_memory_limit', config.CODE_RUNNER_MEMORY_LIMIT)
+    settings['code_runner_cpu_limit'] = settings.get('code_runner_cpu_limit', config.CODE_RUNNER_CPU_LIMIT)
+    settings['code_runner_max_output_size'] = settings.get('code_runner_max_output_size', config.CODE_RUNNER_MAX_OUTPUT_SIZE)
+
     return jsonify(settings)
 
 @tools_bp.route('/config/settings', methods=['POST'])
@@ -323,4 +330,44 @@ def update_system_settings():
         logger.info(f"Updated system setting: {key}")
         
     return jsonify({"success": True})
+
+
+@tools_bp.route('/code-execution/history/<chat_id>', methods=['GET'])
+def get_execution_history(chat_id):
+    from backend.database import db
+    limit = request.args.get('limit', 50, type=int)
+    offset = request.args.get('offset', 0, type=int)
+    history = db.get_code_execution_history(chat_id, limit=limit, offset=offset)
+    return jsonify(history)
+
+
+@tools_bp.route('/code-execution/run-file', methods=['POST'])
+async def api_run_file():
+    """Direct file execution (user-triggered, not AI-triggered)."""
+    import uuid
+    from backend.tools.implementations.code_executor import run_file
+    data = request.json or {}
+    path = data.get("path")
+    chat_id = data.get("chat_id")
+    stdin = data.get("stdin", "")
+    args = data.get("args", [])
+    sql_target = data.get("sql_target", "mysql")
+    
+    if not path or not chat_id:
+        return jsonify({"error": "Missing path or chat_id"}), 400
+        
+    try:
+        result = await run_file(
+            path=path,
+            stdin=stdin,
+            args=args,
+            sql_target=sql_target,
+            chat_id=chat_id,
+            tool_call_id=f"direct_{uuid.uuid4().hex[:12]}"
+        )
+        return jsonify({"result": result})
+    except Exception as e:
+        logger.error(f"Error running file directly: {e}", exc_info=True)
+        return jsonify({"error": str(e)}), 500
+
 

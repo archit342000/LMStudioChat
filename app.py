@@ -113,6 +113,111 @@ def portal_ws_proxy(ws):
             except Exception:
                 pass
 
+
+@sock.route('/api/tools/code-execution/ws')
+def code_execution_ws_proxy(ws):
+    """
+    Bidirectional WebSocket proxy: browser <-> code_runner_mcp /ws/execute.
+    Handles relative path resolution and folder tree collection first, 
+    then opens the websocket connection to code_runner_mcp.
+    """
+    # Wait for the first message which contains filePath and chat_id
+    closed = threading.Event()
+    upstream = None
+    try:
+        init_msg_raw = ws.receive()
+        if not init_msg_raw:
+            return
+        init_msg = json.loads(init_msg_raw)
+        if init_msg.get("type") != "init":
+            ws.send(json.dumps({"type": "stderr", "data": "Error: First message must be init.\n"}))
+            return
+            
+        file_path = init_msg.get("filePath")
+        chat_id = init_msg.get("chat_id")
+        sql_target = init_msg.get("sql_target", "mysql")
+        
+        if not file_path or not chat_id:
+            ws.send(json.dumps({"type": "stderr", "data": "Error: Missing filePath or chat_id.\n"}))
+            return
+            
+        # Walk and collect files like run_file does!
+        from backend.tools.implementations.code_executor import collect_project_files
+        
+        try:
+            lang, files_list, entry_file = collect_project_files(chat_id, file_path)
+        except Exception as e:
+            ws.send(json.dumps({"type": "stderr", "data": f"Error: {e}\n"}))
+            ws.send(json.dumps({"type": "exit", "code": 1}))
+            return
+            
+        # Get configured code execution timeout
+        timeout = db.get_setting("code_runner_timeout", config.CODE_RUNNER_DEFAULT_TIMEOUT)
+
+        # 2. Connect to code_runner_mcp
+        api_key = config.CODE_RUNNER_API_KEY
+        upstream_url = f"{config.CODE_RUNNER_URL.replace('http://', 'ws://').rstrip('/')}/ws/execute?api_key={api_key}"
+        
+        upstream = ws_client.create_connection(upstream_url)
+        
+        # Send initial configuration to code_runner_mcp
+        config_payload = {
+            "language": lang,
+            "files": files_list,
+            "entry_file": entry_file,
+            "args": [],
+            "sql_target": sql_target,
+            "timeout": timeout
+        }
+        upstream.send(json.dumps(config_payload))
+        
+        # Thread: upstream (code_runner) -> browser
+        def upstream_to_browser():
+            try:
+                while not closed.is_set():
+                    try:
+                        data = upstream.recv()
+                        if not data:
+                            break
+                        # Send directly to the browser
+                        ws.send(data)
+                    except Exception:
+                        break
+            finally:
+                closed.set()
+                try:
+                    ws.close()
+                except Exception:
+                    pass
+                
+        t = threading.Thread(target=upstream_to_browser, daemon=True)
+        t.start()
+        
+        # Main thread: browser -> upstream
+        while not closed.is_set():
+            try:
+                data = ws.receive()
+                if data is None:
+                    break
+                # Forward input to upstream
+                upstream.send(data)
+            except Exception:
+                break
+                
+    except Exception as e:
+        logger.error(f"Code execution WS proxy error: {e}", exc_info=True)
+        try:
+            ws.send(json.dumps({"type": "stderr", "data": f"Proxy error: {e}\n"}))
+        except Exception:
+            pass
+    finally:
+        closed.set()
+        if upstream:
+            try:
+                upstream.close()
+            except Exception:
+                pass
+
 # Limit request size to 100MB to match FILE_UPLOAD_MAX_SIZE config
 app.config['MAX_CONTENT_LENGTH'] = 100 * 1024 * 1024
 

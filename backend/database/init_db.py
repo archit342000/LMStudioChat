@@ -60,7 +60,8 @@ def init_db():
                 research_mode INTEGER DEFAULT 0,
                 file_system_mode INTEGER DEFAULT 0,
                 browsing_mode INTEGER DEFAULT 0,
-                git_mode INTEGER DEFAULT 0
+                git_mode INTEGER DEFAULT 0,
+                code_execution_mode INTEGER DEFAULT 1
             )
         ''')
 
@@ -90,6 +91,12 @@ def init_db():
                 c.execute("ALTER TABLE personas ADD COLUMN git_mode INTEGER DEFAULT 0")
             except Exception as e:
                 logger.error(f"Error adding git_mode column to personas: {e}")
+        if 'code_execution_mode' not in persona_cols:
+            logger.info("MIGRATION: Adding 'code_execution_mode' column to 'personas' table.")
+            try:
+                c.execute("ALTER TABLE personas ADD COLUMN code_execution_mode INTEGER DEFAULT 1")
+            except Exception as e:
+                logger.error(f"Error adding code_execution_mode column to personas: {e}")
 
         c.execute('''
             CREATE TABLE IF NOT EXISTS chats (
@@ -126,6 +133,7 @@ def init_db():
                 browsing_session_id TEXT,
                 browsing_mode INTEGER DEFAULT 0,
                 git_mode INTEGER DEFAULT 0,
+                code_execution_mode INTEGER DEFAULT 1,
                 persona_snapshot TEXT,
                 history_compression TEXT,
                 FOREIGN KEY(workspace_id) REFERENCES workspaces(id) ON DELETE SET NULL
@@ -323,6 +331,29 @@ def init_db():
             )
         ''')
 
+        # Code execution history table for sandboxed execution auditing
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS code_execution_history (
+                id TEXT PRIMARY KEY,
+                chat_id TEXT NOT NULL,
+                message_id TEXT,
+                tool_call_id TEXT,
+                language TEXT NOT NULL,
+                code TEXT NOT NULL,
+                stdin TEXT,
+                files_json TEXT,
+                stdout TEXT,
+                stderr TEXT,
+                exit_code INTEGER,
+                execution_time_ms INTEGER,
+                timed_out INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now')),
+                FOREIGN KEY (chat_id) REFERENCES chats(id) ON DELETE CASCADE
+            )
+        ''')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_exec_history_chat ON code_execution_history(chat_id)')
+        c.execute('CREATE INDEX IF NOT EXISTS idx_exec_history_created ON code_execution_history(created_at)')
+
         # FTS5 search table
         try:
             c.execute('''
@@ -390,6 +421,8 @@ def init_db():
             ('thinking_profile', "TEXT DEFAULT 'general'"),
             ('browsing_session_id', 'TEXT'),
             ('browsing_mode', 'INTEGER DEFAULT 0'),
+            ('git_mode', 'INTEGER DEFAULT 0'),
+            ('code_execution_mode', 'INTEGER DEFAULT 1'),
             ('persona_snapshot', 'TEXT'),
             ('history_compression', 'TEXT')
         ]

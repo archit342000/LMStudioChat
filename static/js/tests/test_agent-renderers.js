@@ -224,4 +224,60 @@ describe('agent-renderers.js', () => {
         delete window.showClarificationPopOver;
     });
 
+    test('parseExecutionResult and custom rendering of run_code/run_file', () => {
+        const parseExecutionResult = window.parseExecutionResult;
+        assert.ok(parseExecutionResult);
+
+        // 1. Test parseExecutionResult with successful python output
+        const successOutput = "**Language:** python | **Exit Code:** 0 | **Time:** 120ms\n\n**stdout:**\n```\nhello world\n```\n\n**stderr:**\n```\n\n```";
+        const parsedSuccess = parseExecutionResult(successOutput);
+        assert.ok(parsedSuccess);
+        assert.strictEqual(parsedSuccess.language, 'python');
+        assert.strictEqual(parsedSuccess.exitCode, 0);
+        assert.strictEqual(parsedSuccess.time, '120ms');
+        assert.strictEqual(parsedSuccess.stdout, 'hello world');
+        assert.strictEqual(parsedSuccess.stderr, '');
+
+        // 2. Test parseExecutionResult with failed sql/file output
+        const failedOutput = "**File:** test.sql | **Language:** sql | **Exit Code:** 1 | **Time:** 15ms\n\n**stdout:**\n```\n\n```\n\n**stderr:**\n```\nTable not found\n```";
+        const parsedFailed = parseExecutionResult(failedOutput);
+        assert.ok(parsedFailed);
+        assert.strictEqual(parsedFailed.file, 'test.sql');
+        assert.strictEqual(parsedFailed.language, 'sql');
+        assert.strictEqual(parsedFailed.exitCode, 1);
+        assert.strictEqual(parsedFailed.time, '15ms');
+        assert.strictEqual(parsedFailed.stdout, '');
+        assert.strictEqual(parsedFailed.stderr, 'Table not found');
+
+        // 3. Test _renderSubAgentActivityItemHtml custom formatting for run_code tool_call
+        const _renderSubAgentActivityItemHtml = window.eval('_renderSubAgentActivityItemHtml');
+        const activityCall = {
+            type: 'tool_call',
+            content: JSON.stringify({
+                function: {
+                    name: 'run_code',
+                    arguments: JSON.stringify({ code: 'print("test")', language: 'python' })
+                }
+            }),
+            timestamp: Date.now()
+        };
+        const htmlCall = _renderSubAgentActivityItemHtml(activityCall);
+        assert.ok(htmlCall.includes('code-execution-accordion'));
+        assert.ok(htmlCall.includes('Run Code (python)'));
+        assert.ok(htmlCall.includes('print(&quot;test&quot;)'));
+
+        // 4. Test _renderSubAgentActivityItemHtml custom formatting for run_code tool_result
+        const activityResult = {
+            type: 'tool_result',
+            content: successOutput,
+            timestamp: Date.now()
+        };
+        const htmlResult = _renderSubAgentActivityItemHtml(activityResult);
+        assert.ok(htmlResult.includes('terminal-window'));
+        assert.ok(htmlResult.includes('Language: python'));
+        assert.ok(htmlResult.includes('hello world'));
+        assert.ok(htmlResult.includes('Exit: 0'));
+    });
+
 });
+

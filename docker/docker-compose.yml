@@ -19,6 +19,7 @@ services:
     environment:
       - TZ=Asia/Kolkata
       - AI_PROXY_URL=http://inference-proxy:5001
+      - CODE_RUNNER_URL=http://code_runner_mcp:8100
     secrets:
       - DATA_DIR
       - APP_PASSWORD
@@ -30,6 +31,7 @@ services:
       - MCP_API_KEY
       - PLAYWRIGHT_MCP_API_KEY
       - HF_TOKEN
+      - CODE_RUNNER_API_KEY
 
   bastion_ssh:
     build:
@@ -101,9 +103,58 @@ services:
     command: ["python3", "inference_proxy/app.py"]
     restart: unless-stopped
 
+  code_runner_mcp:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.code-runner
+    networks:
+      - secure-internal
+    volumes:
+      - ../code_runner_mcp:/app
+    secrets:
+      - CODE_RUNNER_API_KEY
+      - MYSQL_HOST
+      - MYSQL_USER
+      - MYSQL_PASSWORD
+    environment:
+      - API_KEY_FILE=/run/secrets/CODE_RUNNER_API_KEY
+      - MYSQL_HOST_FILE=/run/secrets/MYSQL_HOST
+      - MYSQL_USER_FILE=/run/secrets/MYSQL_USER
+      - MYSQL_PASSWORD_FILE=/run/secrets/MYSQL_PASSWORD
+    deploy:
+      resources:
+        limits:
+          memory: ${CODE_RUNNER_MEMORY_LIMIT:-512M}
+          cpus: "${CODE_RUNNER_CPU_LIMIT:-1.0}"
+    restart: unless-stopped
+
+  mysql_db:
+    image: mysql:8.0
+    networks:
+      - secure-internal
+    secrets:
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_PASSWORD
+      - MYSQL_USER
+    environment:
+      - MYSQL_ROOT_PASSWORD_FILE=/run/secrets/MYSQL_ROOT_PASSWORD
+      - MYSQL_DATABASE=sandbox
+      - MYSQL_USER_FILE=/run/secrets/MYSQL_USER
+      - MYSQL_PASSWORD_FILE=/run/secrets/MYSQL_PASSWORD
+    volumes:
+      - mysql_data:/var/lib/mysql
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    restart: unless-stopped
+
 networks:
   secure-internal:
     driver: bridge
+
+volumes:
+  mysql_data:
 
 secrets:
   # Defining secrets mapped to files in the ../secrets directory
@@ -127,3 +178,13 @@ secrets:
     file: ../secrets/PLAYWRIGHT_MCP_API_KEY
   HF_TOKEN:
     file: ../secrets/HF_TOKEN
+  CODE_RUNNER_API_KEY:
+    file: ../secrets/CODE_RUNNER_API_KEY
+  MYSQL_ROOT_PASSWORD:
+    file: ../secrets/MYSQL_ROOT_PASSWORD
+  MYSQL_HOST:
+    file: ../secrets/MYSQL_HOST
+  MYSQL_USER:
+    file: ../secrets/MYSQL_USER
+  MYSQL_PASSWORD:
+    file: ../secrets/MYSQL_PASSWORD

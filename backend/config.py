@@ -380,3 +380,24 @@ GIT_ALL_KNOWN_COMMANDS = [
     "push",
 ]
 
+
+# =============================================================================
+# CODE RUNNER CONFIGURATION
+# =============================================================================
+CODE_RUNNER_URL = os.getenv("CODE_RUNNER_URL", "http://code_runner_mcp:8100")
+CODE_RUNNER_API_KEY = get_secret("CODE_RUNNER_API_KEY")
+CODE_RUNNER_DEFAULT_TIMEOUT = int(os.getenv("CODE_RUNNER_DEFAULT_TIMEOUT", "30"))
+CODE_RUNNER_MAX_TIMEOUT = int(os.getenv("CODE_RUNNER_MAX_TIMEOUT", "120"))
+CODE_RUNNER_MAX_OUTPUT_SIZE = int(os.getenv("CODE_RUNNER_MAX_OUTPUT_SIZE", "65536"))  # 64KB
+CODE_RUNNER_MEMORY_LIMIT = os.getenv("CODE_RUNNER_MEMORY_LIMIT", "512M")
+CODE_RUNNER_CPU_LIMIT = os.getenv("CODE_RUNNER_CPU_LIMIT", "1.0")
+
+# Extension → language mapping for run_file
+CODE_EXTENSION_MAP = {
+    ".py": "python", ".c": "c", ".cpp": "cpp", ".cc": "cpp", ".cxx": "cpp",
+    ".java": "java", ".js": "javascript", ".mjs": "javascript",
+    ".ts": "typescript", ".go": "go", ".rs": "rust",
+    ".sh": "bash", ".bash": "bash", ".php": "php", ".sql": "sql",
+}
+
+
