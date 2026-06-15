@@ -186,6 +186,7 @@ class ArtifactOpsMixin(BaseMixin):
 
                     # Robust merging of tool call fragments
                     merged_tool_calls = {}
+                    from backend.utils import merge_tool_call_deltas
                     for s in tool_calls_parts:
                         if not s: continue
                         try:
@@ -194,16 +195,9 @@ class ArtifactOpsMixin(BaseMixin):
                             for d in deltas:
                                 idx = d.get('index', 0)
                                 if idx not in merged_tool_calls:
-                                    merged_tool_calls[idx] = d
+                                    merged_tool_calls[idx] = d.copy()
                                 else:
-                                    existing = merged_tool_calls[idx]
-                                    if 'function' in d:
-                                        if 'function' not in existing: existing['function'] = {}
-                                        if 'arguments' in d['function']:
-                                            existing['function']['arguments'] = (existing['function'].get('arguments') or '') + (d['function'].get('arguments') or '')
-                                        if 'name' in d['function']:
-                                            existing['function']['name'] = d['function']['name']
-                                    if 'id' in d: existing['id'] = d['id']
+                                    merge_tool_call_deltas(merged_tool_calls[idx], d)
                         except: continue
 
                     stored_tool_calls = json.dumps(list(merged_tool_calls.values())) if merged_tool_calls else None

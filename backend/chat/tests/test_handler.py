@@ -390,3 +390,66 @@ async def test_initiate_chat_standalone_file_upload(mock_db):
         items=[{"name": "doc.pdf", "size": 100}]
     )
 
+
+@pytest.mark.anyio
+async def test_run_orchestrated_stream_json_repair(mock_db, mock_task_manager, mock_response_cache):
+    handler = ChatHandler("test_repair")
+    mock_task_manager.is_interrupted.return_value = False
+    
+    # Mock server returns tool call fragments with malformed JSON arguments (unclosed quote)
+    MockServerState.chat_responses = [
+        [
+            {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "tc1", "function": {"name": "test_tool", "arguments": '{"arg1": "'}}]}}]},
+            {"choices": [{"delta": {"tool_calls": [{"index": 0, "function": {"arguments": "val1"}}]}}]},
+            {"timings": {"prompt_n": 5}},
+        ]
+    ]
+    mock_db.get_messages.return_value = []
+    mock_db.get_chat.return_value = {}
+    
+    # Mock last assistant message AFTER stream finishes
+    mock_db.get_last_assistant_message.return_value = {
+        "id": 2,
+        "tool_calls": [{"id": "tc1", "function": {"name": "test_tool", "arguments": '{"arg1": "val1"}'}}]
+    }
+    mock_db.flush_sse_chunks.return_value = True
+
+    # Mock _handle_tool_execution to break the loop
+    async def mock_handle_tools(*args, **kwargs):
+        yield "tool_result"
+        mock_db.get_last_assistant_message.return_value = None
+
+    with patch.object(handler, "_handle_tool_execution", side_effect=mock_handle_tools):
+        gen = handler._run_orchestrated_stream(user_message={"id": 1}, model_name="NVIDIA/NVIDIA-Nemotron-3-Nano-30B-A3B-UD-Q4_K_XL")
+        chunks = []
+        async for chunk in gen:
+            chunks.append(chunk)
+            
+    # Find the synthetic tool call chunk
+    tc_chunk = None
+    for chunk in chunks:
+        if chunk.startswith("data: ") and "tool_calls" in chunk:
+            tc_chunk = chunk
+            break
+            
+    assert tc_chunk is not None
+    # Parse the synthetic tool call data and check if arguments got repaired
+    data = json.loads(tc_chunk[6:])
+    tool_calls = data["choices"][0]["delta"]["tool_calls"]
+    assert len(tool_calls) == 1
+    assert tool_calls[0]["function"]["arguments"] == '{"arg1": "val1"}'
+    
+    # Also verify it was cached correctly with the repaired JSON
+    mock_response_cache.add_sse_chunk.assert_called()
+    found_cache_call = False
+    for call in mock_response_cache.add_sse_chunk.call_args_list:
+        args, kwargs = call
+        if kwargs.get("chunk_type") == "tool_call":
+            content = kwargs.get("content")
+            tc_list = json.loads(content)
+            if tc_list[0]["function"]["arguments"] == '{"arg1": "val1"}':
+                found_cache_call = True
+                break
+    assert found_cache_call
+
+

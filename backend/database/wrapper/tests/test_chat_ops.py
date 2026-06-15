@@ -130,6 +130,9 @@ def temp_db():
     db_path = os.path.join(tmp_dir, "test_chats.db")
     p1, p2, p3 = _db_path_patches(db_path)
     with p1, p2, p3:
+        from backend.database.cache_layer import cache_layer
+        with cache_layer._global_lock:
+            cache_layer._tables.clear()
         init_db()
         wrapper = DatabaseWrapper()
         # Expose the raw path so helper functions can use it
@@ -566,6 +569,7 @@ class TestWorkspaceOps:
         assert ids == [ws3["id"], ws2["id"], ws1["id"]]
         
         # 2. Associate a chat with ws1, and set its timestamp to 400.0 (the most recent).
+        mock_time.return_value = 400.0
         temp_db.ensure_chat_exists("chat_ws1")
         temp_db.save_chat("chat_ws1", "Chat 1", 400.0, enable_thinking=1, workspace_id=ws1["id"])
         

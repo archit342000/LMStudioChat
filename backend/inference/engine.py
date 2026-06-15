@@ -6,8 +6,10 @@ import os
 import logging
 import re
 from typing import List, Dict, Any, Optional, AsyncGenerator, Union
+from functools import lru_cache
 from backend import config
 from backend.logging import log_llm_call, log_event, log_embedding_call
+from backend.utils import merge_tool_call_deltas
 
 logger = logging.getLogger(__name__)
 
@@ -115,7 +117,8 @@ class InferenceEngine:
                 content = msg.get("content") or ""
                 tool_calls = msg.get("tool_calls")
                 
-                if not self._is_generation_valid(content, tool_calls):
+                is_valid, repaired_tcs = self._is_generation_valid(content, tool_calls)
+                if not is_valid:
                     if attempts < max_attempts:
                         log_event("inference_retry", {
                             "reason": "invalid_generation", 
@@ -124,6 +127,10 @@ class InferenceEngine:
                         })
                         await asyncio.sleep(config.LLM_RETRY_DELAY)
                         continue
+                else:
+                    if repaired_tcs is not None:
+                        tool_calls = repaired_tcs
+                        msg["tool_calls"] = repaired_tcs
 
                 reasoning = msg.get("reasoning_content") or ""
                 final_log_text = ""
@@ -246,17 +253,16 @@ class InferenceEngine:
                                         for tc_delta in delta["tool_calls"]:
                                             idx = tc_delta.get("index", 0)
                                             if idx not in tool_calls:
-                                                tool_calls[idx] = tc_delta
+                                                tool_calls[idx] = tc_delta.copy()
                                             else:
-                                                if "function" in tc_delta and "arguments" in tc_delta["function"]:
-                                                    if "function" not in tool_calls[idx]: tool_calls[idx]["function"] = {"arguments": ""}
-                                                    tool_calls[idx]["function"]["arguments"] += tc_delta["function"]["arguments"] or ""
-                            except Exception:
-                                pass
+                                                merge_tool_call_deltas(tool_calls[idx], tc_delta)
+                            except Exception as parse_err:
+                                logger.debug("Failed to parse SSE line: %s, error: %s", line, parse_err, exc_info=True)
                             yield line
                 
                 sorted_tool_calls = [tool_calls[i] for i in sorted(tool_calls.keys())] if tool_calls else None
-                if not self._is_generation_valid(full_content, sorted_tool_calls):
+                is_valid, repaired_tcs = self._is_generation_valid(full_content, sorted_tool_calls)
+                if not is_valid:
                     if attempts < max_attempts:
                         log_event("inference_stream_retry", {
                             "reason": "invalid_generation", 
@@ -266,6 +272,9 @@ class InferenceEngine:
                         yield f"data: {json.dumps({'__redact__': True, 'message': 'Inference failed validation. Retrying...'})}\n\n"
                         await asyncio.sleep(config.LLM_RETRY_DELAY)
                         continue
+                else:
+                    if repaired_tcs is not None:
+                        sorted_tool_calls = repaired_tcs
                 break
 
             except Exception as e:
@@ -277,7 +286,10 @@ class InferenceEngine:
                 log_event("inference_stream_error", {"error": str(e), "chat_id": chat_id})
                 raise
             finally:
-                if attempts >= max_attempts or self._is_generation_valid(full_content, sorted_tool_calls):
+                is_valid, repaired_tcs = self._is_generation_valid(full_content, sorted_tool_calls)
+                if attempts >= max_attempts or is_valid:
+                    if is_valid and repaired_tcs is not None:
+                        sorted_tool_calls = repaired_tcs
                     final_log_text = ""
                     if full_reasoning:
                         final_log_text += f"[Reasoning]\n{full_reasoning}\n[Content]\n"
@@ -432,14 +444,17 @@ class InferenceEngine:
                 pass
             return None
 
-    def _is_generation_valid(self, content: str, tool_calls: Optional[List[Dict[str, Any]]]) -> bool:
+    def _is_generation_valid(self, content: str, tool_calls: Optional[List[Dict[str, Any]]]) -> tuple[bool, Optional[List[Dict[str, Any]]]]:
         has_content = content and content.strip()
         has_tool_calls = tool_calls and len(tool_calls) > 0
         
         if not has_content and not has_tool_calls:
-            return False
+            return False, tool_calls
             
+        repaired_tool_calls = None
         if has_tool_calls:
+            import copy
+            repaired_tool_calls = copy.deepcopy(tool_calls)
             forbidden_tokens = [
                 "<think>",
                 "</think>",
@@ -450,7 +465,7 @@ class InferenceEngine:
                 "<tool_call>",
                 "</tool_call>"
             ]
-            for tc in tool_calls:
+            for tc in repaired_tool_calls:
                 func = tc.get("function", {})
                 name = func.get("name") or ""
                 args_str = func.get("arguments") or ""
@@ -458,7 +473,7 @@ class InferenceEngine:
                 # Reject tool calls containing special thought or tool call tokens
                 for token in forbidden_tokens:
                     if token in name or token in args_str:
-                        return False
+                        return False, tool_calls
                 
                 if args_str:
                     try:
@@ -468,8 +483,8 @@ class InferenceEngine:
                         if repaired is not None:
                             func["arguments"] = repaired
                         else:
-                            return False
-        return True
+                            return False, tool_calls
+        return True, repaired_tool_calls
 
     def _normalize_messages(self, messages: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         normalized = []
@@ -564,39 +579,51 @@ class InferenceEngine:
             logger.warning(f"Failed to log LLM call: {e}")
 
     def _reconstruct_raw_response(self, model: str, content: str, reasoning: Optional[str], tool_calls: Optional[list]) -> str:
-        raw_text = ""
-        is_gemma = "gemma" in model.lower()
-        
-        if reasoning:
-            if is_gemma:
-                raw_text += f"<|channel>thought\n{reasoning}\n<channel|>\n"
-            else:
-                raw_text += f"<think>\n{reasoning}\n</think>\n"
-        
-        raw_text += content
-        
-        if tool_calls:
-            if is_gemma:
-                for tc in tool_calls:
-                    try:
-                        fn = tc.get("function", {})
-                        name = fn.get("name", "")
-                        args = fn.get("arguments", "{}")
-                        raw_text += f"\n<|tool_call>call:{name}{args}<tool_call|>"
-                    except Exception:
-                        pass
-            else:
-                # Standard tool call formatting (e.g. standard JSON or function block)
-                for tc in tool_calls:
-                    try:
-                        fn = tc.get("function", {})
-                        name = fn.get("name", "")
-                        args = fn.get("arguments", "{}")
-                        raw_text += f"\n<tool_call>{{\"name\": \"{name}\", \"arguments\": {args}}}</tool_call>"
-                    except Exception:
-                        pass
-        return raw_text
+        try:
+            raw_text = ""
+            model_lower = (model or "").lower()
+            is_gemma = "gemma" in model_lower
+            
+            if reasoning:
+                if is_gemma:
+                    raw_text += f"<|channel>thought\n{reasoning}\n<channel|>\n"
+                else:
+                    raw_text += f"<think>\n{reasoning}\n</think>\n"
+            
+            raw_text += content or ""
+            
+            if tool_calls:
+                if is_gemma:
+                    for tc in tool_calls:
+                        try:
+                            fn = tc.get("function", {})
+                            name = fn.get("name", "")
+                            args = fn.get("arguments", "{}")
+                            raw_text += f"\n<|tool_call>call:{name}{args}<tool_call|>"
+                        except Exception:
+                            pass
+                else:
+                    # Standard tool call formatting (e.g. standard JSON or function block)
+                    for tc in tool_calls:
+                        try:
+                            fn = tc.get("function", {})
+                            name = fn.get("name", "")
+                            args = fn.get("arguments", "{}")
+                            raw_text += f"\n<tool_call>{{\"name\": \"{name}\", \"arguments\": {args}}}</tool_call>"
+                        except Exception:
+                            pass
+            return raw_text
+        except Exception as e:
+            logger.warning(f"Error reconstructing raw response: {e}")
+            fallback = ""
+            if reasoning:
+                fallback += f"<think>\n{reasoning}\n</think>\n"
+            fallback += content or ""
+            if tool_calls:
+                fallback += f"\n[Tool Calls: {tool_calls}]"
+            return fallback
 
+    @lru_cache(maxsize=128)
     def _is_gemma4_model(self, model: str) -> bool:
         if not model:
             return False

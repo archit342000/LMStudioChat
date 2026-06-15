@@ -4,6 +4,8 @@ import time
 import logging
 from typing import List, Dict, Any, Optional, AsyncGenerator
 
+from backend.utils import merge_tool_call_deltas
+
 from backend.inference import InferenceEngine
 from .turn_handler import TurnHandler
 from .agent_handler import AgentHandler
@@ -582,18 +584,9 @@ class ChatHandler:
                         for tc_delta in tc_deltas:
                             idx = tc_delta.get('index', 0)
                             if idx not in aggregated_tool_calls:
-                                aggregated_tool_calls[idx] = tc_delta
+                                aggregated_tool_calls[idx] = tc_delta.copy()
                             else:
-                                existing = aggregated_tool_calls[idx]
-                                if 'function' in tc_delta:
-                                    if 'function' not in existing:
-                                        existing['function'] = {}
-                                    if 'arguments' in tc_delta['function']:
-                                        existing['function']['arguments'] = (existing['function'].get('arguments') or '') + (tc_delta['function'].get('arguments') or '')
-                                    if 'name' in tc_delta['function']:
-                                        existing['function']['name'] = tc_delta['function']['name']
-                                if 'id' in tc_delta:
-                                    existing['id'] = tc_delta['id']
+                                merge_tool_call_deltas(aggregated_tool_calls[idx], tc_delta)
                     except Exception as e:
                         logger.error(f"[TOOL_DELTA] Error aggregating tool call delta: {e}. Raw content: {parsed.get('content')}")
                     continue  # Do NOT yield raw tool_call fragments to the client.
@@ -653,6 +646,30 @@ class ChatHandler:
 
             # 4. Yield the synthetic tool call chunk and add to SSE cache as a single merged record
             if aggregated_tool_calls:
+                # Apply JSON repair logic for tool call arguments in the stream
+                for tc in aggregated_tool_calls.values():
+                    func = tc.get("function", {})
+                    args_str = func.get("arguments")
+                    if isinstance(args_str, str) and args_str:
+                        try:
+                            json.loads(args_str)
+                        except Exception:
+                            repaired = self.engine._salvage_json_arguments(args_str)
+                            if repaired is not None:
+                                log_event("stream_tool_call_args_repaired", {
+                                    "chat_id": self.chat_id,
+                                    "tool_name": func.get("name"),
+                                    "original": args_str,
+                                    "repaired": repaired
+                                })
+                                func["arguments"] = repaired
+                            else:
+                                log_event("stream_tool_call_args_repair_failed", {
+                                    "chat_id": self.chat_id,
+                                    "tool_name": func.get("name"),
+                                    "original": args_str
+                                })
+
                 tool_calls_list = list(aggregated_tool_calls.values())
                 log_event("tool_calls_aggregated", {
                     "chat_id": self.chat_id,

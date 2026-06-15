@@ -484,28 +484,45 @@ def test_salvage_json_arguments(engine):
 
 def test_is_generation_valid(engine):
     # Valid content
-    assert engine._is_generation_valid("Hello world", None)
+    is_valid, _ = engine._is_generation_valid("Hello world", None)
+    assert is_valid
     
     # Invalid empty content
-    assert not engine._is_generation_valid("", None)
-    assert not engine._is_generation_valid("   ", None)
+    is_valid, _ = engine._is_generation_valid("", None)
+    assert not is_valid
+    is_valid, _ = engine._is_generation_valid("   ", None)
+    assert not is_valid
 
     # Valid tool calls
     valid_tc = [{"function": {"name": "test_tool", "arguments": '{"test": 123}'}}]
-    assert engine._is_generation_valid("", valid_tc)
+    is_valid, repaired = engine._is_generation_valid("", valid_tc)
+    assert is_valid
+    assert repaired == valid_tc
 
     # Invalid tool calls (JSON decode error)
     invalid_tc = [{"function": {"name": "test_tool", "arguments": "{invalid json}"}}]
-    assert not engine._is_generation_valid("", invalid_tc)
+    is_valid, _ = engine._is_generation_valid("", invalid_tc)
+    assert not is_valid
 
     # Tool call with thought token in name
-    assert not engine._is_generation_valid("", [{"function": {"name": "test_<think>_tool", "arguments": '{"test": 123}'}}])
+    is_valid, _ = engine._is_generation_valid("", [{"function": {"name": "test_<think>_tool", "arguments": '{"test": 123}'}}])
+    assert not is_valid
     
     # Tool call with thought token in arguments
-    assert not engine._is_generation_valid("", [{"function": {"name": "test_tool", "arguments": '{"test": "<think>some thought</think>"}'}}])
+    is_valid, _ = engine._is_generation_valid("", [{"function": {"name": "test_tool", "arguments": '{"test": "<think>some thought</think>"}'}}])
+    assert not is_valid
     
     # Tool call with tool call token in arguments
-    assert not engine._is_generation_valid("", [{"function": {"name": "test_tool", "arguments": '{"test": "<|tool_call>call:other_tool{}<tool_call|>"}'}}])
+    is_valid, _ = engine._is_generation_valid("", [{"function": {"name": "test_tool", "arguments": '{"test": "<|tool_call>call:other_tool{}<tool_call|>"}'}}])
+    assert not is_valid
+
+    # Test JSON repair and purity
+    repairable_tc = [{"function": {"name": "test_tool", "arguments": '{"arg": "val'}}]
+    is_valid, repaired = engine._is_generation_valid("", repairable_tc)
+    assert is_valid
+    assert repaired is not None
+    assert repaired[0]["function"]["arguments"] == '{"arg": "val"}'
+    assert repairable_tc[0]["function"]["arguments"] == '{"arg": "val'  # check purity (no mutation)
 
 
 @pytest.mark.anyio
