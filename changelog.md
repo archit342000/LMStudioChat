@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## v4.8.0
+* **Code Runner Integration & Tool Refinements**:
+    - **Code Runner**: Implemented code runner functionality for executing code blocks within sandbox environments.
+    - **Tool Refinements**: Refined and polished agent tools and execution flow.
+* **Version Bump**: Incremented version globally to 4.8.0.
+
 ## v4.7.11
 * **Robust Tool Call Parsing & Argument Salvaging**:
     - **Escaped and Unescaped Delimiters**: Updated Gemma 4 tool call parsing to support both `<|"|>` and `<|\"|>` string literal delimiters.
