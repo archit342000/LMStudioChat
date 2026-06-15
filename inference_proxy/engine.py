@@ -98,6 +98,9 @@ class InferenceEngine:
                     **params
                 }
                 
+                if self._is_gemma4_model(model):
+                    payload["tool_call_parser"] = "gemma4"
+                
                 if chat_template_kwargs:
                     payload["chat_template_kwargs"] = chat_template_kwargs
 
@@ -221,6 +224,9 @@ class InferenceEngine:
                     **params
                 }
                 
+                if self._is_gemma4_model(model):
+                    payload["tool_call_parser"] = "gemma4"
+                
                 if chat_template_kwargs:
                     payload["chat_template_kwargs"] = chat_template_kwargs
                 
@@ -261,6 +267,7 @@ class InferenceEngine:
                                     choices = chunk.get("choices", [])
                                     if choices:
                                         delta = choices[0].get("delta", {})
+                                        proxy_extracted = False
                                         
                                         raw_content = delta.get("content", "")
                                         if raw_content:
@@ -279,16 +286,20 @@ class InferenceEngine:
                                                 for tc in tc_emit:
                                                     idx = tc.get("index", 0)
                                                     tool_calls[idx] = tc
+                                                proxy_extracted = True
                                                 
                                         if "tool_calls" in delta:
-                                            for tc_delta in delta["tool_calls"]:
-                                                idx = tc_delta.get("index", 0)
-                                                if idx not in tool_calls:
-                                                    tool_calls[idx] = tc_delta
-                                                else:
-                                                    if "function" in tc_delta and "arguments" in tc_delta["function"]:
-                                                        if "function" not in tool_calls[idx]: tool_calls[idx]["function"] = {"arguments": ""}
-                                                        tool_calls[idx]["function"]["arguments"] += tc_delta["function"]["arguments"] or ""
+                                            if interceptor.in_reasoning_block:
+                                                del delta["tool_calls"]
+                                            elif not proxy_extracted:
+                                                for tc_delta in delta["tool_calls"]:
+                                                    idx = tc_delta.get("index", 0)
+                                                    if idx not in tool_calls:
+                                                        tool_calls[idx] = tc_delta
+                                                    else:
+                                                        if "function" in tc_delta and "arguments" in tc_delta["function"]:
+                                                            if "function" not in tool_calls[idx]: tool_calls[idx]["function"] = {"arguments": ""}
+                                                            tool_calls[idx]["function"]["arguments"] += tc_delta["function"]["arguments"] or ""
                                          
                                         line = f"data: {json.dumps(chunk)}"
                                 except ValueError as e:
@@ -400,9 +411,26 @@ class InferenceEngine:
             return False
             
         if has_tool_calls:
+            forbidden_tokens = [
+                "<think>",
+                "</think>",
+                "<|channel>",
+                "<channel|>",
+                "<|tool_call>",
+                "<tool_call|>",
+                "<tool_call>",
+                "</tool_call>"
+            ]
             for tc in tool_calls:
                 func = tc.get("function", {})
-                args_str = func.get("arguments", "")
+                name = func.get("name") or ""
+                args_str = func.get("arguments") or ""
+                
+                # Reject tool calls containing special thought or tool call tokens
+                for token in forbidden_tokens:
+                    if token in name or token in args_str:
+                        return False
+                
                 if args_str:
                     try:
                         json.loads(args_str)
@@ -564,3 +592,18 @@ class InferenceEngine:
 
     def _log_llm_call(self, payload: dict, response_text: str, model: str, chat_id: str, duration: float, call_type: str, timings: Optional[dict] = None, tool_calls: Optional[list] = None):
         log_llm_call(payload=payload, response_text=response_text, model=model, chat_id=chat_id, duration_s=duration, call_type=call_type, timings=timings, tool_calls=tool_calls)
+
+    def _is_gemma4_model(self, model: str) -> bool:
+        if not model:
+            return False
+        try:
+            from loader import load_model_config
+            config_data = load_model_config()
+        except Exception:
+            return model.lower() == "google/gemma4-26b-a4b-it"
+
+        gemma4_name = config_data.get("general", {}).get("vision_small")
+        if gemma4_name and model.lower() == gemma4_name.lower():
+            return True
+
+        return False

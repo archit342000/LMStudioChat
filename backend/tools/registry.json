@@ -14,10 +14,20 @@
     "implementation": "backend.tools.agents.visit_page_agent.agent.flow_fn",
     "description": "Visits a specific URL and optionally extracts information based on a query."
   },
-  "manage_user_preferences": {
+  "add_user_preference": {
     "type": "pure",
-    "implementation": "backend.tools.preferences.manage_user_preferences",
-    "description": "Updates the user profile and preferences store."
+    "implementation": "backend.tools.preferences.add_user_preference",
+    "description": "Adds a new preference or profile fact about the user."
+  },
+  "edit_user_preference": {
+    "type": "pure",
+    "implementation": "backend.tools.preferences.edit_user_preference",
+    "description": "Updates an existing user preference or profile entry."
+  },
+  "delete_user_preference": {
+    "type": "pure",
+    "implementation": "backend.tools.preferences.delete_user_preference",
+    "description": "Deletes a user preference by its exact ID."
   },
   "create_fs_file": {
     "type": "pure",

@@ -19,7 +19,7 @@ USER_PREFERENCES_DIRECTIVES = """
 You have access to a global, cross-chat store for user preferences and profile information. This represents universally true facts about the user, their likes, dislikes, and personal interaction preferences.
 
 ## Preferences Rules
-1. If the user explicitly or implicitly mentions a personal fact, preference, or profile detail (e.g., their name, where they live, preferred code formatting, liked/disliked frameworks), you MUST update the user preferences using the provided tool.
+1. If the user explicitly or implicitly mentions a personal fact, preference, or profile detail (e.g., their name, where they live, preferred code formatting, liked/disliked frameworks), you MUST update the user preferences using the appropriate tool (add_user_preference, edit_user_preference, or delete_user_preference).
 2. DO NOT store project-specific context, general knowledge, or transient facts. This is strictly for long-term user profile data.
 3. ALWAYS compress and rephrase the entries to be as concise as possible before saving to conserve space.
 """
@@ -146,8 +146,7 @@ NEVER attempt to read a full file unless absolutely necessary.
 - **Action:** If the logic is too complex, call `read_fs_file(path="...", start_line=X, end_line=Y)` using ONLY the line numbers discovered in Phase 1. 
 - **Action:** If you need to understand the high-level structure of a large file, use `read_fs_file(path="...", outline=True)`.
 
-### Phase 3: The Batch Mutation Phase (Execution)
-Minimize API round-trips by batching your edits.
+### Phase 3: The Mutation Phase (Execution)
 
 **Tools Available:**
 - `create_fs_file`: Creates a new file at a specific `path`. Fails if the file already exists.
@@ -160,7 +159,6 @@ Minimize API round-trips by batching your edits.
 - **Paths:** ALWAYS use full relative paths (e.g., `backend/models/user.py`).
 - **Anchoring:** Your `target_text` MUST be an exact, literal substring. Include 2-3 lines of surrounding context to guarantee uniqueness. NEVER use placeholders like `// ...rest`.
 - **Bounds:** Use `start_line`/`end_line` ONLY to disambiguate identical text or for `replace_fs_lines`. Omit them if your `target_text` is unique.
-- **Edit Ordering:** When batching, order edits bottom-to-top. The backend adjusts line numbers between edits, but bottom-to-top ordering makes your intent clearer.
 - **Line Numbers (CRITICAL):** When reading files via `read_fs_file` or `grep_files`, the output is modified to include line numbers before every line (e.g., `1 | <line_content>` or `1: <line_content>`). When using `replace_fs_text`, your `target_text` MUST match the original file content exactly, meaning you MUST REMOVE the line number, pipe/colon separator, and leading space from `target_text`. Similarly, `new_content` (for `replace_fs_text`, `replace_fs_lines`, and `create_fs_file`) MUST contain clean code without any line numbers.
 
 ### Phase 4: The Validation Phase (Mandatory)

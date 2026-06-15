@@ -4,7 +4,7 @@ import time
 import json
 import asyncio
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch, MagicMock, AsyncMock
 from backend.inference.engine import InferenceEngine
 import multiprocessing
 
@@ -240,7 +240,33 @@ def test_normalize_messages_multimodal(engine):
     norm2 = engine._normalize_messages(messages2)
     assert norm2[0]["content"] == '[{"type": "text", "text": "hello"}]'
 
-def test_engine__log_llm_call(): pass
+def test_reconstruct_raw_response(engine):
+    # Test standard/Qwen model
+    raw_standard = engine._reconstruct_raw_response(
+        model="Qwen/Qwen2.5-72B-Instruct",
+        content="Hello standard",
+        reasoning="Standard thoughts",
+        tool_calls=None
+    )
+    assert raw_standard == "<think>\nStandard thoughts\n</think>\nHello standard"
+
+    # Test standard model with tool calls
+    raw_standard_tc = engine._reconstruct_raw_response(
+        model="Qwen/Qwen2.5-72B-Instruct",
+        content="Hello tool",
+        reasoning=None,
+        tool_calls=[{"function": {"name": "get_weather", "arguments": '{"city": "Paris"}'}}]
+    )
+    assert raw_standard_tc == 'Hello tool\n<tool_call>{"name": "get_weather", "arguments": {"city": "Paris"}}</tool_call>'
+
+    # Test Gemma model
+    raw_gemma = engine._reconstruct_raw_response(
+        model="Google/Gemma-2-9b-it",
+        content="Hello gemma",
+        reasoning="Gemma thoughts",
+        tool_calls=[{"function": {"name": "get_weather", "arguments": '{"city": "Paris"}'}}]
+    )
+    assert raw_gemma == "<|channel>thought\nGemma thoughts\n<channel|>\nHello gemma\n<|tool_call>call:get_weather{\"city\": \"Paris\"}<tool_call|>"
 
 @pytest.mark.anyio
 async def test_chat_retry_reasoning_only(engine):
@@ -455,4 +481,87 @@ def test_salvage_json_arguments(engine):
     
     # Test invalid formatting that cannot be saved returns None
     assert engine._salvage_json_arguments('not_json') is None
+
+def test_is_generation_valid(engine):
+    # Valid content
+    assert engine._is_generation_valid("Hello world", None)
+    
+    # Invalid empty content
+    assert not engine._is_generation_valid("", None)
+    assert not engine._is_generation_valid("   ", None)
+
+    # Valid tool calls
+    valid_tc = [{"function": {"name": "test_tool", "arguments": '{"test": 123}'}}]
+    assert engine._is_generation_valid("", valid_tc)
+
+    # Invalid tool calls (JSON decode error)
+    invalid_tc = [{"function": {"name": "test_tool", "arguments": "{invalid json}"}}]
+    assert not engine._is_generation_valid("", invalid_tc)
+
+    # Tool call with thought token in name
+    assert not engine._is_generation_valid("", [{"function": {"name": "test_<think>_tool", "arguments": '{"test": 123}'}}])
+    
+    # Tool call with thought token in arguments
+    assert not engine._is_generation_valid("", [{"function": {"name": "test_tool", "arguments": '{"test": "<think>some thought</think>"}'}}])
+    
+    # Tool call with tool call token in arguments
+    assert not engine._is_generation_valid("", [{"function": {"name": "test_tool", "arguments": '{"test": "<|tool_call>call:other_tool{}<tool_call|>"}'}}])
+
+
+@pytest.mark.anyio
+async def test_engine_chat_gemma4_tool_call_parser(engine):
+    with patch.object(engine, '_request') as mock_request:
+        mock_request.return_value = MagicMock(status_code=200)
+        mock_request.return_value.json.return_value = {
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": "Hello",
+                }
+            }]
+        }
+        await engine.chat([{"role": "user", "content": "Hi"}], model="Google/Gemma4-26B-A4B-it")
+        mock_request.assert_called_once()
+        _, _, payload, _ = mock_request.call_args[0]
+        assert payload.get("tool_call_parser") == "gemma4"
+
+
+@pytest.mark.anyio
+async def test_engine_stream_gemma4_tool_call_parser(engine):
+    mock_context = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    
+    async def mock_aiter_lines():
+        yield 'data: {"choices": [{"delta": {"content": "Hello"}}]}'
+        yield 'data: [DONE]'
+        
+    mock_resp.aiter_lines = mock_aiter_lines
+    mock_context.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_context.__aexit__ = AsyncMock()
+    
+    with patch('httpx.AsyncClient.stream', return_value=mock_context) as mock_stream:
+        messages = [{"role": "user", "content": "Hi"}]
+        async for _ in engine.stream(messages, model="Google/Gemma4-26B-A4B-it"):
+            pass
+        mock_stream.assert_called_once()
+        kwargs = mock_stream.call_args[1]
+        assert kwargs.get("json", {}).get("tool_call_parser") == "gemma4"
+
+
+def test_is_gemma4_model(engine):
+    # Matches specific name in config
+    assert engine._is_gemma4_model("Google/Gemma4-26B-A4B-it")
+    assert engine._is_gemma4_model("google/gemma4-26b-a4b-it")
+    
+    # Non-matching (fallbacks and tokenizer names are now rejected)
+    assert not engine._is_gemma4_model("google/gemma-4-26B-A4B-it")
+    assert not engine._is_gemma4_model("gemma-4")
+    assert not engine._is_gemma4_model("gemma4")
+    assert not engine._is_gemma4_model("qwen2.5-instruct")
+    assert not engine._is_gemma4_model("")
+    assert not engine._is_gemma4_model(None)
+
+
+
 

@@ -59,7 +59,9 @@ from .definitions import *
 
 __all__ = [
     "ToolRegistry",
-    MANAGE_USER_PREFERENCES_TOOL,
+    "ADD_USER_PREFERENCE_TOOL",
+    "EDIT_USER_PREFERENCE_TOOL",
+    "DELETE_USER_PREFERENCE_TOOL",
 
     "VISIT_PAGE_TOOL",
     "GET_TIME_TOOL",

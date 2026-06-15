@@ -57,7 +57,7 @@ def _save_log(directory, entry, prefix=""):
         logging.error(f"Failed to save JSON log entry to {directory}: {e}")
         return None
 
-def log_llm_call(payload, response_text, model, chat_id=None, duration_s=0, call_type="stream", timings=None, tool_calls=None):
+def log_llm_call(payload, response_text, model, chat_id=None, duration_s=0, call_type="stream", timings=None, tool_calls=None, parsed_response=None, raw_response=None):
     """Logs an LLM transaction (request and final accumulated response)."""
     try:
         entry = {
@@ -68,6 +68,8 @@ def log_llm_call(payload, response_text, model, chat_id=None, duration_s=0, call
             "duration_s": round(duration_s, 3),
             "request": payload,
             "response": response_text,
+            "parsed_response": parsed_response,
+            "raw_response": raw_response,
             "tool_calls": tool_calls
         }
         if timings:

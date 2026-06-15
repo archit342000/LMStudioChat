@@ -708,6 +708,50 @@
             background: #0f172a;
             color: var(--accent);
         }
+
+        /* Segmented Control for LLM Output Toggle */
+        .segmented-control {
+            display: inline-flex;
+            background: rgba(0, 0, 0, 0.05);
+            padding: 2px;
+            border-radius: var(--radius-lg);
+            border: 1px solid var(--glass-border);
+            align-items: center;
+        }
+
+        html.dark .segmented-control {
+            background: rgba(255, 255, 255, 0.03);
+        }
+
+        .control-btn {
+            border: none;
+            background: transparent;
+            color: var(--content-muted);
+            font-size: 0.65rem;
+            font-weight: 700;
+            padding: 4px 10px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            outline: none;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .control-btn.active {
+            background: var(--accent);
+            color: #ffffff !important;
+            box-shadow: var(--surface-shadow);
+        }
+
+        .control-btn:hover:not(.active) {
+            color: var(--content-primary);
+            background: rgba(0, 0, 0, 0.03);
+        }
+
+        html.dark .control-btn:hover:not(.active) {
+            background: rgba(255, 255, 255, 0.03);
+        }
     </style>
 </head>
 
@@ -1420,7 +1464,19 @@
                 const res = await fetch(`/api/logs/detail?path=${encodeURIComponent(log.log_file)}`);
                 const fullLog = await res.json();
 
-                renderDualPane(escapeHtml(log.model_tool), fullLog.timestamp, fullLog.duration_s, (log.type || 'blocking'), fullLog.request, fullLog.response, fullLog.timings, fullLog.tool_calls);
+                renderDualPane(
+                    escapeHtml(log.model_tool), 
+                    fullLog.timestamp, 
+                    fullLog.duration_s, 
+                    (log.type || 'blocking'), 
+                    fullLog.request, 
+                    fullLog.response, 
+                    fullLog.timings, 
+                    fullLog.tool_calls,
+                    log.category,
+                    fullLog.parsed_response,
+                    fullLog.raw_response
+                );
             } catch (err) {
                 detailView.innerHTML = `
                 <button id="mobile-toggle" class="btn-secondary glass" title="Menu" style="position: fixed; z-index: 50;" onclick="toggleMobileMenu()">
@@ -1469,18 +1525,59 @@
             document.querySelectorAll('pre code').forEach(hljs.highlightElement);
         }
 
-        function renderDualPane(title, time, duration, mode, req, res, timings, toolCalls = null) {
+        function renderDualPane(title, time, duration, mode, req, res, timings, toolCalls = null, category = null, parsed_response = null, raw_response = null) {
             const detailView = document.getElementById('detail-view');
 
             const reqStr = JSON.stringify(req, null, 2);
             let resStr = typeof res === 'string' ? res : JSON.stringify(res, null, 2);
             let isJson = typeof res !== 'string';
 
+            const isLlm = (category === 'llm');
+            if (isLlm) {
+                let finalParsed = parsed_response;
+                let finalRaw = raw_response;
+
+                if (!finalParsed) {
+                    if (typeof res === 'string' && res.includes('[Content]\n')) {
+                        const parts = res.split('[Content]\n');
+                        finalParsed = parts.slice(1).join('[Content]\n');
+                    } else if (typeof res === 'string' && res.includes('[Reasoning]\n')) {
+                        const parts = res.split('[Reasoning]\n');
+                        if (parts[1] && parts[1].includes('\n')) {
+                            finalParsed = parts[1].substring(parts[1].indexOf('\n') + 1);
+                        } else {
+                            finalParsed = res;
+                        }
+                    } else {
+                        finalParsed = res;
+                    }
+                }
+
+                if (!finalRaw) {
+                    finalRaw = res;
+                }
+
+                window.currentLlmResponses = {
+                    parsed: finalParsed,
+                    raw: finalRaw
+                };
+            } else {
+                window.currentLlmResponses = null;
+            }
+
+            let initialResStr = resStr;
+            let initialClass = isJson ? 'language-json' : 'language-markdown';
+            if (isLlm && window.currentLlmResponses) {
+                const parsedData = window.currentLlmResponses.parsed;
+                initialResStr = typeof parsedData === 'string' ? parsedData : JSON.stringify(parsedData, null, 2);
+                initialClass = typeof parsedData === 'string' ? 'language-markdown' : 'language-json';
+            }
+
             let toolCallsHtml = '';
             if (toolCalls && Array.isArray(toolCalls) && toolCalls.length > 0) {
                 const tcStr = JSON.stringify(toolCalls, null, 2);
                 toolCallsHtml = `
-                    <div style="margin-top: 24px;">
+                    <div id="tool-calls-container" style="margin-top: 24px;">
                         <div class="pane-header" style="padding: 8px 0; background: transparent; border-bottom: 1px solid var(--border-subtle); margin-bottom: 12px;">
                             <span class="pane-title" style="color: var(--color-primary-500);">Tool Calls</span>
                         </div>
@@ -1520,12 +1617,18 @@
                         </div>
                     </section>
                     <section class="pane">
-                        <div class="pane-header">
+                        <div class="pane-header" style="display: flex; justify-content: space-between; align-items: center;">
                             <span class="pane-title">Downstream</span>
+                            ${isLlm ? `
+                            <div class="segmented-control">
+                                <button class="control-btn active" data-type="parsed" onclick="toggleLlmOutput('parsed')">Parsed</button>
+                                <button class="control-btn" data-type="raw" onclick="toggleLlmOutput('raw')">Raw</button>
+                            </div>
+                            ` : ''}
                             <button class="copy-btn" onclick="copyText('res-code', this)">Copy</button>
                         </div>
                         <div class="pane-content">
-                            <pre><code id="res-code" style="background:transparent;" class="${isJson ? 'language-json' : 'language-markdown'}">${escapeHtml(resStr)}</code></pre>
+                            <pre><code id="res-code" style="background:transparent;" class="${initialClass}">${escapeHtml(initialResStr)}</code></pre>
                             ${toolCallsHtml}
                         </div>
                     </section>
@@ -1534,6 +1637,28 @@
 
             document.querySelectorAll('pre code').forEach(hljs.highlightElement);
         }
+
+        window.toggleLlmOutput = function (type) {
+            const resCode = document.getElementById('res-code');
+            if (!resCode || !window.currentLlmResponses) return;
+
+            document.querySelectorAll('.control-btn').forEach(btn => {
+                btn.classList.toggle('active', btn.getAttribute('data-type') === type);
+            });
+
+            const data = window.currentLlmResponses[type];
+            let contentStr = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+            let isJson = typeof data !== 'string';
+
+            resCode.className = isJson ? 'language-json' : 'language-markdown';
+            resCode.innerHTML = escapeHtml(contentStr);
+            hljs.highlightElement(resCode);
+
+            const tcContainer = document.getElementById('tool-calls-container');
+            if (tcContainer) {
+                tcContainer.style.display = (type === 'parsed') ? '' : 'none';
+            }
+        };
 
         window.copyText = function (id, btn) {
             const text = document.getElementById(id).innerText;

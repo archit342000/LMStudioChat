@@ -1026,6 +1026,474 @@ def init_db():
         except Exception as e:
             logger.error(f"Error migrating file_agent to document_agent: {e}")
 
+        # 13. Data Migration for Flattening manage_user_preferences tool calls
+        try:
+            import json
+            # Migrate 'messages' table
+            c.execute("SELECT id, chat_id, tool_calls, timestamp, model, parent_id, parent_type FROM messages WHERE tool_calls LIKE '%\"manage_user_preferences\"%'")
+            rows = c.fetchall()
+            for row in rows:
+                msg_id, chat_id, tool_calls_str, timestamp, model, parent_id, parent_type = row
+                try:
+                    tool_calls = json.loads(tool_calls_str)
+                    new_tool_calls = []
+                    split_mappings = []  # List of tuples: (original_tc_id, new_tc_id, new_tool_name, description)
+                    
+                    for tc in tool_calls:
+                        if tc.get("function", {}).get("name") == "manage_user_preferences":
+                            orig_id = tc.get("id", "call_pref")
+                            try:
+                                args = json.loads(tc["function"]["arguments"])
+                            except Exception:
+                                args = {}
+                                
+                            additions = args.get("additions") or []
+                            edits = args.get("edits") or []
+                            deletions = args.get("deletions") or []
+                            
+                            sub_calls_count = 0
+                            for idx, add in enumerate(additions):
+                                new_id = f"{orig_id}_add_{idx}"
+                                new_tool_calls.append({
+                                    "id": new_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "add_user_preference",
+                                        "arguments": json.dumps({"content": add.get("content", ""), "tag": add.get("tag", "preference")})
+                                    }
+                                })
+                                split_mappings.append((orig_id, new_id, "add_user_preference", f"Added preference: {add.get('content', '')}"))
+                                sub_calls_count += 1
+                                
+                            for idx, edit in enumerate(edits):
+                                new_id = f"{orig_id}_edit_{idx}"
+                                new_tool_calls.append({
+                                    "id": new_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "edit_user_preference",
+                                        "arguments": json.dumps({"id": edit.get("id", ""), "content": edit.get("content", ""), "tag": edit.get("tag", "preference")})
+                                    }
+                                })
+                                split_mappings.append((orig_id, new_id, "edit_user_preference", f"Updated preference [{edit.get('id', '')[:8]}]: OK"))
+                                sub_calls_count += 1
+                                
+                            for idx, delete_id in enumerate(deletions):
+                                new_id = f"{orig_id}_del_{idx}"
+                                new_tool_calls.append({
+                                    "id": new_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "delete_user_preference",
+                                        "arguments": json.dumps({"id": delete_id})
+                                    }
+                                })
+                                split_mappings.append((orig_id, new_id, "delete_user_preference", f"Deleted preference [{delete_id[:8]}]: OK"))
+                                sub_calls_count += 1
+                                
+                            if sub_calls_count == 0:
+                                new_id = f"{orig_id}_add_0"
+                                new_tool_calls.append({
+                                    "id": new_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "add_user_preference",
+                                        "arguments": json.dumps({"content": "", "tag": "preference"})
+                                    }
+                                })
+                                split_mappings.append((orig_id, new_id, "add_user_preference", "No changes made."))
+                        else:
+                            new_tool_calls.append(tc)
+                            
+                    # Update assistant message's tool_calls list
+                    c.execute("UPDATE messages SET tool_calls = ? WHERE id = ?", (json.dumps(new_tool_calls), msg_id))
+                    
+                    # Split tool responses matching split_mappings
+                    for orig_id, new_id, new_name, resp_text in split_mappings:
+                        c.execute(
+                            "SELECT content, model, parent_id, parent_type FROM messages WHERE role = 'tool' AND name = 'manage_user_preferences' AND tool_call_id = ?",
+                            (orig_id,)
+                        )
+                        resp_row = c.fetchone()
+                        if resp_row:
+                            # Insert a split tool response
+                            c.execute(
+                                "INSERT INTO messages (chat_id, role, content, timestamp, model, tool_call_id, name, parent_id, parent_type) VALUES (?, 'tool', ?, ?, ?, ?, ?, ?, ?)",
+                                (chat_id, resp_text, timestamp + 0.001, resp_row[1], new_id, new_name, parent_id, parent_type)
+                            )
+                            
+                    # Delete the original tool response message
+                    c.execute("DELETE FROM messages WHERE role = 'tool' AND name = 'manage_user_preferences' AND tool_call_id = ?", (orig_id,))
+                except Exception as ex:
+                    logger.error(f"Error migrating message ID {msg_id}: {ex}")
+            
+            # Migrate 'sub_agent_messages' table (in case sub-agents also called this tool, e.g. through skills or nesting)
+            c.execute("SELECT id, chat_id, tool_calls, timestamp, model, parent_message_id, parent_type, agent_name, sequence_order FROM sub_agent_messages WHERE tool_calls LIKE '%\"manage_user_preferences\"%'")
+            rows = c.fetchall()
+            for row in rows:
+                msg_id, chat_id, tool_calls_str, timestamp, model, parent_message_id, parent_type, agent_name, sequence_order = row
+                try:
+                    tool_calls = json.loads(tool_calls_str)
+                    new_tool_calls = []
+                    split_mappings = []
+                    
+                    for tc in tool_calls:
+                        if tc.get("function", {}).get("name") == "manage_user_preferences":
+                            orig_id = tc.get("id", "call_pref")
+                            try:
+                                args = json.loads(tc["function"]["arguments"])
+                            except Exception:
+                                args = {}
+                                
+                            additions = args.get("additions") or []
+                            edits = args.get("edits") or []
+                            deletions = args.get("deletions") or []
+                            
+                            sub_calls_count = 0
+                            for idx, add in enumerate(additions):
+                                new_id = f"{orig_id}_add_{idx}"
+                                new_tool_calls.append({
+                                    "id": new_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "add_user_preference",
+                                        "arguments": json.dumps({"content": add.get("content", ""), "tag": add.get("tag", "preference")})
+                                    }
+                                })
+                                split_mappings.append((orig_id, new_id, "add_user_preference", f"Added preference: {add.get('content', '')}"))
+                                sub_calls_count += 1
+                                
+                            for idx, edit in enumerate(edits):
+                                new_id = f"{orig_id}_edit_{idx}"
+                                new_tool_calls.append({
+                                    "id": new_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "edit_user_preference",
+                                        "arguments": json.dumps({"id": edit.get("id", ""), "content": edit.get("content", ""), "tag": edit.get("tag", "preference")})
+                                    }
+                                })
+                                split_mappings.append((orig_id, new_id, "edit_user_preference", f"Updated preference [{edit.get('id', '')[:8]}]: OK"))
+                                sub_calls_count += 1
+                                
+                            for idx, delete_id in enumerate(deletions):
+                                new_id = f"{orig_id}_del_{idx}"
+                                new_tool_calls.append({
+                                    "id": new_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "delete_user_preference",
+                                        "arguments": json.dumps({"id": delete_id})
+                                    }
+                                })
+                                split_mappings.append((orig_id, new_id, "delete_user_preference", f"Deleted preference [{delete_id[:8]}]: OK"))
+                                sub_calls_count += 1
+                                
+                            if sub_calls_count == 0:
+                                new_id = f"{orig_id}_add_0"
+                                new_tool_calls.append({
+                                    "id": new_id,
+                                    "type": "function",
+                                    "function": {
+                                        "name": "add_user_preference",
+                                        "arguments": json.dumps({"content": "", "tag": "preference"})
+                                    }
+                                })
+                                split_mappings.append((orig_id, new_id, "add_user_preference", "No changes made."))
+                        else:
+                            new_tool_calls.append(tc)
+                            
+                    c.execute("UPDATE sub_agent_messages SET tool_calls = ? WHERE id = ?", (json.dumps(new_tool_calls), msg_id))
+                    
+                    for orig_id, new_id, new_name, resp_text in split_mappings:
+                        c.execute(
+                            "SELECT content, model FROM sub_agent_messages WHERE role = 'tool' AND name = 'manage_user_preferences' AND tool_call_id = ?",
+                            (orig_id,)
+                        )
+                        resp_row = c.fetchone()
+                        if resp_row:
+                            c.execute(
+                                "INSERT INTO sub_agent_messages (chat_id, parent_message_id, parent_type, agent_name, sequence_order, role, content, tool_call_id, name, model, timestamp) VALUES (?, ?, ?, ?, ?, 'tool', ?, ?, ?, ?, ?)",
+                                (chat_id, parent_message_id, parent_type, agent_name, sequence_order, resp_text, new_id, new_name, resp_row[1], timestamp + 0.001)
+                            )
+                            
+                    c.execute("DELETE FROM sub_agent_messages WHERE role = 'tool' AND name = 'manage_user_preferences' AND tool_call_id = ?", (orig_id,))
+                except Exception as ex:
+                    logger.error(f"Error migrating sub_agent_message ID {msg_id}: {ex}")
+            logger.info("MIGRATION: Successfully migrated manage_user_preferences tool calls in database.")
+        except Exception as e:
+            logger.error(f"Error migrating manage_user_preferences tool calls: {e}")
+        try:
+            import json
+            for tool_name in ("replace_fs_text", "replace_fs_lines"):
+                # Migrate 'messages' table
+                c.execute(f"SELECT id, chat_id, tool_calls, timestamp, model, parent_id, parent_type FROM messages WHERE tool_calls LIKE '%\"{tool_name}\"%'")
+                rows = c.fetchall()
+                for row in rows:
+                    msg_id, chat_id, tool_calls_str, timestamp, model, parent_id, parent_type = row
+                    try:
+                        tool_calls = json.loads(tool_calls_str)
+                        new_tool_calls = []
+                        split_mappings = []  # (orig_id, new_id, tool_name, new_args)
+                        
+                        for tc in tool_calls:
+                            if tc.get("function", {}).get("name") == tool_name:
+                                orig_id = tc.get("id", f"call_{tool_name}")
+                                try:
+                                    args = json.loads(tc["function"]["arguments"])
+                                except Exception:
+                                    args = {}
+                                
+                                if "edits" not in args:
+                                    new_tool_calls.append(tc)
+                                    continue
+                                    
+                                path = args.get("path", "")
+                                expected_version = args.get("expected_version")
+                                try:
+                                    expected_version = int(expected_version) if expected_version is not None else 1
+                                except Exception:
+                                    expected_version = 1
+                                    
+                                edits = args.get("edits") or []
+                                if not isinstance(edits, list):
+                                    edits = [edits]
+                                
+                                if len(edits) == 0:
+                                    if tool_name == "replace_fs_text":
+                                        edits = [{"target_text": "", "new_content": ""}]
+                                    else:
+                                        edits = [{"start_line": 1, "end_line": 1, "new_content": ""}]
+                                
+                                for idx, edit in enumerate(edits):
+                                    new_id = orig_id if len(edits) == 1 else f"{orig_id}_edit_{idx}"
+                                    if tool_name == "replace_fs_text":
+                                        new_args = {
+                                            "path": path,
+                                            "expected_version": expected_version + idx,
+                                            "target_text": edit.get("target_text", ""),
+                                            "new_content": edit.get("new_content", ""),
+                                        }
+                                        if "start_line" in edit:
+                                            new_args["start_line"] = edit["start_line"]
+                                        if "end_line" in edit:
+                                            new_args["end_line"] = edit["end_line"]
+                                        if "allow_multiple" in edit:
+                                            new_args["allow_multiple"] = edit["allow_multiple"]
+                                    else:
+                                        new_args = {
+                                            "path": path,
+                                            "expected_version": expected_version + idx,
+                                            "start_line": edit.get("start_line", 1),
+                                            "end_line": edit.get("end_line", 1),
+                                            "new_content": edit.get("new_content", ""),
+                                        }
+                                    
+                                    new_tool_calls.append({
+                                        "id": new_id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": tool_name,
+                                            "arguments": json.dumps(new_args)
+                                        }
+                                    })
+                                    split_mappings.append((orig_id, new_id, tool_name, new_args))
+                            else:
+                                new_tool_calls.append(tc)
+                        
+                        # Update assistant message's tool_calls list
+                        c.execute("UPDATE messages SET tool_calls = ? WHERE id = ?", (json.dumps(new_tool_calls), msg_id))
+                        
+                        # Migrate tool responses matching split_mappings
+                        for idx, (orig_id, new_id, t_name, new_args) in enumerate(split_mappings):
+                            c.execute(
+                                f"SELECT content, model, parent_id, parent_type FROM messages WHERE role = 'tool' AND name = '{t_name}' AND tool_call_id = ?",
+                                (orig_id,)
+                            )
+                            resp_row = c.fetchone()
+                            if resp_row:
+                                content_str = resp_row[0]
+                                try:
+                                    resp_data = json.loads(content_str)
+                                except Exception:
+                                    resp_data = {}
+                                
+                                if isinstance(resp_data, dict):
+                                    success = resp_data.get("success", True)
+                                    diff = resp_data.get("diff", "")
+                                    file_system_id = resp_data.get("file_system_id", "")
+                                    version_id = resp_data.get("version_id", new_args["expected_version"] + 1)
+                                    
+                                    new_resp_data = {
+                                        "success": success,
+                                        "file_system_id": file_system_id,
+                                        "version_id": version_id,
+                                        "message": "Applied edit." if success else "Failed to apply edit.",
+                                        "diff": diff
+                                    }
+                                    orig_edit_results = resp_data.get("edit_results")
+                                    if isinstance(orig_edit_results, list) and idx < len(orig_edit_results):
+                                        new_resp_data["edit_results"] = [orig_edit_results[idx]]
+                                    else:
+                                        new_resp_data["edit_results"] = [{"edit_index": 0, "status": "applied" if success else "failed"}]
+                                else:
+                                    new_resp_data = {"success": True, "message": "Applied edit."}
+                                
+                                new_content_str = json.dumps(new_resp_data)
+                                
+                                if new_id == orig_id:
+                                    c.execute(
+                                        "UPDATE messages SET content = ? WHERE role = 'tool' AND name = ? AND tool_call_id = ?",
+                                        (new_content_str, t_name, orig_id)
+                                    )
+                                else:
+                                    c.execute(
+                                        "INSERT INTO messages (chat_id, role, content, timestamp, model, tool_call_id, name, parent_id, parent_type) VALUES (?, 'tool', ?, ?, ?, ?, ?, ?, ?)",
+                                        (chat_id, new_content_str, timestamp + 0.001 * (idx + 1), resp_row[1], new_id, t_name, parent_id, parent_type)
+                                    )
+                        
+                        for orig_id, new_id, t_name, _ in split_mappings:
+                            if new_id != orig_id:
+                                c.execute(f"DELETE FROM messages WHERE role = 'tool' AND name = '{tool_name}' AND tool_call_id = ?", (orig_id,))
+                            
+                    except Exception as ex:
+                        logger.error(f"Error migrating message ID {msg_id} for {tool_name}: {ex}")
+
+                # Migrate 'sub_agent_messages' table
+                c.execute(f"SELECT id, chat_id, parent_message_id, parent_type, agent_name, sequence_order, tool_calls, timestamp, model FROM sub_agent_messages WHERE tool_calls LIKE '%\"{tool_name}\"%'")
+                rows = c.fetchall()
+                for row in rows:
+                    msg_id, chat_id, parent_message_id, parent_type, agent_name, sequence_order, tool_calls_str, timestamp, model = row
+                    try:
+                        tool_calls = json.loads(tool_calls_str)
+                        new_tool_calls = []
+                        split_mappings = []  # (orig_id, new_id, tool_name, new_args)
+                        
+                        for tc in tool_calls:
+                            if tc.get("function", {}).get("name") == tool_name:
+                                orig_id = tc.get("id", f"call_{tool_name}")
+                                try:
+                                    args = json.loads(tc["function"]["arguments"])
+                                except Exception:
+                                    args = {}
+                                
+                                if "edits" not in args:
+                                    new_tool_calls.append(tc)
+                                    continue
+                                    
+                                path = args.get("path", "")
+                                expected_version = args.get("expected_version")
+                                try:
+                                    expected_version = int(expected_version) if expected_version is not None else 1
+                                except Exception:
+                                    expected_version = 1
+                                    
+                                edits = args.get("edits") or []
+                                if not isinstance(edits, list):
+                                    edits = [edits]
+                                
+                                if len(edits) == 0:
+                                    if tool_name == "replace_fs_text":
+                                        edits = [{"target_text": "", "new_content": ""}]
+                                    else:
+                                        edits = [{"start_line": 1, "end_line": 1, "new_content": ""}]
+                                
+                                for idx, edit in enumerate(edits):
+                                    new_id = orig_id if len(edits) == 1 else f"{orig_id}_edit_{idx}"
+                                    if tool_name == "replace_fs_text":
+                                        new_args = {
+                                            "path": path,
+                                            "expected_version": expected_version + idx,
+                                            "target_text": edit.get("target_text", ""),
+                                            "new_content": edit.get("new_content", ""),
+                                        }
+                                        if "start_line" in edit:
+                                            new_args["start_line"] = edit["start_line"]
+                                        if "end_line" in edit:
+                                            new_args["end_line"] = edit["end_line"]
+                                        if "allow_multiple" in edit:
+                                            new_args["allow_multiple"] = edit["allow_multiple"]
+                                    else:
+                                        new_args = {
+                                            "path": path,
+                                            "expected_version": expected_version + idx,
+                                            "start_line": edit.get("start_line", 1),
+                                            "end_line": edit.get("end_line", 1),
+                                            "new_content": edit.get("new_content", ""),
+                                        }
+                                    
+                                    new_tool_calls.append({
+                                        "id": new_id,
+                                        "type": "function",
+                                        "function": {
+                                            "name": tool_name,
+                                            "arguments": json.dumps(new_args)
+                                        }
+                                    })
+                                    split_mappings.append((orig_id, new_id, tool_name, new_args))
+                            else:
+                                new_tool_calls.append(tc)
+                        
+                        # Update sub-agent message's tool_calls list
+                        c.execute("UPDATE sub_agent_messages SET tool_calls = ? WHERE id = ?", (json.dumps(new_tool_calls), msg_id))
+                        
+                        for idx, (orig_id, new_id, t_name, new_args) in enumerate(split_mappings):
+                            c.execute(
+                                f"SELECT content, model FROM sub_agent_messages WHERE role = 'tool' AND name = '{t_name}' AND tool_call_id = ?",
+                                (orig_id,)
+                            )
+                            resp_row = c.fetchone()
+                            if resp_row:
+                                content_str = resp_row[0]
+                                try:
+                                    resp_data = json.loads(content_str)
+                                except Exception:
+                                    resp_data = {}
+                                
+                                if isinstance(resp_data, dict):
+                                    success = resp_data.get("success", True)
+                                    diff = resp_data.get("diff", "")
+                                    file_system_id = resp_data.get("file_system_id", "")
+                                    version_id = resp_data.get("version_id", new_args["expected_version"] + 1)
+                                    
+                                    new_resp_data = {
+                                        "success": success,
+                                        "file_system_id": file_system_id,
+                                        "version_id": version_id,
+                                        "message": "Applied edit." if success else "Failed to apply edit.",
+                                        "diff": diff
+                                    }
+                                    orig_edit_results = resp_data.get("edit_results")
+                                    if isinstance(orig_edit_results, list) and idx < len(orig_edit_results):
+                                        new_resp_data["edit_results"] = [orig_edit_results[idx]]
+                                    else:
+                                        new_resp_data["edit_results"] = [{"edit_index": 0, "status": "applied" if success else "failed"}]
+                                else:
+                                    new_resp_data = {"success": True, "message": "Applied edit."}
+                                
+                                new_content_str = json.dumps(new_resp_data)
+                                
+                                if new_id == orig_id:
+                                    c.execute(
+                                        "UPDATE sub_agent_messages SET content = ? WHERE role = 'tool' AND name = ? AND tool_call_id = ?",
+                                        (new_content_str, t_name, orig_id)
+                                    )
+                                else:
+                                    c.execute(
+                                        "INSERT INTO sub_agent_messages (chat_id, parent_message_id, parent_type, agent_name, sequence_order, role, content, tool_call_id, name, model, timestamp) VALUES (?, ?, ?, ?, ?, 'tool', ?, ?, ?, ?, ?)",
+                                        (chat_id, parent_message_id, parent_type, agent_name, sequence_order, new_content_str, new_id, t_name, resp_row[1], timestamp + 0.001 * (idx + 1))
+                                    )
+                        
+                        for orig_id, new_id, t_name, _ in split_mappings:
+                            if new_id != orig_id:
+                                c.execute(f"DELETE FROM sub_agent_messages WHERE role = 'tool' AND name = '{tool_name}' AND tool_call_id = ?", (orig_id,))
+                            
+                    except Exception as ex:
+                        logger.error(f"Error migrating sub_agent_message ID {msg_id} for {tool_name}: {ex}")
+            logger.info("MIGRATION: Successfully migrated replace_fs_text and replace_fs_lines tool calls in database.")
+        except Exception as e:
+            logger.error(f"Error migrating replace_fs_text and replace_fs_lines tool calls: {e}")
+
         conn.commit()
     except Exception as e:
         logger.error(f"Database initialization failed: {e}")

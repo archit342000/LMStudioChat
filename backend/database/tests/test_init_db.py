@@ -184,3 +184,189 @@ def test_db_schema_cascade_integrity(temp_db_path):
 
     conn.close()
 
+def test_init_db_preference_migration(temp_db_path):
+    conn = make_connection()
+    c = conn.cursor()
+    # Create tables
+    c.execute("CREATE TABLE chats (id TEXT PRIMARY KEY)")
+    c.execute("INSERT INTO chats (id) VALUES ('c1')")
+    c.execute("""
+        CREATE TABLE messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id TEXT,
+            role TEXT,
+            content TEXT,
+            timestamp REAL,
+            model TEXT,
+            tool_calls TEXT,
+            tool_call_id TEXT,
+            name TEXT,
+            parent_id INTEGER,
+            parent_type TEXT DEFAULT 'main',
+            reasoning_content TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE sub_agent_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id TEXT,
+            parent_message_id TEXT,
+            parent_type TEXT DEFAULT 'main',
+            agent_name TEXT,
+            sequence_order INTEGER,
+            role TEXT,
+            content TEXT,
+            tool_calls TEXT,
+            tool_call_id TEXT,
+            name TEXT,
+            model TEXT,
+            reasoning_content TEXT,
+            timestamp REAL
+        )
+    """)
+    # Insert assistant message with manage_user_preferences tool call
+    tc_json = '[{"id": "call_1", "type": "function", "function": {"name": "manage_user_preferences", "arguments": "{\\"additions\\": [{\\"content\\": \\"Likes apple\\", \\"tag\\": \\"preference\\"}], \\"edits\\": [{\\"id\\": \\"id_xyz\\", \\"content\\": \\"New tag content\\", \\"tag\\": \\"other\\"}], \\"deletions\\": [\\"id_del\\"]}"}}]'
+    c.execute("INSERT INTO messages (chat_id, role, content, tool_calls, timestamp) VALUES ('c1', 'assistant', 'Thinking', ?, 123.45)", (tc_json,))
+    
+    # Insert tool response message
+    c.execute("INSERT INTO messages (chat_id, role, content, name, tool_call_id, timestamp) VALUES ('c1', 'tool', 'Operations summary', 'manage_user_preferences', 'call_1', 123.46)")
+    
+    conn.commit()
+    conn.close()
+    
+    # Run init_db
+    init_db()
+    
+    # Verify migration results
+    conn = make_connection()
+    c = conn.cursor()
+    
+    # Check assistant message tool calls
+    c.execute("SELECT tool_calls FROM messages WHERE role='assistant'")
+    tc_res = c.fetchone()[0]
+    import json
+    tc_list = json.loads(tc_res)
+    assert len(tc_list) == 3
+    assert tc_list[0]["id"] == "call_1_add_0"
+    assert tc_list[0]["function"]["name"] == "add_user_preference"
+    assert json.loads(tc_list[0]["function"]["arguments"]) == {"content": "Likes apple", "tag": "preference"}
+    
+    assert tc_list[1]["id"] == "call_1_edit_0"
+    assert tc_list[1]["function"]["name"] == "edit_user_preference"
+    assert json.loads(tc_list[1]["function"]["arguments"]) == {"id": "id_xyz", "content": "New tag content", "tag": "other"}
+    
+    assert tc_list[2]["id"] == "call_1_del_0"
+    assert tc_list[2]["function"]["name"] == "delete_user_preference"
+    assert json.loads(tc_list[2]["function"]["arguments"]) == {"id": "id_del"}
+    
+    # Check tool response messages (should be 3 new messages, old one deleted)
+    c.execute("SELECT tool_call_id, name, content FROM messages WHERE role='tool' ORDER BY tool_call_id")
+    resp_rows = c.fetchall()
+    assert len(resp_rows) == 3
+    assert resp_rows[0][0] == "call_1_add_0"
+    assert resp_rows[0][1] == "add_user_preference"
+    assert "Added preference: Likes apple" in resp_rows[0][2]
+    
+    assert resp_rows[1][0] == "call_1_del_0"
+    assert resp_rows[1][1] == "delete_user_preference"
+    assert "Deleted preference [id_del]: OK" in resp_rows[1][2]
+    
+    assert resp_rows[2][0] == "call_1_edit_0"
+    assert resp_rows[2][1] == "edit_user_preference"
+    assert "Updated preference [id_xyz]: OK" in resp_rows[2][2]
+    
+    conn.close()
+
+
+def test_init_db_replace_migration(temp_db_path):
+    conn = make_connection()
+    c = conn.cursor()
+    # Create tables
+    c.execute("CREATE TABLE chats (id TEXT PRIMARY KEY)")
+    c.execute("INSERT INTO chats (id) VALUES ('c1')")
+    c.execute("""
+        CREATE TABLE messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id TEXT,
+            role TEXT,
+            content TEXT,
+            timestamp REAL,
+            model TEXT,
+            tool_calls TEXT,
+            tool_call_id TEXT,
+            name TEXT,
+            parent_id INTEGER,
+            parent_type TEXT DEFAULT 'main',
+            reasoning_content TEXT
+        )
+    """)
+    c.execute("""
+        CREATE TABLE sub_agent_messages (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            chat_id TEXT,
+            parent_message_id TEXT,
+            parent_type TEXT DEFAULT 'main',
+            agent_name TEXT,
+            sequence_order INTEGER,
+            role TEXT,
+            content TEXT,
+            tool_calls TEXT,
+            tool_call_id TEXT,
+            name TEXT,
+            model TEXT,
+            reasoning_content TEXT,
+            timestamp REAL
+        )
+    """)
+    # Insert assistant message with replace_fs_text tool call
+    tc_json = '[{"id": "call_text_1", "type": "function", "function": {"name": "replace_fs_text", "arguments": "{\\"path\\": \\"test.py\\", \\"expected_version\\": 1, \\"edits\\": [{\\"target_text\\": \\"old\\", \\"new_content\\": \\"new\\", \\"start_line\\": 10, \\"end_line\\": 10, \\"allow_multiple\\": true}]}"}}]'
+    c.execute("INSERT INTO messages (chat_id, role, content, tool_calls, timestamp) VALUES ('c1', 'assistant', 'Thinking', ?, 123.45)", (tc_json,))
+    
+    # Insert tool response message
+    resp_json = '{"success": true, "file_system_id": "fs_123", "version_id": 2, "message": "Applied 1 of 1 edits.", "edit_results": [{"edit_index": 0, "status": "applied"}], "diff": "-old\\n+new"}'
+    c.execute("INSERT INTO messages (chat_id, role, content, name, tool_call_id, timestamp) VALUES ('c1', 'tool', ?, 'replace_fs_text', 'call_text_1', 123.46)", (resp_json,))
+    
+    conn.commit()
+    conn.close()
+    
+    # Run init_db
+    init_db()
+    
+    # Verify migration results
+    conn = make_connection()
+    c = conn.cursor()
+    
+    # Check assistant message tool calls
+    c.execute("SELECT tool_calls FROM messages WHERE role='assistant'")
+    tc_res = c.fetchone()[0]
+    import json
+    tc_list = json.loads(tc_res)
+    assert len(tc_list) == 1
+    assert tc_list[0]["id"] == "call_text_1"
+    assert tc_list[0]["function"]["name"] == "replace_fs_text"
+    args = json.loads(tc_list[0]["function"]["arguments"])
+    assert args["path"] == "test.py"
+    assert args["expected_version"] == 1
+    assert args["target_text"] == "old"
+    assert args["new_content"] == "new"
+    assert args["start_line"] == 10
+    assert args["end_line"] == 10
+    assert args["allow_multiple"] is True
+    
+    # Check tool response message
+    c.execute("SELECT tool_call_id, name, content FROM messages WHERE role='tool'")
+    resp_rows = c.fetchall()
+    assert len(resp_rows) == 1
+    assert resp_rows[0][0] == "call_text_1"
+    assert resp_rows[0][1] == "replace_fs_text"
+    resp_content = json.loads(resp_rows[0][2])
+    assert resp_content["success"] is True
+    assert resp_content["file_system_id"] == "fs_123"
+    assert resp_content["version_id"] == 2
+    assert "Applied edit" in resp_content["message"]
+    assert resp_content["diff"] == "-old\n+new"
+    assert resp_content["edit_results"] == [{"edit_index": 0, "status": "applied"}]
+    
+    conn.close()
+
+

@@ -287,8 +287,47 @@ def test_parse_sse_delta():
     parsed = handler._parse_sse_delta('data: {"choices": [{"delta": {"role": "event", "content": "evt"}}]}')
     assert parsed == {"type": "event", "content": "evt"}
     
+    # Redact
+    parsed = handler._parse_sse_delta('data: {"__redact__": true, "message": "retry"}')
+    assert parsed == {"type": "redact", "content": "retry"}
+    
     # Invalid
     assert handler._parse_sse_delta("invalid") is None
+
+@pytest.mark.anyio
+async def test_run_orchestrated_stream_redact(mock_db, mock_task_manager, mock_response_cache):
+    handler = ChatHandler("test")
+    mock_task_manager.is_interrupted.return_value = False
+
+    async def mock_stream(*args, **kwargs):
+        yield 'data: {"choices": [{"delta": {"content": "failed attempt"}}]}'
+        yield 'data: {"__redact__": true, "message": "Inference failed validation. Retrying..."}'
+        yield 'data: {"choices": [{"delta": {"content": "successful attempt"}}]}'
+
+    mock_db.get_chat.return_value = {"id": "test"}
+    mock_db.get_messages.return_value = []
+    mock_db.flush_sse_chunks.return_value = True
+    mock_db.get_last_assistant_message.return_value = None
+
+    with patch.object(handler.engine, "stream", side_effect=mock_stream):
+        gen = handler._run_orchestrated_stream(user_message={"id": 1}, model_name="test-model")
+        chunks = []
+        async for chunk in gen:
+            chunks.append(chunk)
+
+    mock_response_cache.delete_sse_chunks.assert_called_once_with(
+        chat_id="test",
+        parent_message_id=1,
+        parent_type="main"
+    )
+    calls = mock_response_cache.add_sse_chunk.call_args_list
+    assert len(calls) == 2
+    assert calls[0][1]['chunk_index'] == 0
+    assert calls[0][1]['content'] == "failed attempt"
+    assert calls[1][1]['chunk_index'] == 0
+    assert calls[1][1]['content'] == "successful attempt"
+
+
 
 def test_chat_handler_cleanup(mock_response_cache):
     handler = ChatHandler("test")

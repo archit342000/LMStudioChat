@@ -63,4 +63,66 @@ describe('logs.html', () => {
         assert.ok(escapedAndCleaned.includes('&lt;div&gt;'));
         assert.ok(escapedAndCleaned.includes('[TRUNCATED BASE64 (Length:'));
     });
+
+    test('renderDualPane and toggleLlmOutput for LLM logs', () => {
+        const window = getWindow();
+        const document = window.document;
+
+        // Mock window.hljs
+        window.hljs = { highlightElement: () => {} };
+
+        const renderDualPane = window.renderDualPane;
+        assert.ok(renderDualPane, "renderDualPane should be defined");
+
+        const toggleLlmOutput = window.toggleLlmOutput;
+        assert.ok(toggleLlmOutput, "toggleLlmOutput should be defined");
+
+        // Set up test data
+        const title = "Nemotron";
+        const time = "12:00:00";
+        const duration = 1.5;
+        const mode = "stream";
+        const req = { model: "nemotron" };
+        const res = "[Reasoning]\nThinking...\n[Content]\nClean output";
+        const timings = { prompt_n: 10 };
+        const toolCalls = [{"name": "tool1"}];
+
+        // Render dual pane for category 'llm'
+        renderDualPane(title, time, duration, mode, req, res, timings, toolCalls, "llm", "Clean output", {"raw": "data"});
+
+        // Verify segmented control and buttons are rendered
+        const segmentedControl = document.querySelector('.segmented-control');
+        assert.ok(segmentedControl, "Segmented control should be rendered for LLM calls");
+
+        const parsedBtn = document.querySelector('.control-btn[data-type="parsed"]');
+        const rawBtn = document.querySelector('.control-btn[data-type="raw"]');
+        assert.ok(parsedBtn, "Parsed button should exist");
+        assert.ok(rawBtn, "Raw button should exist");
+
+        // Verify tool-calls-container is rendered and visible initially
+        const tcContainer = document.getElementById('tool-calls-container');
+        assert.ok(tcContainer, "Tool calls container should be rendered");
+        assert.strictEqual(tcContainer.style.display, "", "Should be visible initially");
+
+        // Verify initial view is Parsed (Clean output)
+        const resCode = document.getElementById('res-code');
+        assert.strictEqual(resCode.textContent, "Clean output");
+        assert.ok(parsedBtn.classList.contains('active'), "Parsed button should be active initially");
+
+        // Toggle to raw
+        toggleLlmOutput("raw");
+        assert.ok(rawBtn.classList.contains('active'), "Raw button should be active");
+        assert.ok(!parsedBtn.classList.contains('active'), "Parsed button should not be active");
+        assert.strictEqual(tcContainer.style.display, "none", "Tool calls container should be hidden in Raw view");
+
+        // Raw output should be JSON representation of {"raw": "data"}
+        const rawJson = JSON.parse(resCode.textContent);
+        assert.deepStrictEqual(rawJson, {"raw": "data"});
+
+        // Toggle back to parsed
+        toggleLlmOutput("parsed");
+        assert.strictEqual(resCode.textContent, "Clean output");
+        assert.ok(parsedBtn.classList.contains('active'), "Parsed button should be active again");
+        assert.strictEqual(tcContainer.style.display, "", "Tool calls container should be visible in Parsed view again");
+    });
 });

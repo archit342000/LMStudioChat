@@ -3,7 +3,8 @@ from backend.tools.definitions import (
     MAIN_ASSISTANT_TOOLS, 
     RESEARCH_TOOL, 
     VISIT_PAGE_TOOL,
-    FILE_SYSTEM_INTERNAL_TOOLS
+    FILE_SYSTEM_INTERNAL_TOOLS,
+    DELETE_FS_FILE_TOOL
 )
 
 def test_definitions_exist():
@@ -28,3 +29,5 @@ def test_fs_internal_tools():
     assert "create_fs_file" in tool_names
     assert "read_fs_file" in tool_names
     assert "replace_fs_text" in tool_names
+    assert "delete_fs_file" in tool_names
+

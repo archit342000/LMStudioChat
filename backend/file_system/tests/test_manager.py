@@ -346,7 +346,7 @@ async def test_replace_fs_text():
         m_fin.return_value = {"success": True}
         m_find.return_value = "hello"
         
-        res = await manager.replace_fs_text("c1", "path", 1, [{"target_text": "hello", "new_content": "hi"}])
+        res = await manager.replace_fs_text("c1", "path", 1, target_text="hello", new_content="hi")
         assert res["success"] is True
 
 @pytest.mark.anyio
@@ -359,7 +359,7 @@ async def test_replace_fs_lines():
         m_get_content.return_value = "l1\nl2"
         m_fin.return_value = {"success": True}
         
-        res = await manager.replace_fs_lines("c1", "path", 1, [{"start_line": 1, "end_line": 1, "new_content": "n1"}])
+        res = await manager.replace_fs_lines("c1", "path", 1, start_line=1, end_line=1, new_content="n1")
         assert res["success"] is True
 
 @pytest.mark.anyio
@@ -477,4 +477,42 @@ async def test_resolve_and_get_disk_fallback(tmp_path, mock_db):
         mock_db.get_file_system_content_by_id.return_value = None
         content = await manager.get_fs_file_content(meta["id"], workspace_id="w1")
         assert content == "Content of physical file on disk."
+
+@pytest.mark.anyio
+async def test_parameter_type_coercion():
+    with patch('backend.file_system.manager.resolve_path_to_fs_file') as m_res, \
+         patch('backend.file_system.manager.get_fs_file_content', new_callable=AsyncMock) as m_get_content, \
+         patch('backend.file_system.manager._finalize_edits', new_callable=AsyncMock) as m_fin:
+        
+        # Test replace_fs_lines with string version and line numbers
+        m_res.return_value = {"id": "fs_1", "chat_id": "c1", "workspace_id": None, "current_version": 1}
+        m_get_content.return_value = "line1\nline2\nline3"
+        m_fin.return_value = {"success": True}
+        
+        res = await manager.replace_fs_lines(
+            "c1", "path", "1", start_line="2", end_line="2", new_content="n2"
+        )
+        assert res["success"] is True
+        
+        # Test replace_fs_text with string expected_version
+        with patch('backend.file_system.manager._find_exact_match') as m_find:
+            m_find.return_value = "line2"
+            res_text = await manager.replace_fs_text(
+                "c1", "path", "1", target_text="line2", new_content="n2"
+            )
+            assert res_text["success"] is True
+
+        # Test read_fs_file_lines with string start/end lines
+        res_read = await manager.read_fs_file("c1", "path", start_line="1", end_line="2")
+        assert res_read["success"] is True
+        assert res_read["content"] == "1 | line1\n2 | line2"
+
+        # Test grep_files with string context_chars and max_matches
+        with patch('backend.file_system.manager.get_all_file_systems_for_chat') as m_get_all:
+            m_get_all.return_value = [{"id": "fs_1", "chat_id": "c1", "workspace_id": None, "filename": "f1"}]
+            res_grep = await manager.grep_files(
+                "c1", "line2", context_chars="100", max_matches_per_file_system="2"
+            )
+            assert res_grep["success"] is True
+
 

@@ -578,6 +578,14 @@ async def read_fs_file_lines(path: str, chat_id: str, action_params: dict) -> Di
 
     start_line = action_params.get("start_line")
     end_line = action_params.get("end_line")
+    try:
+        if start_line is not None:
+            start_line = int(start_line)
+        if end_line is not None:
+            end_line = int(end_line)
+    except (ValueError, TypeError):
+        return {"success": False, "error": "start_line and end_line must be integers."}
+
     search_pattern = action_params.get("search_pattern")
     is_regex = action_params.get("is_regex", False)
     outline = action_params.get("outline", False)
@@ -906,6 +914,14 @@ async def ls_files_for_tool(chat_id: str, path: str = None, **kwargs) -> Dict[st
 async def grep_files(chat_id: str, pattern: str, is_regex: bool = False, path: str = None,
                         context_chars: int = 300, max_matches_per_file_system: int = 5,
                         names_only: bool = False, **kwargs) -> Dict[str, Any]:
+    try:
+        if context_chars is not None:
+            context_chars = int(context_chars)
+        if max_matches_per_file_system is not None:
+            max_matches_per_file_system = int(max_matches_per_file_system)
+    except (ValueError, TypeError):
+        return {"success": False, "error": "context_chars and max_matches_per_file_system must be integers."}
+
     file_systems = get_all_file_systems_for_chat(chat_id)
 
     if path:
@@ -1016,7 +1032,39 @@ async def _finalize_edits(chat_id: str, id: str, workspace_id: str, expected_ver
         "diff": diff_text
     }
 
-async def replace_fs_text(chat_id: str, path: str, expected_version: int, edits: list, **kwargs) -> Dict[str, Any]:
+async def replace_fs_text(
+    chat_id: str,
+    path: str,
+    expected_version: int,
+    target_text: str,
+    new_content: str,
+    start_line: int = None,
+    end_line: int = None,
+    allow_multiple: bool = False,
+    **kwargs
+) -> Dict[str, Any]:
+    try:
+        if expected_version is not None:
+            expected_version = int(expected_version)
+    except (ValueError, TypeError):
+        return {"success": False, "error": f"expected_version must be an integer, got {expected_version}"}
+
+    try:
+        if start_line is not None:
+            start_line = int(start_line)
+        if end_line is not None:
+            end_line = int(end_line)
+    except (ValueError, TypeError):
+        return {"success": False, "error": f"start_line and end_line must be integers, got {start_line} / {end_line}"}
+
+    edits = [{
+        "target_text": target_text,
+        "new_content": new_content,
+        "start_line": start_line,
+        "end_line": end_line,
+        "allow_multiple": allow_multiple
+    }]
+
     try:
         file_system_meta = resolve_path_to_fs_file(chat_id, path)
     except FileNotFoundError as e:
@@ -1123,7 +1171,35 @@ async def replace_fs_text(chat_id: str, path: str, expected_version: int, edits:
     return await _finalize_edits(actual_chat_id, id, actual_workspace_id, expected_version, original_lines, lines, edit_results)
 
 
-async def replace_fs_lines(chat_id: str, path: str, expected_version: int, edits: list, **kwargs) -> Dict[str, Any]:
+async def replace_fs_lines(
+    chat_id: str,
+    path: str,
+    expected_version: int,
+    start_line: int,
+    end_line: int,
+    new_content: str,
+    **kwargs
+) -> Dict[str, Any]:
+    try:
+        if expected_version is not None:
+            expected_version = int(expected_version)
+    except (ValueError, TypeError):
+        return {"success": False, "error": f"expected_version must be an integer, got {expected_version}"}
+
+    try:
+        if start_line is not None:
+            start_line = int(start_line)
+        if end_line is not None:
+            end_line = int(end_line)
+    except (ValueError, TypeError):
+        return {"success": False, "error": f"start_line and end_line must be integers, got {start_line} / {end_line}"}
+
+    edits = [{
+        "start_line": start_line,
+        "end_line": end_line,
+        "new_content": new_content
+    }]
+
     try:
         file_system_meta = resolve_path_to_fs_file(chat_id, path)
     except FileNotFoundError as e:
@@ -1176,6 +1252,18 @@ async def replace_fs_lines(chat_id: str, path: str, expected_version: int, edits
         new_content = edit.get("new_content")
         s_line = edit.get("start_line")
         e_line = edit.get("end_line")
+
+        try:
+            if s_line is not None:
+                s_line = int(s_line)
+            if e_line is not None:
+                e_line = int(e_line)
+        except (ValueError, TypeError):
+            edit_results.append({
+                "edit_index": i, "status": "failed",
+                "error": f"start_line and end_line must be integers, got {s_line} / {e_line}"
+            })
+            break
 
         # Adjust bounds by cumulative delta
         adj_s_line = s_line + cumulative_delta if s_line is not None else None

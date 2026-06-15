@@ -39,6 +39,15 @@ class TestEngine(unittest.IsolatedAsyncioTestCase):
         invalid_tc = [{"function": {"arguments": "{invalid json}"}}]
         self.assertFalse(engine._is_generation_valid("", invalid_tc))
 
+        # Tool call with thought token in name
+        self.assertFalse(engine._is_generation_valid("", [{"function": {"name": "test_<think>_tool", "arguments": '{"test": 123}'}}]))
+        
+        # Tool call with thought token in arguments
+        self.assertFalse(engine._is_generation_valid("", [{"function": {"name": "test_tool", "arguments": '{"test": "<think>some thought</think>"}'}}]))
+        
+        # Tool call with tool call token in arguments
+        self.assertFalse(engine._is_generation_valid("", [{"function": {"name": "test_tool", "arguments": '{"test": "<|tool_call>call:other_tool{}<tool_call|>"}'}}]))
+
     def test_normalize_messages(self):
         engine = InferenceEngine()
         
@@ -191,6 +200,123 @@ class TestEngine(unittest.IsolatedAsyncioTestCase):
         )
         
         self.assertEqual(order, ["task1_start", "task1_end", "task2_start", "task2_end"])
+
+    @patch("engine.InferenceEngine.ensure_model_loaded", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient.stream")
+    async def test_stream_gemma4_tool_calls(self, mock_stream, mock_load):
+        engine = InferenceEngine()
+        
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        
+        async def mock_aiter_lines():
+            lines = [
+                # Scenario A: Tool call inside thought block (emitted as delta.tool_calls by llama.cpp)
+                # It should be ignored because in_reasoning_block is True.
+                'data: {"choices": [{"delta": {"content": "<|channel>thought\\nThinking...\\n"}}]}',
+                'data: {"choices": [{"delta": {"tool_calls": [{"index": 0, "id": "call_1", "type": "function", "function": {"name": "toolA", "arguments": "{\\"x\\": 1}"}}]}}]}',
+                'data: {"choices": [{"delta": {"content": "<channel|>\\n"}}]}',
+                # Scenario B: Tool call outside thought block (emitted as content by model, parsed by interceptor)
+                # It should be correctly parsed and NOT have its arguments doubled.
+                'data: {"choices": [{"delta": {"content": "<|tool_call>call:toolB{y:<|\\\"|>val<|\\\"|>}<tool_call|>"}}]}',
+                'data: [DONE]'
+            ]
+            for line in lines:
+                yield line
+                
+        mock_resp.aiter_lines = mock_aiter_lines
+        
+        mock_context = MagicMock()
+        mock_context.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_context.__aexit__ = AsyncMock()
+        mock_stream.return_value = mock_context
+
+        messages = [{"role": "user", "content": "Hi"}]
+        chunks = []
+        async for chunk in engine.stream(messages, "google/gemma4-26b-it"):
+            chunks.append(chunk)
+
+        parsed_chunks = [json.loads(c[6:]) for c in chunks if c.startswith("data: ") and not c.endswith("[DONE]")]
+        
+        # Collect final accumulated tool calls
+        final_tool_calls = None
+        for pc in parsed_chunks:
+            delta = pc["choices"][0]["delta"]
+            if "tool_calls" in delta:
+                final_tool_calls = delta["tool_calls"]
+                
+        # The tool call from inside thought block (toolA) must be ignored.
+        # The tool call from outside thought block (toolB) must be present and arguments must not be doubled.
+        self.assertIsNotNone(final_tool_calls)
+        self.assertEqual(len(final_tool_calls), 1)
+        self.assertEqual(final_tool_calls[0]["function"]["name"], "toolB")
+        
+        # Verify arguments are valid JSON and not doubled
+        args = json.loads(final_tool_calls[0]["function"]["arguments"])
+        self.assertEqual(args, {"y": "val"})
+
+    @patch("engine.InferenceEngine.ensure_model_loaded", new_callable=AsyncMock)
+    @patch("engine.InferenceEngine._request", new_callable=AsyncMock)
+    async def test_chat_gemma4_tool_call_parser(self, mock_request, mock_load):
+        engine = InferenceEngine()
+        
+        mock_response = MagicMock()
+        mock_response.json.return_value = {
+            "choices": [{
+                "message": {
+                    "role": "assistant",
+                    "content": "Hello"
+                }
+            }]
+        }
+        mock_request.return_value = mock_response
+
+        await engine.chat([{"role": "user", "content": "Hi"}], "Google/Gemma4-26B-A4B-it")
+        mock_load.assert_called_once()
+        mock_request.assert_called_once()
+        _, _, _, payload, _ = mock_request.call_args[0]
+        self.assertEqual(payload.get("tool_call_parser"), "gemma4")
+
+    @patch("engine.InferenceEngine.ensure_model_loaded", new_callable=AsyncMock)
+    @patch("httpx.AsyncClient.stream")
+    async def test_stream_gemma4_tool_call_parser(self, mock_stream, mock_load):
+        engine = InferenceEngine()
+        
+        mock_resp = MagicMock()
+        mock_resp.raise_for_status = MagicMock()
+        
+        async def mock_aiter_lines():
+            yield 'data: {"choices": [{"delta": {"content": "Hello"}}]}'
+            yield 'data: [DONE]'
+            
+        mock_resp.aiter_lines = mock_aiter_lines
+        
+        mock_context = MagicMock()
+        mock_context.__aenter__ = AsyncMock(return_value=mock_resp)
+        mock_context.__aexit__ = AsyncMock()
+        mock_stream.return_value = mock_context
+
+        messages = [{"role": "user", "content": "Hi"}]
+        async for _ in engine.stream(messages, "Google/Gemma4-26B-A4B-it"):
+            pass
+        mock_load.assert_called_once()
+        mock_stream.assert_called_once()
+        kwargs = mock_stream.call_args[1]
+        self.assertEqual(kwargs.get("json", {}).get("tool_call_parser"), "gemma4")
+
+    def test_is_gemma4_model(self):
+        engine = InferenceEngine()
+        # Matches specific name in config
+        self.assertTrue(engine._is_gemma4_model("Google/Gemma4-26B-A4B-it"))
+        self.assertTrue(engine._is_gemma4_model("google/gemma4-26b-a4b-it"))
+        
+        # Non-matching (fallbacks and tokenizer names are now rejected)
+        self.assertFalse(engine._is_gemma4_model("google/gemma-4-26B-A4B-it"))
+        self.assertFalse(engine._is_gemma4_model("gemma-4"))
+        self.assertFalse(engine._is_gemma4_model("gemma4"))
+        self.assertFalse(engine._is_gemma4_model("qwen2.5-instruct"))
+        self.assertFalse(engine._is_gemma4_model(""))
+        self.assertFalse(engine._is_gemma4_model(None))
 
 if __name__ == "__main__":
     unittest.main()

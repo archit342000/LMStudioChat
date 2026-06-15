@@ -11,7 +11,16 @@ from .tool_handler import ToolHandler
 from backend.database import db, response_cache
 from backend.logging import log_event
 from backend.task_manager import task_manager
-from backend.tools import MAIN_ASSISTANT_TOOLS, RESEARCH_TOOL, MANAGE_USER_PREFERENCES_TOOL, BROWSING_AGENT_TOOL, FILE_SYSTEM_AGENT_TOOL, GIT_AGENT_TOOL
+from backend.tools import (
+    MAIN_ASSISTANT_TOOLS,
+    RESEARCH_TOOL,
+    ADD_USER_PREFERENCE_TOOL,
+    EDIT_USER_PREFERENCE_TOOL,
+    DELETE_USER_PREFERENCE_TOOL,
+    BROWSING_AGENT_TOOL,
+    FILE_SYSTEM_AGENT_TOOL,
+    GIT_AGENT_TOOL
+)
 from backend import config
 from backend.prompts import BASE_SYSTEM_PROMPT, PREFERENCES_SYSTEM_PROMPT, RESEARCH_MODE_SYSTEM_PROMPT
 from backend.tools.prompts import FILE_SYSTEM_AGENT_DIRECTIVES, GIT_AGENT_DIRECTIVES, CODE_EXECUTION_DIRECTIVES
@@ -501,7 +510,9 @@ class ChatHandler:
                     if is_research_mode:
                         active_tools.append(RESEARCH_TOOL)
                     if is_user_preferences and not is_research_mode:
-                        active_tools.append(MANAGE_USER_PREFERENCES_TOOL)
+                        active_tools.append(ADD_USER_PREFERENCE_TOOL)
+                        active_tools.append(EDIT_USER_PREFERENCE_TOOL)
+                        active_tools.append(DELETE_USER_PREFERENCE_TOOL)
                     if is_browsing_mode:
                         active_tools.append(BROWSING_AGENT_TOOL)
                     if is_file_system_mode:
@@ -602,6 +613,18 @@ class ChatHandler:
                 yield line + "\n\n"
 
                 if not parsed:
+                    continue
+
+                if parsed['type'] == 'redact':
+                    anchor = last_user_ptr if parent_type == "main" else agent_parent_message_id
+                    logger.info(f"[REDACT] Redaction event received for chat_id={self.chat_id}. Resetting stream cache.")
+                    self.cache.delete_sse_chunks(
+                        chat_id=self.chat_id,
+                        parent_message_id=anchor,
+                        parent_type=parent_type
+                    )
+                    self.chunk_index = 0
+                    aggregated_tool_calls.clear()
                     continue
 
                 self.cache.add_sse_chunk(
@@ -923,6 +946,9 @@ class ChatHandler:
             
         try:
             data = json.loads(line[6:])
+            if "__redact__" in data:
+                return {"type": "redact", "content": data.get("message", "")}
+                
             delta = data.get("choices", [{}])[0].get("delta", {})
             
             if "role" in delta and delta["role"] == "event":

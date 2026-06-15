@@ -1,66 +1,71 @@
-
-MANAGE_USER_PREFERENCES_TOOL = {
+ADD_USER_PREFERENCE_TOOL = {
     "type": "function",
     "function": {
-        "name": "manage_user_preferences",
-        "description": "Updates the user preferences and profile store. Use this to save, edit, or delete personal facts about the user, their likes, dislikes, and global interaction preferences. ALWAYS rephrase and compress facts to be as terse as possible before saving to conserve space. Do NOT store project-specific context or general knowledge.",
+        "name": "add_user_preference",
+        "description": "Adds a new preference or profile fact about the user (likes, dislikes, global preferences). ALWAYS rephrase and compress the fact to be as terse as possible before saving to conserve space. Do NOT store project-specific context or general knowledge.",
         "parameters": {
             "type": "object",
             "properties": {
-                "additions": {
-                    "type": "array",
-                    "description": "List of new profile entries or preferences to add.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "content": {
-                                "type": "string",
-                                "description": "The extremely concise, compressed fact to remember (e.g. 'Likes dark mode', 'Born in Seattle')."
-                            },
-                            "tag": {
-                                "type": "string",
-                                "enum": ["preference", "personal_info", "dislike", "other"],
-                                "description": "The category of the preference."
-                            }
-                        },
-                        "required": ["content", "tag"]
-                    }
+                "content": {
+                    "type": "string",
+                    "description": "The extremely concise, compressed fact to remember (e.g. 'Likes dark mode', 'Born in Seattle')."
                 },
-                "edits": {
-                    "type": "array",
-                    "description": "List of existing preferences to update.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "id": {
-                                "type": "string",
-                                "description": "The exact ID of the preference to edit."
-                            },
-                            "content": {
-                                "type": "string",
-                                "description": "The new, updated concise content."
-                            },
-                            "tag": {
-                                "type": "string",
-                                "enum": ["preference", "personal_info", "dislike", "other"],
-                                "description": "The updated category of the preference."
-                            }
-                        },
-                        "required": ["id", "content", "tag"]
-                    }
-                },
-                "deletions": {
-                    "type": "array",
-                    "description": "List of exact preference IDs to delete (e.g., if they are outdated or contradict new information).",
-                    "items": {
-                        "type": "string"
-                    }
+                "tag": {
+                    "type": "string",
+                    "enum": ["preference", "personal_info", "dislike", "other"],
+                    "description": "The category of the preference."
                 }
             },
-            "required": []
+            "required": ["content", "tag"]
         }
     }
 }
+
+EDIT_USER_PREFERENCE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "edit_user_preference",
+        "description": "Updates an existing user preference or profile entry. ALWAYS rephrase and compress facts to be as terse as possible before saving to conserve space.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "The exact ID of the preference to edit."
+                },
+                "content": {
+                    "type": "string",
+                    "description": "The new, updated concise content."
+                },
+                "tag": {
+                    "type": "string",
+                    "enum": ["preference", "personal_info", "dislike", "other"],
+                    "description": "The updated category of the preference."
+                }
+            },
+            "required": ["id", "content", "tag"]
+        }
+    }
+}
+
+DELETE_USER_PREFERENCE_TOOL = {
+    "type": "function",
+    "function": {
+        "name": "delete_user_preference",
+        "description": "Deletes an outdated or contradictory user preference by its exact ID.",
+        "parameters": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string",
+                    "description": "The exact ID of the preference to delete."
+                }
+            },
+            "required": ["id"]
+        }
+    }
+}
+
 
 VISIT_PAGE_TOOL = {
     "type": "function",
@@ -226,29 +231,19 @@ REPLACE_FS_TEXT_TOOL = {
     "type": "function",
     "function": {
         "name": "replace_fs_text",
-        "description": "Finds and replaces text in a file_system specified by path. Returns per-edit status and a unified diff.",
+        "description": "Finds and replaces text in a file_system specified by path. Returns status and a unified diff.",
         "parameters": {
             "type": "object",
             "properties": {
                 "path": { "type": "string", "description": "The full relative path of the file_system." },
                 "expected_version": { "type": "integer", "description": "Must match current version." },
-                "edits": {
-                    "type": "array",
-                    "description": "Edits applied sequentially.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "target_text": { "type": "string", "description": "Exact text to find." },
-                            "new_content": { "type": "string", "description": "Replacement text. Use empty string to delete." },
-                            "start_line": { "type": "integer", "description": "Optional. Disambiguates duplicate matches." },
-                            "end_line": { "type": "integer", "description": "Optional. Disambiguates duplicate matches." },
-                            "allow_multiple": { "type": "boolean" }
-                        },
-                        "required": ["target_text", "new_content"]
-                    }
-                }
+                "target_text": { "type": "string", "description": "Exact text to find." },
+                "new_content": { "type": "string", "description": "Replacement text. Use empty string to delete." },
+                "start_line": { "type": "integer", "description": "Optional. Disambiguates duplicate matches." },
+                "end_line": { "type": "integer", "description": "Optional. Disambiguates duplicate matches." },
+                "allow_multiple": { "type": "boolean", "description": "Optional. If true, replaces all occurrences." }
             },
-            "required": ["path", "expected_version", "edits"]
+            "required": ["path", "expected_version", "target_text", "new_content"]
         }
     }
 }
@@ -263,21 +258,11 @@ REPLACE_FS_LINES_TOOL = {
             "properties": {
                 "path": { "type": "string", "description": "The full relative path of the file_system." },
                 "expected_version": { "type": "integer", "description": "Must match current version." },
-                "edits": {
-                    "type": "array",
-                    "description": "Edits applied sequentially.",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "start_line": { "type": "integer" },
-                            "end_line": { "type": "integer" },
-                            "new_content": { "type": "string", "description": "Content to replace the line range with." }
-                        },
-                        "required": ["start_line", "end_line", "new_content"]
-                    }
-                }
+                "start_line": { "type": "integer", "description": "1-indexed start line." },
+                "end_line": { "type": "integer", "description": "1-indexed end line." },
+                "new_content": { "type": "string", "description": "Content to replace the line range with." }
             },
-            "required": ["path", "expected_version", "edits"]
+            "required": ["path", "expected_version", "start_line", "end_line", "new_content"]
         }
     }
 }
@@ -924,6 +909,7 @@ BROWSING_AGENT_TOOLS_VISION = BROWSING_AGENT_TOOLS_BASE + [
 FILE_SYSTEM_INTERNAL_TOOLS = [
     CREATE_FS_FILE_TOOL,
     CREATE_DIRECTORY_TOOL,
+    DELETE_FS_FILE_TOOL,
     LS_FILES_TOOL,
     GREP_FILES_TOOL,
     READ_FS_FILE_TOOL,

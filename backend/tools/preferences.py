@@ -1,6 +1,6 @@
 """
-Tool implementation for the manage_user_preferences LLM tool.
-Orchestrates preference CRUD operations via the database layer.
+Tool implementations for user preference CRUD operations.
+Orchestrates adding, editing, and deleting preferences via the database layer.
 """
 import logging
 from backend.database import db
@@ -8,36 +8,45 @@ from backend.database import db
 logger = logging.getLogger(__name__)
 
 
-def manage_user_preferences(additions=None, edits=None, deletions=None, **kwargs):
+def add_user_preference(content, tag, **kwargs):
     """
-    Unified tool interface for the manage_user_preferences LLM tool.
-    Processes additions, edits, and deletions in a single call.
-    Returns a summary string for the LLM.
+    Adds a new preference or profile fact about the user.
     """
     try:
-        results = []
-
-        if additions:
-            for item in additions:
-                pref_id = db.add_preference(item['content'], item['tag'])
-                results.append(f"Added preference [{pref_id[:8]}]: {item['content'][:50]}")
-
-        if edits:
-            for item in edits:
-                success = db.update_preference(item['id'], item['content'], item['tag'])
-                results.append(f"Updated preference [{item['id'][:8]}]: {'OK' if success else 'NOT FOUND'}")
-
-        if deletions:
-            for pref_id in deletions:
-                success = db.delete_preference(pref_id)
-                results.append(f"Deleted preference [{pref_id[:8]}]: {'OK' if success else 'NOT FOUND'}")
-
-        # Return current state for the LLM's context
+        pref_id = db.add_preference(content, tag)
         all_prefs = db.get_all_preferences()
-        summary = "\n".join(results) if results else "No changes made."
         pref_dump = "\n".join([f"[{m['id']}] ({m['tag']}) {m['content']}" for m in all_prefs])
-
-        return f"Operations:\n{summary}\n\nCurrent User Preferences ({len(all_prefs)} entries):\n{pref_dump}"
+        return f"Added preference [{pref_id[:8]}]: {content[:50]}\n\nCurrent User Preferences ({len(all_prefs)} entries):\n{pref_dump}"
     except Exception as e:
-        logger.error(f"Failed to manage user preferences: {e}", exc_info=True)
-        return f"Error: Failed to manage user preferences: {str(e)}"
+        logger.error(f"Failed to add user preference: {e}", exc_info=True)
+        return f"Error: Failed to add user preference: {str(e)}"
+
+
+def edit_user_preference(id, content, tag, **kwargs):
+    """
+    Updates an existing user preference or profile entry.
+    """
+    try:
+        success = db.update_preference(id, content, tag)
+        all_prefs = db.get_all_preferences()
+        pref_dump = "\n".join([f"[{m['id']}] ({m['tag']}) {m['content']}" for m in all_prefs])
+        status = "OK" if success else "NOT FOUND"
+        return f"Updated preference [{id[:8]}]: {status}\n\nCurrent User Preferences ({len(all_prefs)} entries):\n{pref_dump}"
+    except Exception as e:
+        logger.error(f"Failed to edit user preference: {e}", exc_info=True)
+        return f"Error: Failed to edit user preference: {str(e)}"
+
+
+def delete_user_preference(id, **kwargs):
+    """
+    Deletes an outdated or contradictory user preference.
+    """
+    try:
+        success = db.delete_preference(id)
+        all_prefs = db.get_all_preferences()
+        pref_dump = "\n".join([f"[{m['id']}] ({m['tag']}) {m['content']}" for m in all_prefs])
+        status = "OK" if success else "NOT FOUND"
+        return f"Deleted preference [{id[:8]}]: {status}\n\nCurrent User Preferences ({len(all_prefs)} entries):\n{pref_dump}"
+    except Exception as e:
+        logger.error(f"Failed to delete user preference: {e}", exc_info=True)
+        return f"Error: Failed to delete user preference: {str(e)}"

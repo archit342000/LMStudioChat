@@ -47,7 +47,9 @@ def test_log_llm_call(mock_ts, temp_logs):
         duration_s=1.234,
         call_type="stream",
         timings={"p": 1},
-        tool_calls=[{"name": "tool1"}]
+        tool_calls=[{"name": "tool1"}],
+        parsed_response="parsed_world",
+        raw_response={"raw": "world_raw"}
     )
     
     # Check index
@@ -70,6 +72,8 @@ def test_log_llm_call(mock_ts, temp_logs):
     assert log_data["duration_s"] == 1.234
     assert log_data["request"] == {"msg": "hello"}
     assert log_data["timings"] == {"p": 1}
+    assert log_data["parsed_response"] == "parsed_world"
+    assert log_data["raw_response"] == {"raw": "world_raw"}
 
 @patch('backend.logging.logger._get_timestamp')
 def test_log_tool_call(mock_ts, temp_logs):

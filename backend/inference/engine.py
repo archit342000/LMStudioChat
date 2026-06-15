@@ -101,6 +101,9 @@ class InferenceEngine:
                 **params
             }
             
+            if self._is_gemma4_model(model):
+                payload["tool_call_parser"] = "gemma4"
+            
             if chat_template_kwargs:
                 payload["chat_template_kwargs"] = chat_template_kwargs
 
@@ -128,6 +131,8 @@ class InferenceEngine:
                     final_log_text += f"[Reasoning]\n{reasoning}\n[Content]\n"
                 final_log_text += content
                 
+                raw_text = self._reconstruct_raw_response(model, content, reasoning, tool_calls)
+                
                 self._log_llm_call(
                     payload=payload, 
                     response_text=final_log_text, 
@@ -136,7 +141,9 @@ class InferenceEngine:
                     duration=time.time() - start_time, 
                     call_type="engine_blocking",
                     timings=data.get("timings"),
-                    tool_calls=tool_calls
+                    tool_calls=tool_calls,
+                    parsed_response=content,
+                    raw_response=raw_text
                 )
                 
                 return data
@@ -190,6 +197,7 @@ class InferenceEngine:
             attempts += 1
             full_content = ""
             full_reasoning = ""
+            raw_chunks = []
             tool_calls = {}
             sorted_tool_calls = None
             timings = None
@@ -203,6 +211,9 @@ class InferenceEngine:
                 "stream": True,
                 **params
             }
+            
+            if self._is_gemma4_model(model):
+                payload["tool_call_parser"] = "gemma4"
             
             if chat_template_kwargs:
                 payload["chat_template_kwargs"] = chat_template_kwargs
@@ -221,6 +232,7 @@ class InferenceEngine:
                                 break
                             try:
                                 chunk = json.loads(line[6:])
+                                raw_chunks.append(chunk)
                                 if "timings" in chunk:
                                     timings = chunk["timings"]
                                 choices = chunk.get("choices", [])
@@ -271,6 +283,8 @@ class InferenceEngine:
                         final_log_text += f"[Reasoning]\n{full_reasoning}\n[Content]\n"
                     final_log_text += full_content
                     
+                    raw_text = self._reconstruct_raw_response(model, full_content, full_reasoning, sorted_tool_calls)
+                    
                     self._log_llm_call(
                         payload=payload, 
                         response_text=final_log_text, 
@@ -279,7 +293,9 @@ class InferenceEngine:
                         duration=time.time() - start_time, 
                         call_type="engine_stream",
                         timings=timings,
-                        tool_calls=sorted_tool_calls
+                        tool_calls=sorted_tool_calls,
+                        parsed_response=full_content,
+                        raw_response=raw_text
                     )
 
     async def embed(self, input: Union[str, List[str]], model: str, chat_id: Optional[str] = None, **params) -> List[List[float]]:
@@ -424,9 +440,26 @@ class InferenceEngine:
             return False
             
         if has_tool_calls:
+            forbidden_tokens = [
+                "<think>",
+                "</think>",
+                "<|channel>",
+                "<channel|>",
+                "<|tool_call>",
+                "<tool_call|>",
+                "<tool_call>",
+                "</tool_call>"
+            ]
             for tc in tool_calls:
                 func = tc.get("function", {})
-                args_str = func.get("arguments", "")
+                name = func.get("name") or ""
+                args_str = func.get("arguments") or ""
+                
+                # Reject tool calls containing special thought or tool call tokens
+                for token in forbidden_tokens:
+                    if token in name or token in args_str:
+                        return False
+                
                 if args_str:
                     try:
                         json.loads(args_str)
@@ -524,8 +557,57 @@ class InferenceEngine:
             normalized.append(m)
         return normalized
 
-    def _log_llm_call(self, payload: dict, response_text: str, model: str, chat_id: str, duration: float, call_type: str, timings: Optional[dict] = None, tool_calls: Optional[list] = None):
+    def _log_llm_call(self, payload: dict, response_text: str, model: str, chat_id: str, duration: float, call_type: str, timings: Optional[dict] = None, tool_calls: Optional[list] = None, parsed_response: Optional[str] = None, raw_response: Optional[Any] = None):
         try:
-            log_llm_call(payload=payload, response_text=response_text, model=model, chat_id=chat_id, duration_s=duration, call_type=call_type, timings=timings, tool_calls=tool_calls)
+            log_llm_call(payload=payload, response_text=response_text, model=model, chat_id=chat_id, duration_s=duration, call_type=call_type, timings=timings, tool_calls=tool_calls, parsed_response=parsed_response, raw_response=raw_response)
         except Exception as e:
             logger.warning(f"Failed to log LLM call: {e}")
+
+    def _reconstruct_raw_response(self, model: str, content: str, reasoning: Optional[str], tool_calls: Optional[list]) -> str:
+        raw_text = ""
+        is_gemma = "gemma" in model.lower()
+        
+        if reasoning:
+            if is_gemma:
+                raw_text += f"<|channel>thought\n{reasoning}\n<channel|>\n"
+            else:
+                raw_text += f"<think>\n{reasoning}\n</think>\n"
+        
+        raw_text += content
+        
+        if tool_calls:
+            if is_gemma:
+                for tc in tool_calls:
+                    try:
+                        fn = tc.get("function", {})
+                        name = fn.get("name", "")
+                        args = fn.get("arguments", "{}")
+                        raw_text += f"\n<|tool_call>call:{name}{args}<tool_call|>"
+                    except Exception:
+                        pass
+            else:
+                # Standard tool call formatting (e.g. standard JSON or function block)
+                for tc in tool_calls:
+                    try:
+                        fn = tc.get("function", {})
+                        name = fn.get("name", "")
+                        args = fn.get("arguments", "{}")
+                        raw_text += f"\n<tool_call>{{\"name\": \"{name}\", \"arguments\": {args}}}</tool_call>"
+                    except Exception:
+                        pass
+        return raw_text
+
+    def _is_gemma4_model(self, model: str) -> bool:
+        if not model:
+            return False
+        try:
+            from backend.models import load_model_config
+            config_data = load_model_config()
+        except Exception:
+            return model.lower() == "google/gemma4-26b-a4b-it"
+
+        gemma4_name = config_data.get("general", {}).get("vision_small")
+        if gemma4_name and model.lower() == gemma4_name.lower():
+            return True
+
+        return False
