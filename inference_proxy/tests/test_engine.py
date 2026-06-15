@@ -52,9 +52,9 @@ class TestEngine(unittest.IsolatedAsyncioTestCase):
         engine = InferenceEngine()
         
         messages = [
-            {"role": "system", "content": "System message", "extra_arg": "ignored"},
-            {"role": "user", "content": [{"type": "text", "text": "User text"}]},
-            {"role": "assistant", "content": "Assistant content", "reasoning_content": "Assistant reasoning"},
+            {"role": "system", "content": "System message", "extra_arg": "ignored", "name": None},
+            {"role": "user", "content": [{"type": "text", "text": "User text"}], "tool_call_id": None},
+            {"role": "assistant", "content": "Assistant content", "reasoning_content": "Assistant reasoning", "tool_calls": None},
             {"role": "internal-event", "content": "ignored role"}
         ]
         
@@ -65,6 +65,9 @@ class TestEngine(unittest.IsolatedAsyncioTestCase):
         self.assertEqual(normalized[1]["role"], "user")
         self.assertEqual(normalized[2]["role"], "assistant")
         self.assertNotIn("extra_arg", normalized[0])
+        self.assertNotIn("name", normalized[0])
+        self.assertNotIn("tool_call_id", normalized[1])
+        self.assertNotIn("tool_calls", normalized[2])
         self.assertNotIn("reasoning_content", normalized[2])
         self.assertEqual(normalized[2]["content"], "<think>\nAssistant reasoning</think>\nAssistant content")
 
@@ -72,6 +75,9 @@ class TestEngine(unittest.IsolatedAsyncioTestCase):
         normalized_gemma = engine._normalize_messages(messages, "google/gemma4-26b-it")
         self.assertEqual(len(normalized_gemma), 3)
         self.assertNotIn("reasoning_content", normalized_gemma[2])
+        self.assertNotIn("name", normalized_gemma[0])
+        self.assertNotIn("tool_call_id", normalized_gemma[1])
+        self.assertNotIn("tool_calls", normalized_gemma[2])
         self.assertEqual(normalized_gemma[2]["content"], "<|channel>thought\nAssistant reasoning<channel|>\nAssistant content")
 
     @patch("engine.InferenceEngine.ensure_model_loaded", new_callable=AsyncMock)

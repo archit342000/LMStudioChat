@@ -1,8 +1,9 @@
+# backend/tools/agents/document_agent/agent.py
 import logging
 import json
 import os
 import time
-from typing import AsyncGenerator, Any
+from typing import AsyncGenerator, Any, List, Dict
 from backend.database import db
 from backend import config
 from backend.rag import RAGProvider, FileRAG
@@ -11,6 +12,7 @@ from backend.files.manager import FileManager
 from backend.logging import log_tool_call
 from backend.tools.agents.document_agent.prompts import DOCUMENT_AGENT_SYSTEM_PROMPT, DOCUMENT_AGENT_VISION_SYSTEM_PROMPT
 from backend.tools.definitions import get_document_agent_tools
+from backend.tools.agents.base import BaseAgent, AgentConfig
 
 logger = logging.getLogger(__name__)
 
@@ -25,6 +27,31 @@ def is_vision_model(model_name: str) -> bool:
         return model_name in vision_models
     except Exception:
         return False
+
+
+class DocumentAgent(BaseAgent):
+    def __init__(self, agent_handler: Any, agent_config: AgentConfig, mime_type: str, document_agent_tools: List[Dict], file_info_header: str):
+        super().__init__(agent_handler, agent_config)
+        self.mime_type = mime_type
+        self.document_agent_tools = document_agent_tools
+        self.file_info_header = file_info_header
+
+    def get_system_prompt(self, **kwargs) -> str:
+        return DOCUMENT_AGENT_SYSTEM_PROMPT.format()
+
+    def get_tools(self, iteration: int, task_list: Any, db_history: List[Dict]) -> List[Dict]:
+        return self.document_agent_tools
+
+    def format_user_message(self, **kwargs) -> str:
+        return self.file_info_header
+
+    def count_tool_turns(self, db_history: List[Dict], tools: List[Dict]) -> int:
+        tool_names = {t["function"]["name"] for t in tools}
+        return sum(
+            1 for m in db_history
+            if m.get("role") == "tool" and m.get("name") in tool_names
+        )
+
 
 async def flow_fn(
     agent: Any, 
@@ -48,23 +75,6 @@ async def flow_fn(
     parent_message_id = agent.parent_message_id
 
     try:
-        existing_history = db.get_messages(
-            chat_id, parent_message_id=parent_message_id,
-            parent_type="document_agent"
-        )
-        is_resume = len(existing_history) > 0
-
-        if not is_resume:
-            db.add_message(
-                chat_id=chat_id,
-                role='event',
-                content='Document Agent Started.',
-                parent_id=parent_message_id,
-                parent_type='document_agent'
-            )
-        else:
-            logger.info(f"DocumentAgent resuming: chat_id={chat_id} existing_msgs={len(existing_history)}")
-
         file_meta = db.get_file(file_id)
         if not file_meta:
             error_msg = f"Error: File with ID {file_id} not found."
@@ -77,11 +87,24 @@ async def flow_fn(
         original_filename = file_meta.get('original_filename', 'Unknown')
         stored_filename = file_meta.get('stored_filename', '')
         stored_path = os.path.join(config.FILE_STORAGE_PATH, stored_filename)
-        content_text = file_meta.get('content_text', '')
 
         is_image = mime_type.startswith('image/')
         
         if is_image:
+            # First run/start event is logged manually for vision analysis
+            existing_history = db.get_messages(
+                chat_id, parent_message_id=parent_message_id,
+                parent_type="document_agent"
+            )
+            if len(existing_history) == 0:
+                db.add_message(
+                    chat_id=chat_id,
+                    role='event',
+                    content='Document Agent Started.',
+                    parent_id=parent_message_id,
+                    parent_type='document_agent'
+                )
+
             if not is_vision_model(agent.model):
                 error_msg = (f"Error: The currently loaded model '{agent.model}' does not support vision. "
                            f"I cannot analyze the image '{original_filename}'. "
@@ -116,7 +139,7 @@ async def flow_fn(
             ]
             
             messages = [
-                {"role": "system", "content": DOCUMENT_AGENT_VISION_SYSTEM_PROMPT},
+                {"role": "system", "content": DOCUMENT_AGENT_VISION_SYSTEM_PROMPT.format()},
                 {"role": "user", "content": user_content}
             ]
             
@@ -129,6 +152,20 @@ async def flow_fn(
                 thinking_budget_tokens=config.DOCUMENT_AGENT_THINKING_BUDGET
             ):
                 yield chunk
+
+            # Vision completed event
+            updated_history = db.get_messages(chat_id, parent_message_id=parent_message_id, parent_type="document_agent")
+            if updated_history:
+                last_msg = updated_history[-1]
+                agent.result = last_msg.get("content")
+                if last_msg.get("role") == "assistant":
+                    db.add_message(
+                        chat_id=chat_id,
+                        role='event',
+                        content='Document Agent Completed.',
+                        parent_id=parent_message_id,
+                        parent_type='document_agent'
+                    )
         else:
             # Autonomous Document Investigation Loop
             yield f"Event: Initiating investigation of '{original_filename}'...\n"
@@ -159,144 +196,20 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
 
 **Begin your investigation now.**
 """
-            chat_id = agent.chat_id
-            parent_message_id = agent.parent_message_id
-            
-            iteration = 0
-            while True:
-                iteration += 1
+            cfg = AgentConfig(
+                name="document_agent",
+                display_name="Document Agent",
+                max_turns=config.DOCUMENT_AGENT_MAX_TURNS,
+                failsafe_turns=config.DOCUMENT_AGENT_FAILSAFE_TURNS,
+                max_tokens=config.DOCUMENT_AGENT_MAX_TOKENS,
+                thinking_budget=config.DOCUMENT_AGENT_THINKING_BUDGET,
+            )
+            da = DocumentAgent(agent, cfg, mime_type, document_agent_tools, file_info_header)
+            async for chunk in da.run(query=query):
+                yield chunk
 
-                db_history = db.get_messages(chat_id, parent_message_id=parent_message_id, parent_type="document_agent")
-                
-                messages = [
-                    {"role": "system", "content": DOCUMENT_AGENT_SYSTEM_PROMPT},
-                    {"role": "user", "content": file_info_header}
-                ]
-
-                for m in db_history:
-                    if m.get("role") in ["assistant", "tool"]:
-                        msg = {"role": m["role"], "content": m["content"]}
-                        if m.get("tool_calls"): msg["tool_calls"] = m["tool_calls"]
-                        if m.get("tool_call_id"): msg["tool_call_id"] = m["tool_call_id"]
-                        if m.get("name"): msg["name"] = m["name"]
-                        if m.get("reasoning_content"): msg["reasoning_content"] = m["reasoning_content"]
-                        messages.append(msg)
-
-                task_list = db.get_task_list(chat_id, parent_id=parent_message_id, parent_type="document_agent")
-
-                document_agent_turns = sum(
-                    1 for m in db_history 
-                    if m.get("role") == "tool" and m.get("name") in [t["function"]["name"] for t in document_agent_tools]
-                )
-                limit_hit = document_agent_turns >= config.DOCUMENT_AGENT_MAX_TURNS
-
-                if limit_hit:
-                    already_warned = any(
-                        m.get("role") == "user" and "TURN LIMIT REACHED" in m.get("content", "")
-                        for m in db_history
-                    )
-                    if not already_warned:
-                        logger.warning(f"DocumentAgent reached turn limit ({document_agent_turns}). Injecting wrap-up message.")
-                        db.add_message(
-                            chat_id=chat_id,
-                            role='user',
-                            content='[SYSTEM: TURN LIMIT REACHED] You have exhausted your allowed file operations. You must immediately summarize your findings based on the information gathered so far. Do not attempt any further file searches or reads.',
-                            parent_id=parent_message_id,
-                            parent_type='document_agent'
-                        )
-                        continue
-                    # Remove all tools to force immediate conclusion and text generation
-                    current_tools = []
-                else:
-                    if not task_list:
-                        from backend.tools.definitions import MANAGE_TASK_LIST_TOOL
-                        current_tools = [MANAGE_TASK_LIST_TOOL]
-                    else:
-                        current_tools = document_agent_tools
-                        
-                        # Run safety and progress audit
-                        from backend.tools.safety import run_safety_audit
-                        safety_alert = run_safety_audit(db_history, task_list)
-                        if safety_alert:
-                            messages.append({
-                                "role": "user",
-                                "content": safety_alert
-                            })
-
-                async for chunk in agent.run_inference_step(
-                    agent_name="document_agent",
-                    messages=messages,
-                    model_name=agent.model,
-                    tools=current_tools,
-                    tool_choice="auto",
-                    max_tokens=config.DOCUMENT_AGENT_MAX_TOKENS,
-                    thinking_budget_tokens=config.DOCUMENT_AGENT_THINKING_BUDGET
-                ):
-                    yield chunk
-
-                updated_history = db.get_messages(chat_id, parent_message_id=parent_message_id, parent_type="document_agent")
-                if not updated_history:
-                    break
-                
-                last_msg = updated_history[-1]
-                
-                if not task_list:
-                    task_list_after = db.get_task_list(chat_id, parent_id=parent_message_id, parent_type="document_agent")
-                    if not task_list_after:
-                        logger.warning("DocumentAgent failed to initialize task list.")
-                        db.add_message(
-                            chat_id=chat_id,
-                            role='user',
-                            content='System Constraint: You MUST initialize your task list using manage_task_list before taking ANY other actions or responding.',
-                            parent_id=parent_message_id,
-                            parent_type='document_agent'
-                        )
-                        continue
-
-                if last_msg.get("role") == "assistant" and not last_msg.get("tool_calls"):
-                    break
-                
-                # Absolute safety break to prevent infinite loops in case the agent gets stuck after the limit
-                if iteration >= config.DOCUMENT_AGENT_MAX_TURNS + config.DOCUMENT_AGENT_FAILSAFE_TURNS:
-                    logger.warning(f"DocumentAgent reached absolute iteration limit ({iteration}). Force ending.")
-                    db.add_message(
-                        chat_id=chat_id,
-                        role='event',
-                        content='Document Agent Force Terminated. (infinite loop prevention)',
-                        parent_id=parent_message_id,
-                        parent_type='document_agent'
-                    )
-                    break
-
-        # Retrieve the final synthesized text from the database
-        updated_history = db.get_messages(
-            agent.chat_id, 
-            parent_message_id=agent.parent_message_id, 
-            parent_type="document_agent"
-        )
-        if updated_history:
-            last_msg = updated_history[-1]
-            agent.result = last_msg.get("content")
-            if not agent.result:
-                agent.result = "Error: Document agent completed but returned no content."
-            elif last_msg.get("role") == "assistant":
-                db.add_message(
-                    chat_id=chat_id,
-                    role='event',
-                    content='Document Agent Completed.',
-                    parent_id=parent_message_id,
-                    parent_type='document_agent'
-                )
-        elif not agent.result:
+        if not agent.result:
             agent.result = "Error: Document agent completed but returned no content."
-
-        log_tool_call(
-            tool_name="document_agent",
-            payload={"file_id": file_id, "query": query},
-            response_data=agent.result,
-            chat_id=agent.chat_id,
-            duration_s=time.time() - start_time
-        )
 
     except Exception as e:
         error_msg = f"Document agent failed: {str(e)}"
@@ -314,7 +227,9 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
             )
         except Exception as db_err:
             logger.error(f"Failed to log document agent failure event: {db_err}")
+        yield error_msg
 
+    finally:
         log_tool_call(
             tool_name="document_agent",
             payload={"file_id": file_id, "query": query},
@@ -322,4 +237,3 @@ You have tools to perform semantic searches (RAG), literal searches (grep), and 
             chat_id=agent.chat_id,
             duration_s=time.time() - start_time
         )
-        yield error_msg

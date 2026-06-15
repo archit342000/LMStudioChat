@@ -34,8 +34,9 @@ def mock_config():
 
 @pytest.fixture
 def mock_db():
-    with patch('backend.tools.agents.browsing_agent.agent.db') as db:
-        yield db
+    with patch('backend.tools.agents.base.db') as db_mock:
+        with patch('backend.tools.agents.browsing_agent.agent.db', new=db_mock):
+            yield db_mock
 
 @pytest.fixture
 def mock_playwright_client():
@@ -70,7 +71,7 @@ async def test_flow_fn_first_run_text_model(mock_agent, mock_config, mock_db, mo
     
     # Event emitted
     mock_db.add_message.assert_any_call(
-        chat_id="test_chat", role='event', content='Browsing Agent Started. Initializing browser session.',
+        chat_id="test_chat", role='event', content='Browsing Agent Started.',
         parent_id="test_parent", parent_type='browsing_agent'
     )
     
@@ -90,7 +91,7 @@ async def test_flow_fn_first_run_text_model(mock_agent, mock_config, mock_db, mo
     assert kwargs["tools"] == BROWSING_AGENT_TOOLS_BASE
     assert kwargs["model_name"] == "test-text-model"
     
-    assert mock_agent.result == "Browsing operation completed."
+    assert mock_agent.result == "Browsing Agent completed."
 
 
 @pytest.mark.anyio
@@ -180,7 +181,8 @@ async def test_flow_fn_resume_run(mock_agent, mock_config, mock_db, mock_playwri
     # Session resumed
     mock_playwright_client.execute_tool.assert_any_call("browser_start_session", {
         "session_id": "sess_resume_123",
-        "stealth_level": 1
+        "stealth_level": 1,
+        "scope": None
     })
 
 
@@ -252,13 +254,13 @@ async def test_flow_fn_turn_limit_reached(mock_agent, mock_config, mock_db, mock
     # Warning injected
     mock_db.add_message.assert_any_call(
         chat_id="test_chat", role='user',
-        content='[SYSTEM: TURN LIMIT REACHED] You have exhausted your allowed browsing actions. You must immediately summarize your findings based on the information gathered so far. Do not attempt any further browsing.',
+        content='[SYSTEM: TURN LIMIT REACHED] You have exhausted your allowed operations. Summarize your findings immediately. Do not attempt any further actions.',
         parent_id="test_parent", parent_type='browsing_agent'
     )
     
-    # Run inference with NO tools on loop 2
+    # Run inference with NO tools on loop 2 (active_tools becomes [] / None)
     args, kwargs = mock_agent.run_inference_step.call_args
-    assert kwargs["tools"] == []
+    assert kwargs["tools"] == [] or kwargs["tools"] is None
 
 
 @pytest.mark.anyio
@@ -269,12 +271,6 @@ async def test_flow_fn_infinite_loop_failsafe(mock_agent, mock_config, mock_db, 
     mock_db.get_messages.return_value = [{"role": "assistant", "content": "", "tool_calls": [{"name": "fake"}]}]
     mock_db.get_chat.return_value = {"browsing_session_id": "sess_123"}
     mock_db.get_task_list.return_value = [{"id": "t1"}]
-    
-    # We don't want to yield infinite items from get_messages, just return a constant list
-    # with tool calls so it never triggers completion.
-    
-    # First call is for `is_resume`, then each loop has 2 calls (before and after inference)
-    # Loop 1..5 = 10 calls.
     
     chunks = [chunk async for chunk in flow_fn(mock_agent, "browsing_agent", "search")]
     
@@ -346,7 +342,8 @@ async def test_flow_fn_resume_missing_session_id(mock_agent, mock_config, mock_d
     # And start session was called with this new session_id
     mock_playwright_client.execute_tool.assert_any_call("browser_start_session", {
         "session_id": mock_playwright_client.execute_tool.call_args_list[0][0][1]["session_id"],
-        "stealth_level": 1
+        "stealth_level": 1,
+        "scope": None
     })
 
 @pytest.mark.anyio
@@ -369,7 +366,7 @@ async def test_flow_fn_playwright_connection_failure(mock_agent, mock_config, mo
     mock_db.add_message.assert_any_call(
         chat_id="test_chat",
         role='event',
-        content='Error initializing browser session: Connection refused',
+        content='Browsing Agent failed: Connection refused',
         parent_id="test_parent",
         parent_type='browsing_agent'
     )
@@ -399,7 +396,7 @@ async def test_flow_fn_execution_error(mock_agent, mock_config, mock_db, mock_pl
     mock_db.add_message.assert_any_call(
         chat_id="test_chat",
         role='event',
-        content='Browsing Agent execution failed: Inference timeout',
+        content='Browsing Agent failed: Inference timeout',
         parent_id="test_parent",
         parent_type='browsing_agent'
     )

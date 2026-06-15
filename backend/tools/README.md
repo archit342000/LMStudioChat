@@ -1,10 +1,12 @@
 # backend/tools
 **Role:** Manages the definition, registration, and dispatch of all system capabilities, including "pure" functional tools and complex autonomous sub-agents.
 
+
 ## 📂 Subdirectories
 | Folder | Responsibility |
 | :--- | :--- |
 | `agents/` | Implementation logic for autonomous sub-agents (research, browsing, etc.). |
+| `catalog/` | Unified ToolSpec definition files organized by domain. |
 | `scratch/` | Temporary workspace for transient tool-related data. |
 
 ## 📄 Core Files
@@ -18,7 +20,7 @@
 | `files.py` | Tools for reading and searching **uploaded** files (RAG/Grep). | `read_file` |
 | `preferences.py` | Management of long-term user profile facts. | `manage_user_preferences` |
 | `prompts.py` | Specialized system prompts for tools and agents. | `USER_PREFERENCES_DIRECTIVES` |
-| `registry.json` | Static mapping of tool names to implementation paths. | N/A (JSON) |
+| `spec.py` | ToolSpec dataclass and scope/type enumerations. | `ToolSpec`, `ToolScope`, `ToolType` |
 | `router.py` | API endpoints for interacting with tools and config. | `tools_bp` |
 | `tasks.py` | Implementation of persistent task/checklist management. | `manage_task_list` |
 | `time_utils.py` | Local date and time utilities. | `get_current_time` |
@@ -27,6 +29,8 @@
 | Test File | Scope |
 | :--- | :--- |
 | `tests/test_init.py` | Registry loading and implementation resolution logic. |
+| `tests/test_spec.py` | ToolSpec serialization and compatibility tests. |
+| `catalog/tests/test_catalog.py` | Aggregated ToolSpec completeness and validation tests. |
 | `tests/test_router.py` | Flask API endpoints, preference CRUD, and config updates. |
 | `tests/test_callbacks.py` | In-memory and DB-persisted callback lifecycle. |
 | `tests/test_browser.py` | MCP-based browser tool execution and screenshot handling. |
@@ -51,7 +55,7 @@
     - **Schema-Driven:** All tools use standard JSON-schema definitions to ensure reliable inference across different LLM providers.
     - **MCQ Clarifications:** Supports structured user feedback through multiple-choice options in the `request_clarification` tool.
 *   **Adding Tools:**
-    1. Define the tool schema in `definitions.py`.
-    2. Add the implementation path to `registry.json`.
+    1. Create a `ToolSpec` in the appropriate module under `catalog/`.
+    2. Import the spec and add it to `ALL_TOOL_SPECS` in `catalog/__init__.py`.
     3. Implement the function in the relevant module (or a new one).
-    4. Add the tool to the appropriate availability group (e.g., `MAIN_ASSISTANT_TOOLS`).
+

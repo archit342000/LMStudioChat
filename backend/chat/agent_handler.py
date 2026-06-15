@@ -1,11 +1,12 @@
 import logging
 import json
 import time
-from typing import Dict, Any, List, Optional, AsyncGenerator
+from typing import Dict, Any, List, Optional, AsyncGenerator, Union
 
 from backend.database import db
 from backend.inference import ManualChunkEmitter
 from backend.logging import log_event
+from backend.chat.models import AgentResult
 
 logger = logging.getLogger(__name__)
 
@@ -36,7 +37,7 @@ class AgentHandler:
         self.parent_message_id = parent_message_id
         self.emitter = ManualChunkEmitter()
         self._chat_handler = None
-        self.result = None
+        self.result: Optional[Union[str, AgentResult]] = None
 
     @property
     def chat_handler(self):

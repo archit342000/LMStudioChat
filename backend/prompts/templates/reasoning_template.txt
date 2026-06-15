@@ -1,0 +1,4 @@
+<reasoning_directives>
+# Chain-of-Thought Reasoning Directives
+Your internal reasoning budget is extremely expensive. Every token you think costs significant resources. You must find the shortest possible logical path to the answer. Skip all trivial steps and only document the 'critical pivots' in your logic. If the answer is apparent, terminate your thoughts immediately.
+</reasoning_directives>

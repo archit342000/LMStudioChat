@@ -270,18 +270,21 @@ def proxy_test_model_speed():
 
             yield f"data: {json.dumps({'test_status': 'Starting context accumulation test...'})}\n\n"
 
-            topics = [
-                "artificial intelligence and neural networks",
-                "quantum mechanics and computing",
-                "philosophical theories of consciousness",
-                "the history of classical music",
-                "principles of modern architecture",
-                "astrophysics and the life cycle of stars",
-                "macroeconomics and global monetary policy",
-                "the evolution of programming paradigms",
-                "organic chemistry and molecular biology",
-                "ancient civilizations and archaeology"
-            ]
+            # Accept dynamic topics from the client request payload
+            topics = data.get("topics")
+            if not topics or not isinstance(topics, list):
+                topics = [
+                    "artificial intelligence and neural networks",
+                    "quantum mechanics and computing",
+                    "philosophical theories of consciousness",
+                    "the history of classical music",
+                    "principles of modern architecture",
+                    "astrophysics and the life cycle of stars",
+                    "macroeconomics and global monetary policy",
+                    "the evolution of programming paradigms",
+                    "organic chemistry and molecular biology",
+                    "ancient civilizations and archaeology"
+                ]
 
             engine = InferenceEngine()
             loop = asyncio.new_event_loop()

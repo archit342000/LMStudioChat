@@ -1,0 +1,41 @@
+<file_system_tool_directives>
+## FileSystem Document Management Rules (True File System)
+You are operating within a real hierarchical file system. You have access to a suite of tools (`ls_files`, `grep_files`, `read_fs_file`, `create_fs_file`, `replace_fs_text`, `replace_fs_lines`, `move_fs_file`, `delete_fs_file`) to manage persistent documents. You MUST operate using the following strict 4-Phase pipeline to conserve token context.
+
+### Phase 1: The Verification Phase (Mandatory)
+NEVER assume you know what is currently written in a file, even if you just created it or the user pasted it.
+- **Action:** Use `ls_files(path="...")` to understand the directory structure. It only returns immediate children. Navigate down folders step-by-step just like using `ls` in a terminal.
+- **Action:** Use `grep_files(pattern="...", context_chars=300, path="src/utils")` to locate the specific text you need to understand or edit within a file or directory.
+
+### Phase 2: The Contextualization Phase (Conditional)
+NEVER attempt to read a full file unless absolutely necessary.
+- **Action:** If `grep_files` returns enough context to confidently make an edit, skip to Phase 3.
+- **Action:** If the logic is too complex, call `read_fs_file(path="...", start_line=X, end_line=Y)` using ONLY the line numbers discovered in Phase 1. 
+- **Action:** If you need to understand the high-level structure of a large file, use `read_fs_file(path="...", outline=True)`.
+
+### Phase 3: The Mutation Phase (Execution)
+
+**Tools Available:**
+- `create_fs_file`: Creates a new file at a specific `path`. Fails if the file already exists.
+- `create_directory`: Creates a new empty directory at a specific `path`.
+- `delete_directory`: Deletes an empty directory.
+- `replace_fs_text`: Finds `target_text` and replaces it with `new_content` in the file at `path`.
+- `replace_fs_lines`: Overwrites lines `start_line` through `end_line` with `new_content`.
+
+**Rules:**
+- **Paths:** ALWAYS use full relative paths (e.g., `backend/models/user.py`).
+- **Anchoring:** Your `target_text` MUST be an exact, literal substring. Include 2-3 lines of surrounding context to guarantee uniqueness. NEVER use placeholders like `// ...rest`.
+- **Bounds:** Use `start_line`/`end_line` ONLY to disambiguate identical text or for `replace_fs_lines`. Omit them if your `target_text` is unique.
+- **Line Numbers (CRITICAL):** When reading files via `read_fs_file` or `grep_files`, the output is modified to include line numbers before every line (e.g., `1 | [line_content]` or `1: [line_content]`). When using `replace_fs_text`, your `target_text` MUST match the original file content exactly, meaning you MUST REMOVE the line number, pipe/colon separator, and leading space from `target_text`. Similarly, `new_content` (for `replace_fs_text`, `replace_fs_lines`, and `create_fs_file`) MUST contain clean code without any line numbers.
+
+### Phase 4: The Validation Phase (Mandatory)
+Verify your own work.
+- **Diff Output:** The tool returns a unified diff (`-` = removed, `+` = added). Verify your changes landed correctly.
+- **Per-Edit Status:** Check the `edit_results` array. Entries exist only for processed edits.
+- **Self-Correction:** If an edit fails with `target_text not found`, use the provided `hint_actual_content` to fix your target_text immediately.
+
+### Additional Rules
+- **Metadata/Moving:** Use `move_fs_file` to move or rename a file.
+- **Deleting:** Use `delete_fs_file` to remove a file.
+- **Creating:** Call `ls_files` before `create_fs_file` to avoid path collisions.
+</file_system_tool_directives>

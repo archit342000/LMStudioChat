@@ -239,27 +239,28 @@ def test_load_model_config_ultimate_fallback(mock_file, mock_get):
 @patch("backend.models.requests.request")
 def test_pass_through_trailing_and_non_trailing_slashes(mock_req, client):
     """Test that both /api/models and /api/models/ correctly route to pass_through."""
-    mock_response = MagicMock()
-    mock_response.status_code = 200
-    mock_response.headers = {"Content-Type": "application/json"}
-    mock_response.iter_content.return_value = [b'{"success": true}']
-    mock_req.return_value = mock_response
+    with patch("backend.config.AI_PROXY_URL", "http://localhost:5001"):
+        mock_response = MagicMock()
+        mock_response.status_code = 200
+        mock_response.headers = {"Content-Type": "application/json"}
+        mock_response.iter_content.return_value = [b'{"success": true}']
+        mock_req.return_value = mock_response
 
-    # Test without trailing slash
-    response_no_slash = client.get("/api/models")
-    assert response_no_slash.status_code == 200
-    assert response_no_slash.json == {"success": True}
-    
-    # Check forwarded URL
-    _, kwargs = mock_req.call_args_list[-1]
-    assert kwargs["url"] == "http://localhost:5001/api/models/"
+        # Test without trailing slash
+        response_no_slash = client.get("/api/models")
+        assert response_no_slash.status_code == 200
+        assert response_no_slash.json == {"success": True}
+        
+        # Check forwarded URL
+        _, kwargs = mock_req.call_args_list[-1]
+        assert kwargs["url"] == "http://localhost:5001/api/models/"
 
-    # Test with trailing slash
-    response_slash = client.get("/api/models/")
-    assert response_slash.status_code == 200
-    assert response_slash.json == {"success": True}
-    
-    # Check forwarded URL
-    _, kwargs = mock_req.call_args_list[-1]
-    assert kwargs["url"] == "http://localhost:5001/api/models/"
+        # Test with trailing slash
+        response_slash = client.get("/api/models/")
+        assert response_slash.status_code == 200
+        assert response_slash.json == {"success": True}
+        
+        # Check forwarded URL
+        _, kwargs = mock_req.call_args_list[-1]
+        assert kwargs["url"] == "http://localhost:5001/api/models/"
 

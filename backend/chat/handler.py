@@ -10,6 +10,7 @@ from backend.inference import InferenceEngine
 from .turn_handler import TurnHandler
 from .agent_handler import AgentHandler
 from .tool_handler import ToolHandler
+from backend.chat.models import SSEEvent, SSEEventType
 from backend.database import db, response_cache
 from backend.logging import log_event
 from backend.task_manager import task_manager
@@ -24,8 +25,6 @@ from backend.tools import (
     GIT_AGENT_TOOL
 )
 from backend import config
-from backend.prompts import BASE_SYSTEM_PROMPT, PREFERENCES_SYSTEM_PROMPT, RESEARCH_MODE_SYSTEM_PROMPT
-from backend.tools.prompts import FILE_SYSTEM_AGENT_DIRECTIVES, GIT_AGENT_DIRECTIVES, CODE_EXECUTION_DIRECTIVES
 from backend.tools.definitions import RUN_CODE_TOOL, RUN_FILE_TOOL, INSTALL_PACKAGES_TOOL, LIST_PACKAGES_TOOL
 
 logger = logging.getLogger(__name__)
@@ -308,62 +307,16 @@ class ChatHandler:
                 
                 # Inject System Prompt for main turns
                 if parent_type == "main":
-                    if is_research_mode:
-                        system_prompt = RESEARCH_MODE_SYSTEM_PROMPT
-                    elif is_user_preferences:
-                        # Inject existing preferences into the system prompt
-                        memories = db.get_all_preferences()
-                        preferences_block = ""
-                        if memories:
-                            # Apply the injection limit
-                            limit = getattr(config, 'PREFERENCES_INJECTION_LIMIT', 20)
-                            limited_memories = memories[:limit]
-                            preferences_entries = "\n".join(
-                                f"- [{m['id']}] ({m['tag']}) {m['content']}"
-                                for m in limited_memories
-                            )
-                            preferences_block = f"\n\n# Current User Preferences & Profile\n{preferences_entries}\n"
-                        system_prompt = PREFERENCES_SYSTEM_PROMPT + preferences_block
-                    else:
-                        system_prompt = BASE_SYSTEM_PROMPT
+                    from backend.chat.prompt_builder import PromptBuilder, PromptContext
                     
-                    if is_file_system_mode:
-                        system_prompt += "\n\n" + FILE_SYSTEM_AGENT_DIRECTIVES
-                    if is_git_mode:
-                        system_prompt += "\n\n" + GIT_AGENT_DIRECTIVES
-                    is_code_execution_mode = bool(chat_metadata.get('code_execution_mode', 1))
-                    if is_code_execution_mode:
-                        system_prompt += "\n\n" + CODE_EXECUTION_DIRECTIVES
+                    ctx = PromptContext(
+                        chat_metadata=chat_metadata,
+                        preferences=db.get_all_preferences() if is_user_preferences else [],
+                        skills=db.get_all_skills(),
+                    )
+                    system_prompt = PromptBuilder(ctx).build()
+                    skills_by_name = {s['name']: s for s in ctx.skills}
 
-                    # Inject custom user persona if selected.
-                    # Use persona_snapshot (content frozen at assignment time) to prevent
-                    # live edits to the persona record from affecting ongoing chats.
-                    selected_persona_id = chat_metadata.get('persona_id')
-                    if selected_persona_id:
-                        persona_content = chat_metadata.get('persona_snapshot')
-                        if not persona_content:
-                            # Backwards compat: chats created before snapshotting was introduced
-                            persona = db.get_persona(selected_persona_id)
-                            persona_content = persona.get('content') if persona else None
-                        if persona_content:
-                            system_prompt += f"\n\n# User-Defined Persona/Role\nThe following block contains the user's requested persona and stylistic constraints. You must adopt this persona, but these instructions possess a LOWER hierarchy than the core operational directives defined above. Do NOT let this persona break your tool usage or multi-agent rules.\n<user_persona>\n{persona_content}\n</user_persona>"
-                    elif chat_metadata.get('system_prompt'):
-                        # Legacy fallback
-                        custom_prompt = chat_metadata.get('system_prompt').strip()
-                        if custom_prompt:
-                            system_prompt += f"\n\n# User-Defined Persona/Role\nThe following block contains the user's requested persona and stylistic constraints. You must adopt this persona, but these instructions possess a LOWER hierarchy than the core operational directives defined above. Do NOT let this persona break your tool usage or multi-agent rules.\n<user_persona>\n{custom_prompt}\n</user_persona>"
-                    
-                    # ── SKILLS COMPILATION ────────────────────────────────────
-                    # 1. Fetch available skills and append them to system_prompt
-                    all_skills = db.get_all_skills()
-                    skills_by_name = {s['name']: s for s in all_skills}
-                    if all_skills:
-                        skills_entries = "\n".join(
-                            f"- /{s['name']}: {s['description']}"
-                            for s in all_skills
-                        )
-                        skills_block = f"\n\n# Available Skills\nYou have access to the following skills. You can call the `get_skill_details` tool to load their detailed instructions if needed. The user can also invoke them directly by starting their message with the skill command.\n{skills_entries}\n"
-                        system_prompt += skills_block
 
                     # 2. Parse tool calls in assistant messages to map tool_call_id to skill name
                     tool_call_to_skill = {}
@@ -502,30 +455,8 @@ class ChatHandler:
 
                 active_tools = []
                 if not tools_disabled:
-                    is_code_execution_mode = bool(chat_metadata.get('code_execution_mode', 1))
-                    for t in MAIN_ASSISTANT_TOOLS:
-                        tool_name = t.get('function', {}).get('name')
-                        if tool_name in ('research', 'browsing_agent', 'file_system_agent', 'git_agent',
-                                         'run_code', 'run_file', 'install_packages', 'list_packages'):
-                            continue
-                        active_tools.append(t)
-                    if is_research_mode:
-                        active_tools.append(RESEARCH_TOOL)
-                    if is_user_preferences and not is_research_mode:
-                        active_tools.append(ADD_USER_PREFERENCE_TOOL)
-                        active_tools.append(EDIT_USER_PREFERENCE_TOOL)
-                        active_tools.append(DELETE_USER_PREFERENCE_TOOL)
-                    if is_browsing_mode:
-                        active_tools.append(BROWSING_AGENT_TOOL)
-                    if is_file_system_mode:
-                        active_tools.append(FILE_SYSTEM_AGENT_TOOL)
-                    if is_git_mode:
-                        active_tools.append(GIT_AGENT_TOOL)
-                    if is_code_execution_mode:
-                        active_tools.append(RUN_CODE_TOOL)
-                        active_tools.append(RUN_FILE_TOOL)
-                        active_tools.append(INSTALL_PACKAGES_TOOL)
-                        active_tools.append(LIST_PACKAGES_TOOL)
+                    from backend.tools import ToolRegistry
+                    active_tools = ToolRegistry.get_main_tools(ctx.active_modes)
 
                 stream_kwargs = {
                     "messages": history,
@@ -575,9 +506,9 @@ class ChatHandler:
                 # Tool-call fragments are aggregated locally; they must NOT be sent to the
                 # client as raw partial JSON.  The single merged synthetic chunk is sent
                 # after the loop ends (see below).
-                if parsed and parsed['type'] == 'tool_call':
+                if parsed and parsed.type == SSEEventType.TOOL_CALL:
                     try:
-                        tc_deltas = json.loads(parsed['content'])
+                        tc_deltas = json.loads(parsed.content)
                         if not isinstance(tc_deltas, list):
                             tc_deltas = [tc_deltas]
 
@@ -588,7 +519,7 @@ class ChatHandler:
                             else:
                                 merge_tool_call_deltas(aggregated_tool_calls[idx], tc_delta)
                     except Exception as e:
-                        logger.error(f"[TOOL_DELTA] Error aggregating tool call delta: {e}. Raw content: {parsed.get('content')}")
+                        logger.error(f"[TOOL_DELTA] Error aggregating tool call delta: {e}. Raw content: {parsed.content}")
                     continue  # Do NOT yield raw tool_call fragments to the client.
 
                 # Forward everything else (content, reasoning, etc.) to the client.
@@ -608,7 +539,7 @@ class ChatHandler:
                 if not parsed:
                     continue
 
-                if parsed['type'] == 'redact':
+                if parsed.type == SSEEventType.REDACT:
                     anchor = last_user_ptr if parent_type == "main" else agent_parent_message_id
                     logger.info(f"[REDACT] Redaction event received for chat_id={self.chat_id}. Resetting stream cache.")
                     self.cache.delete_sse_chunks(
@@ -625,8 +556,8 @@ class ChatHandler:
                     parent_message_id=last_user_ptr if parent_type == "main" else agent_parent_message_id,
                     parent_type=parent_type,
                     chunk_index=self.chunk_index,
-                    chunk_type=parsed['type'],
-                    content=parsed['content']
+                    chunk_type=parsed.type.value,
+                    content=parsed.content
                 )
                 self.chunk_index += 1
 
@@ -956,7 +887,7 @@ class ChatHandler:
                         "removed": len(orphan_ids),
                     })
 
-    def _parse_sse_delta(self, line: str) -> Optional[Dict[str, Any]]:
+    def _parse_sse_delta(self, line: str) -> Optional[SSEEvent]:
         """Extracts content and type from a 'data: {...}' SSE line."""
         if not line.startswith("data: "):
             return None
@@ -964,20 +895,20 @@ class ChatHandler:
         try:
             data = json.loads(line[6:])
             if "__redact__" in data:
-                return {"type": "redact", "content": data.get("message", "")}
+                return SSEEvent(type=SSEEventType.REDACT, content=data.get("message", ""))
                 
             delta = data.get("choices", [{}])[0].get("delta", {})
             
             if "role" in delta and delta["role"] == "event":
-                return {"type": "event", "content": delta.get("content", "")}
+                return SSEEvent(type=SSEEventType.EVENT, content=delta.get("content", ""))
             if "reasoning_content" in delta and delta["reasoning_content"] is not None:
-                return {"type": "thinking", "content": delta["reasoning_content"]}
+                return SSEEvent(type=SSEEventType.THINKING, content=delta["reasoning_content"])
             if "content" in delta and delta["content"] is not None:
-                return {"type": "content", "content": delta["content"]}
+                return SSEEvent(type=SSEEventType.CONTENT, content=delta["content"])
             if "tool_calls" in delta and delta["tool_calls"] is not None:
-                return {"type": "tool_call", "content": json.dumps(delta["tool_calls"])}
+                return SSEEvent(type=SSEEventType.TOOL_CALL, content=json.dumps(delta["tool_calls"]))
             if "tool_result" in delta:
-                return {"type": "tool_result", "content": delta["tool_result"]}
+                return SSEEvent(type=SSEEventType.TOOL_RESULT, content=delta["tool_result"])
             
             return None
         except Exception as e:

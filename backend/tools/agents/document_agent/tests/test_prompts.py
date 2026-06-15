@@ -1,13 +1,15 @@
-import pytest
+from backend.prompts import PromptWrapper
 from backend.tools.agents.document_agent.prompts import DOCUMENT_AGENT_SYSTEM_PROMPT
 
 def test_document_agent_system_prompt():
     """Tests that the system prompt is correctly assembled and contains key instructions."""
-    assert isinstance(DOCUMENT_AGENT_SYSTEM_PROMPT, str)
-    assert len(DOCUMENT_AGENT_SYSTEM_PROMPT) > 100
-    assert "Document Analysis Agent" in DOCUMENT_AGENT_SYSTEM_PROMPT
-    assert "autonomous" in DOCUMENT_AGENT_SYSTEM_PROMPT.lower()
-    assert "investigating" in DOCUMENT_AGENT_SYSTEM_PROMPT.lower()
+    assert isinstance(DOCUMENT_AGENT_SYSTEM_PROMPT, PromptWrapper)
+    prompt_str = DOCUMENT_AGENT_SYSTEM_PROMPT.format()
+    assert isinstance(prompt_str, str)
+    assert len(prompt_str) > 100
+    assert "Document Analysis Agent" in prompt_str
+    assert "autonomous" in prompt_str.lower()
+    assert "investigating" in prompt_str.lower()
     # Check if key sections are included
-    assert "Task List" in DOCUMENT_AGENT_SYSTEM_PROMPT
-    assert "Rules" in DOCUMENT_AGENT_SYSTEM_PROMPT
+    assert "Task List" in prompt_str
+    assert "Rules" in prompt_str

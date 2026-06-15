@@ -191,10 +191,10 @@ def test_get_headers(engine):
 
 def test_normalize_messages(engine):
     messages = [
-        {"role": "system", "content": "You are AI"},
-        {"role": "user", "content": "Hello", "extra": "remove_me"},
+        {"role": "system", "content": "You are AI", "name": None},
+        {"role": "user", "content": "Hello", "extra": "remove_me", "tool_calls": None},
         {"role": "event", "content": "ignored"},
-        {"role": "assistant", "content": "Hi", "reasoning_content": "Thinking", "tool_calls": [{"index": 0}]},
+        {"role": "assistant", "content": "Hi", "reasoning_content": "Thinking", "tool_calls": [{"index": 0}], "tool_call_id": None},
         {"role": "tool", "content": {"message": "Image attached", "screenshot_ref": "invalid_path", "mime_type": "image/jpeg"}},
         {"role": "tool", "content": "Pure text", "tool_call_id": "call_1"},
         {"role": "assistant", "content": "Done"}
@@ -205,13 +205,16 @@ def test_normalize_messages(engine):
     # event is skipped
     assert len(norm) == 6
     assert norm[0]["role"] == "system"
+    assert "name" not in norm[0]
     assert "extra" not in norm[1]
+    assert "tool_calls" not in norm[1]
     
     # Assistant reasoning woven
     assert norm[2]["role"] == "assistant"
     assert norm[2]["content"] == "Hi"
     assert norm[2]["reasoning_content"] == "Thinking"
     assert norm[2]["tool_calls"][0]["type"] == "function" # Enforced by normalization
+    assert "tool_call_id" not in norm[2]
     
     # Invalid screenshot path results in fallback message
     assert norm[3]["role"] == "tool"

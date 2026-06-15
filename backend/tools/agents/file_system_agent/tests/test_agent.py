@@ -29,7 +29,7 @@ def mock_config():
 
 @pytest.fixture
 def mock_db():
-    with patch('backend.tools.agents.file_system_agent.agent.db') as db:
+    with patch('backend.tools.agents.base.db') as db:
         yield db
 
 @pytest.mark.anyio
@@ -117,7 +117,7 @@ async def test_flow_fn_turn_limit(mock_agent, mock_config, mock_db):
     chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
     mock_db.add_message.assert_any_call(
         chat_id="test_chat", role='user',
-        content='[SYSTEM: TURN LIMIT REACHED] You have exhausted your allowed file system operations. You must immediately summarize your findings based on the operations completed so far. Do not attempt any further file system changes.',
+        content='[SYSTEM: TURN LIMIT REACHED] You have exhausted your allowed operations. Summarize your findings immediately. Do not attempt any further actions.',
         parent_id="test_parent", parent_type='file_system_agent'
     )
 
@@ -149,8 +149,8 @@ async def test_flow_fn_exception_caught(mock_agent, mock_config, mock_db):
     chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
     
     assert len(chunks) == 1
-    assert "FileSystem agent failed during execution" in chunks[0]
-    assert mock_agent.result == "FileSystem agent failed: DB error"
+    assert "FileSystem Agent failed: DB error" in chunks[0]
+    assert mock_agent.result == "FileSystem Agent failed: DB error"
     
     mock_db.add_message.assert_any_call(
         chat_id="test_chat",

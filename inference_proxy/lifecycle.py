@@ -19,10 +19,25 @@ async def ensure_model_loaded(model_name: str, base_url: str, api_key: str, cate
         # Load config to categorize models
         model_config = load_model_config()
         
-        embedding_models = {model_config.get("embedding")}
+        # Categorize models dynamically based on JSON structure
+        embedding_models = set()
+        if "embedding" in model_config:
+            emb = model_config["embedding"]
+            if isinstance(emb, list):
+                embedding_models.update(emb)
+            else:
+                embedding_models.add(emb)
+                
         llm_models = set()
-        llm_models.update(model_config.get("research", {}).values())
-        llm_models.update(model_config.get("general", {}).values())
+        for key, val in model_config.items():
+            if key in ("embedding", "embedding_tokenizer", "model_metadata"):
+                continue
+            if isinstance(val, dict):
+                llm_models.update(val.values())
+            elif isinstance(val, list):
+                llm_models.update(val)
+            elif isinstance(val, str):
+                llm_models.add(val)
         
         models = await get_active_models(base_url, api_key)
         

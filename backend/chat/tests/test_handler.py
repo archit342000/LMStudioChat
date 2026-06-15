@@ -269,30 +269,41 @@ async def test_handle_tool_execution_disabled(mock_db, mock_task_manager):
     mock_db.add_message.assert_called()
 
 def test_parse_sse_delta():
+    from backend.chat.models import SSEEventType
     handler = ChatHandler("test")
     
     # Content
     parsed = handler._parse_sse_delta('data: {"choices": [{"delta": {"content": "hi"}}]}')
-    assert parsed == {"type": "content", "content": "hi"}
+    assert parsed is not None
+    assert parsed.type == SSEEventType.CONTENT
+    assert parsed.content == "hi"
     
     # Reasoning
     parsed = handler._parse_sse_delta('data: {"choices": [{"delta": {"reasoning_content": "thinking"}}]}')
-    assert parsed == {"type": "thinking", "content": "thinking"}
+    assert parsed is not None
+    assert parsed.type == SSEEventType.THINKING
+    assert parsed.content == "thinking"
     
     # Tool call
     parsed = handler._parse_sse_delta('data: {"choices": [{"delta": {"tool_calls": [{"id": "1"}]}}]}')
-    assert parsed["type"] == "tool_call"
+    assert parsed is not None
+    assert parsed.type == SSEEventType.TOOL_CALL
     
     # Event
     parsed = handler._parse_sse_delta('data: {"choices": [{"delta": {"role": "event", "content": "evt"}}]}')
-    assert parsed == {"type": "event", "content": "evt"}
+    assert parsed is not None
+    assert parsed.type == SSEEventType.EVENT
+    assert parsed.content == "evt"
     
     # Redact
     parsed = handler._parse_sse_delta('data: {"__redact__": true, "message": "retry"}')
-    assert parsed == {"type": "redact", "content": "retry"}
+    assert parsed is not None
+    assert parsed.type == SSEEventType.REDACT
+    assert parsed.content == "retry"
     
     # Invalid
     assert handler._parse_sse_delta("invalid") is None
+
 
 @pytest.mark.anyio
 async def test_run_orchestrated_stream_redact(mock_db, mock_task_manager, mock_response_cache):

@@ -29,7 +29,7 @@ def mock_config():
 
 @pytest.fixture
 def mock_db():
-    with patch('backend.tools.agents.git_agent.agent.db') as db:
+    with patch('backend.tools.agents.base.db') as db:
         yield db
 
 @pytest.mark.anyio
@@ -118,7 +118,7 @@ async def test_flow_fn_turn_limit(mock_agent, mock_config, mock_db):
     chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
     mock_db.add_message.assert_any_call(
         chat_id="test_chat", role='user',
-        content='[SYSTEM: TURN LIMIT REACHED] You have exhausted your allowed git operations. Summarize what was accomplished based on operations completed so far. Do not attempt any further operations.',
+        content='[SYSTEM: TURN LIMIT REACHED] You have exhausted your allowed operations. Summarize your findings immediately. Do not attempt any further actions.',
         parent_id="test_parent", parent_type='git_agent'
     )
     assert mock_agent.result == "final synthesis"
@@ -131,7 +131,7 @@ async def test_flow_fn_failsafe(mock_agent, mock_config, mock_db):
     mock_db.get_task_list.return_value = [{"id": "t1"}]
 
     chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
-    assert any("Git Agent Failed: Exceeded maximum iteration limit." in str(c) for c in mock_db.add_message.mock_calls)
+    assert any("Git Agent Force Terminated. (infinite loop prevention)" in str(c) for c in mock_db.add_message.mock_calls)
     assert mock_agent.result == "Operation forcibly terminated due to infinite loop."
 
 @pytest.mark.anyio
@@ -148,7 +148,16 @@ async def test_flow_fn_empty_history_break(mock_agent, mock_config, mock_db):
 @pytest.mark.anyio
 async def test_flow_fn_exception_caught(mock_agent, mock_config, mock_db):
     mock_db.get_messages.side_effect = Exception("DB error")
-    with pytest.raises(Exception, match="DB error"):
-        chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
-    assert any("Git Agent Failed: DB error" in str(c) for c in mock_db.add_message.mock_calls)
-    assert mock_agent.result == "Git agent failed: DB error"
+    chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
+    
+    assert len(chunks) == 1
+    assert "Git Agent failed: DB error" in chunks[0]
+    assert mock_agent.result == "Git Agent failed: DB error"
+    
+    mock_db.add_message.assert_any_call(
+        chat_id="test_chat",
+        role='event',
+        content='Git Agent failed: DB error',
+        parent_id="test_parent",
+        parent_type='git_agent'
+    )

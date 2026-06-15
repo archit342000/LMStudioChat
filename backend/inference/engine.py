@@ -505,10 +505,6 @@ class InferenceEngine:
                 mime_type = content.get("mime_type", "image/jpeg")
                 
                 m["content"] = content.get("message", "Screenshot captured.")
-                
-                for field in ["id", "chat_id", "timestamp", "is_hidden", "model", "file_system_id", "parent_message_id", "parent_type", "reasoning_content"]:
-                    m.pop(field, None)
-                m.pop("tool_calls", None)
                 if not m.get("tool_call_id"): m["tool_call_id"] = "unknown"
                 if not m.get("name"): m["name"] = "unknown"
                 
@@ -544,31 +540,18 @@ class InferenceEngine:
                 if not is_multimodal or role != "user":
                     m["content"] = json.dumps(content)
 
-            for field in ["id", "chat_id", "timestamp", "is_hidden", "model", "file_system_id", "parent_message_id", "parent_type"]:
-                m.pop(field, None)
-            if role in ["system", "user"]:
-                m.pop("tool_calls", None)
-                m.pop("tool_call_id", None)
-                m.pop("name", None)
-                m.pop("reasoning_content", None)
-            elif role == "assistant":
+            if role == "assistant":
                 tcs = m.get("tool_calls")
                 if isinstance(tcs, list) and len(tcs) > 0:
                     for tc in tcs:
                         if isinstance(tc, dict): tc["type"] = "function"
                     m["tool_calls"] = tcs
-                else:
-                    m.pop("tool_calls", None)
-                m.pop("tool_call_id", None)
-                if m.get("name") is None: m.pop("name", None)
             elif role == "tool":
-                m.pop("tool_calls", None)
-                m.pop("reasoning_content", None)
                 if not m.get("tool_call_id"): m["tool_call_id"] = "unknown"
                 if not m.get("name"): m["name"] = "unknown"
 
             if m.get("content") is None: m["content"] = ""
-            m = {k: v for k, v in m.items() if k in ["role", "content", "name", "tool_calls", "tool_call_id", "reasoning_content"]}
+            m = {k: v for k, v in m.items() if k in ["role", "content", "name", "tool_calls", "tool_call_id", "reasoning_content"] and v is not None}
             normalized.append(m)
         return normalized
 

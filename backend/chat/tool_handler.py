@@ -5,6 +5,7 @@ from typing import List, Dict, Any, Optional, AsyncGenerator
 
 from backend.tools import ToolRegistry
 from backend.logging import log_event
+from backend.chat.models import ParsedToolCall
 
 logger = logging.getLogger(__name__)
 
@@ -33,10 +34,11 @@ class ToolHandler:
         Yields chunks if sub-agents are involved, or simply executes pure tools.
         """
         for tc in tool_calls:
-            tc_id = tc.get('id')
-            func = tc.get('function', {})
-            name = func.get('name')
-            args_str = func.get('arguments', '{}')
+            parsed = ParsedToolCall.from_openai_delta(tc)
+            tc_id = parsed.id
+            name = parsed.name
+            args = parsed.arguments
+            args_str = parsed.raw_arguments
 
             # ── IDEMPOTENCY GUARD ──────────────────────────────────────
             # Skip tool calls that already have a result in the DB.
@@ -61,12 +63,6 @@ class ToolHandler:
                 logger.error(f"[TOOL] Skipping tool call with missing name. Full tc: {tc}")
                 continue
 
-            try:
-                args = json.loads(args_str)
-            except Exception as e:
-                logger.error(f"[TOOL] Failed to parse arguments for tool '{name}': {e}. Raw: {args_str}")
-                args = {}
-
             log_event("tool_call_execution", {"name": name, "id": tc_id})
 
             # Check Registry for Type
@@ -74,6 +70,7 @@ class ToolHandler:
             if not tool_meta:
                 error_msg = f"Error: Tool '{name}' not found in registry. Available: {list(ToolRegistry._registry.keys())}"
                 logger.warning(f"[TOOL] {error_msg}")
+
                 from backend.database import db
                 db.add_tool_result(
                     chat_id=self.chat_id,
