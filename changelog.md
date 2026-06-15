@@ -1,5 +1,14 @@
 # CHANGELOG
 
+## v4.8.1
+* **Streaming Tool Call Repair & Aggregation Refinements**:
+    - **Streaming JSON Repair**: Integrated tool call argument repair logic directly into the active SSE completion stream.
+    - **Shared Delta Merging**: Created a unified `merge_tool_call_deltas` utility to resolve aggregation coupling across the engine, chat handler, and database persistence layers.
+    - **Robust Log Reconstruction**: Refactored raw model output reconstruction with safe try-except fallback behavior.
+    - **Predicate Purity**: Refactored `_is_generation_valid` into a side-effect-free, pure predicate.
+    - **Test Isolation**: Resolved workspace test flakiness and improved cache layer isolation.
+* **Version Bump**: Incremented version globally to 4.8.1.
+
 ## v4.8.0
 * **Code Runner Integration & Tool Refinements**:
     - **Code Runner**: Implemented code runner functionality for executing code blocks within sandbox environments.
