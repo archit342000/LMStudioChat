@@ -1,5 +1,29 @@
 # CHANGELOG
 
+## v4.9.0
+* **Unified Tool Registry (ToolSpec)**:
+    - **Declarative Specifications**: Replaced the separate `registry.json`, `definitions.py`, and `prompts.py` files with a single declarative `ToolSpec` dataclass for all agent-facing capabilities.
+    - **Catalog Migration**: Migrated all system capabilities into dedicated domain files under `backend/tools/catalog/` (e.g. `filesystem.py`, `git.py`, `code.py`, `web.py`, etc.).
+    - **Usage Directives Integration**: Co-located agent prompts and spatial/temporal usage instructions directly inside their corresponding tool definitions.
+* **Structured Response Models (Pydantic)**:
+    - **Type-Safe Messaging**: Introduced structured Pydantic schemas (`SSEEvent`, `ParsedToolCall`, `ToolResult`, and `AgentResult`) in `backend/chat/models.py`.
+    - **Handler Refactoring**: Refactored the core chat handler (`ChatHandler`) and tool handler (`ToolHandler`) to operate on type-safe models instead of raw dictionaries, eliminating runtime type errors.
+* **Composable Prompt Assembly (PromptBuilder)**:
+    - **Prompt Refactoring**: Extracted 200+ lines of complex inline if-else template generation from the chat handler into a clean, testable `PromptBuilder` and `PromptContext` design pattern.
+    - **Dynamic Directives Composition**: Enabled automatic overlay compilation of mode-specific instructions (e.g., code runner, user preferences, git, files) based on active chat configurations.
+* **Abstract BaseAgent Lifecycle**:
+    - **Agent Standardization**: Created a unified `BaseAgent` abstract base class to encapsulate the looping, retry, failsafe turn counter, context restoration, and safety auditing logic for sub-agents.
+    - **Duplicate Code Elimination**: Refactored `BrowsingAgent`, `DocumentAgent`, `FileSystemAgent`, and `GitAgent` to inherit from the common base agent class, reducing duplicate orchestration logic by hundreds of lines.
+* **Decoupled Prompts & Templates**:
+    - **Template Segregation**: Moved inline system prompts, tool usage instructions, and agent directives out of python source files and into clean `.txt` files under `backend/prompts/templates/`.
+    - **Prompts Loader**: Added a robust dynamic template loader (`backend/prompts/loader.py`) with full test coverage.
+* **Stateless Inference Proxy Decoupling**:
+    - **App-Specific Logic Cleanup**: Refactored message normalization in both backend and proxy ends to exclude application-specific database keys and rely strictly on standard OpenAI-compliant allow-lists.
+    - **Dynamic Swapping**: Decoupled active model swapping categories from hardcoded classifications, resolving categories dynamically from loaded configuration maps.
+    - **Dynamic Telemetry & Speed Tests**: Allowed the `/test-speed` endpoint to accept customizable context-accumulation topics directly via POST request payloads.
+    - **Robust Null Parameter Filtering**: Excluded `None` fields (like `name`, `tool_call_id`, and `tool_calls`) from normalization outputs to prevent llama.cpp validation failures on serialized `null` values.
+* **Version Bump**: Incremented version globally to 4.9.0.
+
 ## v4.8.1
 * **Streaming Tool Call Repair & Aggregation Refinements**:
     - **Streaming JSON Repair**: Integrated tool call argument repair logic directly into the active SSE completion stream.
