@@ -1,5 +1,16 @@
 # CHANGELOG
 
+## v4.10.0
+* **Clipboard Tool & DB Operations**:
+    - **Database Operations**: Introduced `clipboard_ops.py` for clipboard metadata storage and state management.
+    - **Clipboard Capability**: Added `backend/tools/catalog/clipboard.py` and `backend/tools/clipboard.py` along with comprehensive unit tests to support Clipboard interactions.
+* **Tools Catalog Refactoring**:
+    - **Monolithic Definitions Cleanup**: Completely removed `backend/tools/definitions.py` and split/cleaned up catalog definitions into dedicated modules in `backend/tools/catalog/`.
+* **Agent Prompts & Rules Restructuring**:
+    - **Directive Naming Migration**: Renamed `*_directives.txt` files to `*_rules.txt` under `backend/prompts/templates/directives/` for styling/naming consistency.
+    - **Directive Integrations**: Updated template integration and rules parameters within `PromptBuilder` and agent prompt templates.
+* **Version Bump**: Incremented version globally to 4.10.0.
+
 ## v4.9.0
 * **Unified Tool Registry (ToolSpec)**:
     - **Declarative Specifications**: Replaced the separate `registry.json`, `definitions.py`, and `prompts.py` files with a single declarative `ToolSpec` dataclass for all agent-facing capabilities.
