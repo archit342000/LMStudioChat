@@ -21,19 +21,6 @@ DOCUMENT_AGENT = ToolSpec(
     implementation="backend.tools.agents.document_agent.agent.flow_fn",
     tool_type=ToolType.AGENT,
     scopes=(ToolScope.MAIN,),
-    directives="""\
-## Document Agent Tool Rules
-The `document_agent` tool delegates investigation of an uploaded file (PDF, DOCX, TXT, Code, Images) to an autonomous sub-agent. This agent is capable of using RAG, grep, and precise line/page reading to fulfill your request.
-
-### When to use
-Use `document_agent` whenever you need to extract information from, analyze, or verify the contents of an uploaded file. Use this ONLY for files you can see have been **uploaded** in the current conversation, for all other files, use the `file_system_agent`.
-
-### Delegation Strategy
-The `document_agent` is autonomous. You do NOT need to micromanage its search strategy. Give it a clear, descriptive objective. The best practice is to have the sub-agent prepare the final deliverable item instead of using it to extract data for you to process. 
-
-### Parameters
-1.  **query**: Mandatory. Give the sub-agent a comprehensive objective (e.g., "Find all instances where the variable `X` is mutated" or "Summarize the architectural guidelines for the database layer").
-""",
 )
 
 DOCUMENT_AGENT_RAG = ToolSpec(

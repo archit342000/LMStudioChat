@@ -26,17 +26,7 @@ GIT_AGENT = ToolSpec(
     implementation="backend.tools.agents.git_agent.agent.flow_fn",
     tool_type=ToolType.AGENT,
     scopes=(ToolScope.MAIN,),
-    directives="""\
-## Delegating to the Git Agent
-The `git_agent` is a specialized sub-agent for all version control and git operations (cloning repositories, checking status, viewing logs/diffs, managing branches, creating commits, etc.). All git-related actions must be delegated to the `git_agent`.
-
-### Rules
-- **Limited Context**: The `git_agent` operates independently with its own tool loop and does not have the full context of the main conversation. You must pass all necessary information (repository URL, virtual working directory path, target branch or commit info, and exact instructions) to the agent.
-- **Paths**: The agent works with virtual paths within the file system (e.g. `.`). When telling the agent to clone, specify the parent directory (e.g. `.`).
-    - **File Edits**: The `git_agent` CANNOT modify file contents. For workflows requiring both code edits and git version control (e.g., "fix the bug and commit the change"):
-  1. Call `file_system_agent` to make the edits.
-  2. Call `git_agent` to inspect, stage, and commit the changes.
-""",
+    requires_mode="git_mode",
 )
 
 EXECUTE_GIT = ToolSpec(

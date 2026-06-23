@@ -10,18 +10,18 @@ def test_prompt_builder_default():
     prompt = builder.build()
     
     assert PromptLoader.load_template("core_personality").strip() in prompt
-    assert PromptLoader.load_template("formatting_directives").strip() in prompt
+    assert PromptLoader.load_template("formatting_rules").strip() in prompt
     assert PromptLoader.load_template("reasoning_template").strip() in prompt
-    assert PromptLoader.load_template("main_ai_task_directives").strip() in prompt
-    assert PromptLoader.load_template("research_mode_directives").strip() not in prompt
+    assert PromptLoader.load_template("main_ai_task_rules").strip() in prompt
+    assert PromptLoader.load_template("research_mode_rules").strip() not in prompt
 
 def test_prompt_builder_research_mode():
     ctx = PromptContext(chat_metadata={"research_mode": 1})
     builder = PromptBuilder(ctx)
     prompt = builder.build()
     
-    assert PromptLoader.load_template("research_mode_directives").strip() in prompt
-    assert PromptLoader.load_template("main_ai_task_directives").strip() not in prompt
+    assert PromptLoader.load_template("research_mode_rules").strip() in prompt
+    assert PromptLoader.load_template("main_ai_task_rules").strip() not in prompt
 
 def test_prompt_builder_user_preferences():
     preferences = [
@@ -32,7 +32,7 @@ def test_prompt_builder_user_preferences():
     builder = PromptBuilder(ctx)
     prompt = builder.build()
     
-    assert PromptLoader.load_template("user_preferences_directives").strip() in prompt
+    assert PromptLoader.load_template("user_preferences_rules").strip() in prompt
     assert "# Current User Preferences & Profile" in prompt
     assert "- [p1] (preference) Likes dark mode" in prompt
     assert "- [p2] (personal_info) Born in Seattle" in prompt
@@ -46,9 +46,9 @@ def test_prompt_builder_mode_directives():
     builder = PromptBuilder(ctx)
     prompt = builder.build()
     
-    assert PromptLoader.load_template("file_system_agent_directives").strip() in prompt
-    assert PromptLoader.load_template("git_agent_directives").strip() in prompt
-    assert PromptLoader.load_template("code_execution_directives").strip() in prompt
+    assert PromptLoader.load_template("directives/file_system_agent").strip() in prompt
+    assert PromptLoader.load_template("directives/git_agent").strip() in prompt
+    assert PromptLoader.load_template("directives/run_code").strip() in prompt
 
 
 def test_prompt_builder_persona_snapshot():

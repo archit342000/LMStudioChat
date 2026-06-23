@@ -1,7 +1,7 @@
 import pytest
 from unittest.mock import AsyncMock, MagicMock, patch
 from backend.tools.agents.git_agent.agent import flow_fn
-from backend.tools.definitions import GIT_AGENT_INTERNAL_TOOLS, MANAGE_TASK_LIST_TOOL
+from backend.tools import ToolRegistry, ToolScope
 
 @pytest.fixture
 def mock_agent():
@@ -50,7 +50,7 @@ async def test_flow_fn_first_run(mock_agent, mock_config, mock_db):
         parent_id="test_parent", parent_type='git_agent'
     )
     args, kwargs = mock_agent.run_inference_step.call_args
-    assert kwargs["tools"] == GIT_AGENT_INTERNAL_TOOLS
+    assert kwargs["tools"] == ToolRegistry.get_tools_for_scope(ToolScope.GIT)
     assert mock_agent.result == "summary"
 
 @pytest.mark.anyio
@@ -81,7 +81,7 @@ async def test_flow_fn_no_task_list_planning_enforcement(mock_agent, mock_config
 
     chunks = [chunk async for chunk in flow_fn(mock_agent, "instruction")]
     args, kwargs = mock_agent.run_inference_step.call_args_list[0]
-    assert kwargs["tools"] == [MANAGE_TASK_LIST_TOOL]
+    assert kwargs["tools"] == [ToolRegistry.get_spec("manage_task_list").to_openai_schema()]
 
 @pytest.mark.anyio
 async def test_flow_fn_fails_to_init_task_list(mock_agent, mock_config, mock_db):

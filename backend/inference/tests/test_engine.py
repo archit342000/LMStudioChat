@@ -583,5 +583,33 @@ def test_is_gemma4_model(engine):
     assert not engine._is_gemma4_model(None)
 
 
+@pytest.mark.anyio
+async def test_stream_none_values(engine):
+    mock_context = MagicMock()
+    mock_resp = MagicMock()
+    mock_resp.raise_for_status = MagicMock()
+    
+    async def mock_aiter_lines():
+        # First chunk has content/reasoning_content/tool_calls as None
+        yield 'data: {"choices": [{"delta": {"content": null, "reasoning_content": null, "tool_calls": null}}]}'
+        # Second chunk has valid content
+        yield 'data: {"choices": [{"delta": {"content": "Hello"}}]}'
+        yield 'data: [DONE]'
+        
+    mock_resp.aiter_lines = mock_aiter_lines
+    mock_context.__aenter__ = AsyncMock(return_value=mock_resp)
+    mock_context.__aexit__ = AsyncMock()
+    
+    with patch('httpx.AsyncClient.stream', return_value=mock_context) as mock_stream:
+        messages = [{"role": "user", "content": "Hi"}]
+        chunks = []
+        async for chunk in engine.stream(messages, model="test-model"):
+            chunks.append(chunk)
+        
+        mock_stream.assert_called_once()
+        assert any("Hello" in c for c in chunks)
+
+
+
 
 

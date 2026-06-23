@@ -1,0 +1,3 @@
+## Clipboard Operations (MANDATORY REQUIREMENT)
+- You MUST use `clipboard_write` to store ANY verbatim text, code blocks, file contents, log outputs, or structured data of any length that needs to be passed to other agents (e.g., in the instruction parameter of `file_system_agent`).
+- You are STRICTLY PROHIBITED from sending verbatim code, file content, or text blocks directly in conversation messages or agent arguments regardless of length. Always write the content to the clipboard first, and then pass only the generated `cb-...` key to the other agent.

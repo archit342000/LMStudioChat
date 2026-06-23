@@ -347,6 +347,7 @@ class ChatOpsMixin(BaseMixin):
                     c.execute("DELETE FROM files WHERE chat_id = ?", (chat_id,))
                     c.execute("DELETE FROM messages WHERE chat_id = ?", (chat_id,))
                     c.execute("DELETE FROM code_execution_history WHERE chat_id = ?", (chat_id,))
+                    c.execute("DELETE FROM clipboard WHERE chat_id = ?", (chat_id,))
                     # Parent row last — all FK children are already gone
                     c.execute("DELETE FROM chats WHERE id = ?", (chat_id,))
                     conn.commit()
@@ -393,6 +394,7 @@ class ChatOpsMixin(BaseMixin):
                     c.execute("DELETE FROM files")
                     c.execute("DELETE FROM messages")
                     c.execute("DELETE FROM code_execution_history")
+                    c.execute("DELETE FROM clipboard")
                     # Parent rows last
                     c.execute("DELETE FROM chats")
                     conn.commit()

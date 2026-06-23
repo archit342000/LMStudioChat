@@ -33,8 +33,16 @@ class ToolSpec:
     implementation: str                   # Dotted import path (e.g. "backend.tools.time_utils.get_current_time")
     tool_type: ToolType = ToolType.PURE
     scopes: tuple = ()                   # Tuple of ToolScope values (frozen dataclass needs hashable)
-    directives: str = ""                 # Usage instructions injected into system prompts
     requires_mode: Optional[str] = None  # Mode flag name (e.g. "research_mode") — tool only appears when this mode is active
+
+    @property
+    def directives(self) -> str:
+        """Usage instructions loaded dynamically from prompt templates."""
+        from backend.prompts.loader import PromptLoader
+        try:
+            return PromptLoader.load_template(f"directives/{self.name}")
+        except FileNotFoundError:
+            return ""
 
     def to_openai_schema(self) -> Dict[str, Any]:
         """Convert to OpenAI-compatible function calling format."""

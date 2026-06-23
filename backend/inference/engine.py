@@ -245,11 +245,11 @@ class InferenceEngine:
                                 choices = chunk.get("choices", [])
                                 if choices:
                                     delta = choices[0].get("delta", {})
-                                    if "content" in delta:
+                                    if "content" in delta and delta["content"] is not None:
                                         full_content += delta["content"]
-                                    if "reasoning_content" in delta:
+                                    if "reasoning_content" in delta and delta["reasoning_content"] is not None:
                                         full_reasoning += delta["reasoning_content"]
-                                    if "tool_calls" in delta:
+                                    if "tool_calls" in delta and delta["tool_calls"] is not None:
                                         for tc_delta in delta["tool_calls"]:
                                             idx = tc_delta.get("index", 0)
                                             if idx not in tool_calls:

@@ -16,7 +16,7 @@
 | `browser.py` | Implementation of browser-based interaction tools. | `browser_navigate`, `browser_screenshot` |
 | `callbacks.py` | Persistence and management of pending tool clarifications. | `callback_registry` |
 | `clarify.py` | Implementation for user clarification requests. | `request_clarification` |
-| `definitions.py` | JSON-schema definitions for all system tools. | `MAIN_ASSISTANT_TOOLS`, `FILE_SYSTEM_INTERNAL_TOOLS` |
+| `clipboard.py` | Out-of-band text sharing clipboard tool implementations. | `clipboard_write`, `clipboard_read`, `clipboard_copy_file` |
 | `files.py` | Tools for reading and searching **uploaded** files (RAG/Grep). | `read_file` |
 | `preferences.py` | Management of long-term user profile facts. | `manage_user_preferences` |
 | `prompts.py` | Specialized system prompts for tools and agents. | `USER_PREFERENCES_DIRECTIVES` |
@@ -30,6 +30,7 @@
 | :--- | :--- |
 | `tests/test_init.py` | Registry loading and implementation resolution logic. |
 | `tests/test_spec.py` | ToolSpec serialization and compatibility tests. |
+| `tests/test_clipboard.py` | Clipboard tools unit tests. |
 | `catalog/tests/test_catalog.py` | Aggregated ToolSpec completeness and validation tests. |
 | `tests/test_router.py` | Flask API endpoints, preference CRUD, and config updates. |
 | `tests/test_callbacks.py` | In-memory and DB-persisted callback lifecycle. |
@@ -44,7 +45,7 @@
     - `backend.logging`: Detailed auditing for all tool dispatches and results.
     - `backend.chat`: The primary consumer of tool definitions and implementations.
 *   **Flow:**
-    1. **Discovery:** The LLM is informed of tools defined in `definitions.py`.
+    1. **Discovery:** The LLM is informed of tools defined in the tool catalog under `catalog/` via `ToolRegistry.get_main_tools()`.
     2. **Invocation:** Upon a tool call, `ToolHandler` queries `ToolRegistry` to find the implementation.
     3. **Execution:** Pure tools are executed directly; agents are initialized via `AgentHandler` for an autonomous multi-step turn.
     4. **Persistence:** Results are stored in the database, anchored to the specific tool call ID.

@@ -331,6 +331,19 @@ def init_db():
             )
         ''')
 
+        # Clipboard table for out-of-band text sharing between agents
+        c.execute('''
+            CREATE TABLE IF NOT EXISTS clipboard (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                chat_id TEXT NOT NULL,
+                key TEXT NOT NULL,
+                content TEXT NOT NULL,
+                created_at REAL DEFAULT (strftime('%s', 'now')),
+                FOREIGN KEY(chat_id) REFERENCES chats(id) ON DELETE CASCADE,
+                UNIQUE(chat_id, key)
+            )
+        ''')
+
         # Code execution history table for sandboxed execution auditing
         c.execute('''
             CREATE TABLE IF NOT EXISTS code_execution_history (

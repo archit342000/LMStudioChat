@@ -11,7 +11,7 @@ from backend.models import get_embedding_model, load_model_config
 from backend.files.manager import FileManager
 from backend.logging import log_tool_call
 from backend.tools.agents.document_agent.prompts import DOCUMENT_AGENT_SYSTEM_PROMPT, DOCUMENT_AGENT_VISION_SYSTEM_PROMPT
-from backend.tools.definitions import get_document_agent_tools
+from backend.tools import get_document_agent_tools, PAGE_BASED_MIME_TYPES
 from backend.tools.agents.base import BaseAgent, AgentConfig
 
 logger = logging.getLogger(__name__)
@@ -170,7 +170,6 @@ async def flow_fn(
             # Autonomous Document Investigation Loop
             yield f"Event: Initiating investigation of '{original_filename}'...\n"
 
-            from backend.tools.definitions import PAGE_BASED_MIME_TYPES
             if mime_type in PAGE_BASED_MIME_TYPES:
                 read_hint = "This is a page-based document. Use `read_uploaded_file(page=N)` to read specific pages."
             else:

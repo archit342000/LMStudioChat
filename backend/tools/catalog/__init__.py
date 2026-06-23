@@ -9,6 +9,7 @@ from .code import SPECS as code_specs
 from .research import SPECS as research_specs
 from .interaction import SPECS as interaction_specs
 from .browser_tools import SPECS as browser_specs
+from .clipboard import SPECS as clipboard_specs
 
 ALL_TOOL_SPECS = (
     time_specs +
@@ -20,5 +21,6 @@ ALL_TOOL_SPECS = (
     code_specs +
     research_specs +
     interaction_specs +
-    browser_specs
+    browser_specs +
+    clipboard_specs
 )

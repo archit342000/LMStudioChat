@@ -515,4 +515,68 @@ async def test_parameter_type_coercion():
             )
             assert res_grep["success"] is True
 
+@pytest.mark.anyio
+async def test_create_fs_file_with_clipboard_key(mock_db, mock_channel, mock_utils, mock_aiofiles):
+    mock_utils["resolve_owner_and_physical_path"].return_value = ("c1", None, "/physical/path")
+    mock_db.get_file_system_meta_by_path.return_value = None
+    
+    with patch('backend.file_system.manager.db.clipboard_get') as mock_clip_get:
+        mock_clip_get.return_value = "Content from clipboard key"
+        
+        res = await manager.create_fs_file(
+            chat_id="c1",
+            path="src/main.py",
+            clipboard_key="cb-key-123"
+        )
+        assert res["success"] is True
+        mock_clip_get.assert_called_with("c1", "cb-key-123")
+
+@pytest.mark.anyio
+async def test_replace_fs_text_with_clipboard_key():
+    with patch('backend.file_system.manager.resolve_path_to_fs_file') as m_res, \
+         patch('backend.file_system.manager.get_fs_file_content', new_callable=AsyncMock) as m_get_content, \
+         patch('backend.file_system.manager.db.clipboard_get') as mock_clip_get, \
+         patch('backend.file_system.manager._find_exact_match') as m_find, \
+         patch('backend.file_system.manager._finalize_edits', new_callable=AsyncMock) as m_fin:
+        
+        m_res.return_value = {"id": "fs_1", "chat_id": "c1", "workspace_id": None, "current_version": 1}
+        m_get_content.return_value = "line1\ntarget\nline3"
+        mock_clip_get.return_value = "replacement text"
+        m_find.return_value = "target"
+        m_fin.return_value = {"success": True}
+        
+        res = await manager.replace_fs_text(
+            chat_id="c1",
+            path="path",
+            expected_version=1,
+            target_text="target",
+            clipboard_key="cb-key-replace"
+        )
+        assert res["success"] is True
+        mock_clip_get.assert_called_with("c1", "cb-key-replace")
+
+@pytest.mark.anyio
+async def test_replace_fs_lines_with_clipboard_key():
+    with patch('backend.file_system.manager.resolve_path_to_fs_file') as m_res, \
+         patch('backend.file_system.manager.get_fs_file_content', new_callable=AsyncMock) as m_get_content, \
+         patch('backend.file_system.manager.db.clipboard_get') as mock_clip_get, \
+         patch('backend.file_system.manager._finalize_edits', new_callable=AsyncMock) as m_fin:
+         
+        m_res.return_value = {"id": "fs_1", "chat_id": "c1", "workspace_id": None, "current_version": 1}
+        m_get_content.return_value = "line1\nline2\nline3"
+        mock_clip_get.return_value = "replacement text"
+        m_fin.return_value = {"success": True}
+        
+        res = await manager.replace_fs_lines(
+            chat_id="c1",
+            path="path",
+            expected_version=1,
+            start_line=2,
+            end_line=2,
+            clipboard_key="cb-key-replace-lines"
+        )
+        assert res["success"] is True
+        mock_clip_get.assert_called_with("c1", "cb-key-replace-lines")
+
+
 

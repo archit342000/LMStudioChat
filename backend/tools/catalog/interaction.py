@@ -29,12 +29,6 @@ REQUEST_CLARIFICATION = ToolSpec(
         ToolScope.DOCUMENT_BASE,
         ToolScope.GIT,
     ),
-    directives="""\
-## Asking for Clarification
-Use `request_clarification` only when the user's request is genuinely ambiguous in a way that prevents you from proceeding. You are encouraged to make sensible assumptions, but if you are unable to do so, you MUST ask for clarification. A clarification request is better than making a wrong assumption and potentially producing an incorrect output.
-
-When using `options`, keep the list short (2–4 choices) and mutually exclusive.
-""",
 )
 
 MANAGE_TASK_LIST = ToolSpec(
@@ -81,4 +75,21 @@ MANAGE_TASK_LIST = ToolSpec(
     ),
 )
 
-SPECS = [REQUEST_CLARIFICATION, MANAGE_TASK_LIST]
+VALIDATE_OUTPUT_FORMAT = ToolSpec(
+    name="validate_output_format",
+    description="SYSTEM-ONLY TOOL — you are FORBIDDEN from calling this tool. It runs automatically after every response to check formatting. If issues are found, you will receive a tool result describing each issue and asking you to output <fix> blocks. Each <fix> block must contain <prefix> (the ~50 tokens before the fix point, copied exactly from your response), <correction> (the fix itself), and <suffix> (the ~50 tokens after the fix point, copied exactly from your response). If the fix point is near the start or end of your response, use whatever tokens are available instead of inventing tokens. Output ONLY the <fix> blocks with no commentary.",
+    parameters={
+        "type": "object",
+        "properties": {},
+        "required": []
+    },
+    implementation="backend.tools.catalog.interaction.validate_output_format_noop",
+    tool_type=ToolType.PURE,
+    scopes=()
+)
+
+def validate_output_format_noop(**kwargs):
+    return {"success": True}
+
+SPECS = [REQUEST_CLARIFICATION, MANAGE_TASK_LIST, VALIDATE_OUTPUT_FORMAT]
+

@@ -1,0 +1,9 @@
+## Web Page Reading Tool Rules
+The `visit_page` tool allows you to read content from any public URL.
+
+### Dual-Mode Execution
+1. **Agent Mode (DEFAULT)**: If you need to summarize an article, translate a page, or find specific information (e.g., "Find the contact email", "Summarize this post"), you MUST provide that instruction in the `query` parameter. This delegates the reading to a sub-agent, preventing the massive page text from bloating your context window.
+2. **Raw Mode (EXCEPTION)**: Leave the `query` parameter empty ONLY if the user explicitly asks to see the verbatim raw text, or if you must perform complex, multi-step code analysis on the exact raw markdown that a sub-agent could not handle.
+
+### Best Practices
+- Use `detail_level="basic"` for standard articles and blogs. Use `detail_level="deep"` ONLY for complex, dynamic, or data-heavy dashboards where "basic" misses content.

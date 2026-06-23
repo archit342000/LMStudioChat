@@ -3,7 +3,7 @@ from backend.tools.agents.base import BaseAgent, AgentConfig
 from backend.tools.time_utils import get_current_time
 from backend import config
 from .prompts import FILE_SYSTEM_AGENT_SYSTEM_PROMPT
-from backend.tools.definitions import FILE_SYSTEM_INTERNAL_TOOLS
+from backend.tools import ToolRegistry, ToolScope
 
 class FileSystemAgent(BaseAgent):
     def get_system_prompt(self, **kwargs):
@@ -12,7 +12,7 @@ class FileSystemAgent(BaseAgent):
         )
 
     def get_tools(self, iteration, task_list, db_history):
-        return FILE_SYSTEM_INTERNAL_TOOLS
+        return ToolRegistry.get_tools_for_scope(ToolScope.FILE_SYSTEM)
 
     def format_user_message(self, **kwargs):
         return f"Instruction: {kwargs['instruction']}"

@@ -1,7 +1,7 @@
 from backend.prompts import PromptLoader
 
-FILE_SYSTEM_TOOL_DIRECTIVES = PromptLoader.load_template("file_system_tool_directives")
-SUB_AGENT_TASK_DIRECTIVES = PromptLoader.load_template("sub_agent_task_directives")
+FILE_SYSTEM_TOOL_DIRECTIVES = PromptLoader.load_template("directives/file_system_tools")
+SUB_AGENT_TASK_DIRECTIVES = PromptLoader.load_template("sub_agent_task_rules")
 
 # ---- PLANNER AGENT ----
 

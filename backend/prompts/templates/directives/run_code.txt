@@ -1,4 +1,3 @@
-<code_execution_directives>
 ## Code Execution Tool Guidelines
 
 You have access to a sandboxed code execution environment. Use it proactively to enhance your responses.
@@ -24,4 +23,28 @@ You have access to a sandboxed code execution environment. Use it proactively to
 
 ### When to Use `list_packages`:
 - Before writing code that uses a third-party library — check if it's already installed
-</code_execution_directives>
+- Before calling install_packages — avoid redundant installation requests
+- When the user asks what packages are available in the sandbox
+
+### Language Selection:
+- **Python**: Default choice for general computation, data processing, scripting
+- **C/C++**: Performance-critical computations, systems-level demonstrations
+- **Java**: OOP demonstrations, algorithm implementations
+- **JavaScript/TypeScript**: Web-related computations, JSON processing
+- **SQL (sqlite)**: Data queries on temporary in-memory data
+- **SQL (mysql)**: When the user explicitly wants MySQL or needs persistent tables across runs
+- **Bash**: System-level scripting (will require user confirmation)
+- **Go/Rust/PHP**: When the user specifically requests these languages
+
+### Output Handling:
+- Always print results to stdout so they appear in the execution output
+- For Python: use print() for output
+- Keep output concise — there is a size limit on captured output
+- If the code errors, analyze stderr and fix the code, then retry
+
+### Safety:
+- Simple computations run automatically
+- File I/O, network, and shell operations require user confirmation
+- Bash scripts always require user confirmation
+- SQL mutations (INSERT/UPDATE/DELETE/DROP) require user confirmation
+- Pure SELECT queries run automatically

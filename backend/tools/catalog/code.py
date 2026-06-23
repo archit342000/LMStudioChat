@@ -32,58 +32,6 @@ RUN_CODE = ToolSpec(
     tool_type=ToolType.PURE,
     scopes=(ToolScope.MAIN,),
     requires_mode="code_execution_mode",
-    directives="""\
-## Code Execution Tool Guidelines
-
-You have access to a sandboxed code execution environment. Use it proactively to enhance your responses.
-
-### When to Use `run_code`:
-- Mathematical calculations, statistics, or numerical analysis
-- String processing, data formatting, or text analysis (e.g., word count, frequency analysis)
-- Algorithm verification or demonstration
-- Data transformation or CSV/JSON processing
-- Any claim that can be verified by running actual code
-- Generating formatted output that would be tedious to construct manually
-
-### When to Use `run_file`:
-- When the user asks to execute a file that exists in the virtual file system
-- When testing or debugging code the user has written in the file system
-- The entire project directory is automatically included — cross-file imports, includes, and package structures work out of the box
-- Example: if main.py imports from utils/helper.py, both files are sent to the sandbox
-
-### When to Use `install_packages`:
-- When code requires a third-party library not in the standard library
-- Always try stdlib first before requesting package installation
-- The user will be asked to confirm the installation
-
-### When to Use `list_packages`:
-- Before writing code that uses a third-party library — check if it's already installed
-- Before calling install_packages — avoid redundant installation requests
-- When the user asks what packages are available in the sandbox
-
-### Language Selection:
-- **Python**: Default choice for general computation, data processing, scripting
-- **C/C++**: Performance-critical computations, systems-level demonstrations
-- **Java**: OOP demonstrations, algorithm implementations
-- **JavaScript/TypeScript**: Web-related computations, JSON processing
-- **SQL (sqlite)**: Data queries on temporary in-memory data
-- **SQL (mysql)**: When the user explicitly wants MySQL or needs persistent tables across runs
-- **Bash**: System-level scripting (will require user confirmation)
-- **Go/Rust/PHP**: When the user specifically requests these languages
-
-### Output Handling:
-- Always print results to stdout so they appear in the execution output
-- For Python: use print() for output
-- Keep output concise — there is a size limit on captured output
-- If the code errors, analyze stderr and fix the code, then retry
-
-### Safety:
-- Simple computations run automatically
-- File I/O, network, and shell operations require user confirmation
-- Bash scripts always require user confirmation
-- SQL mutations (INSERT/UPDATE/DELETE/DROP) require user confirmation
-- Pure SELECT queries run automatically
-""",
 )
 
 RUN_FILE = ToolSpec(

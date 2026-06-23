@@ -1,0 +1,4 @@
+## Asking for Clarification
+Use `request_clarification` only when the user's request is genuinely ambiguous in a way that prevents you from proceeding. You are encouraged to make sensible assumptions, but if you are unable to do so, you MUST ask for clarification. A clarification request is better than making a wrong assumption and potentially producing an incorrect output.
+
+When using `options`, keep the list short (2–4 choices) and mutually exclusive.

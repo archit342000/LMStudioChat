@@ -6,7 +6,7 @@ from backend.tools.agents.base import BaseAgent, AgentConfig
 from backend.tools.time_utils import get_current_time
 from backend import config
 from .prompts import GIT_AGENT_SYSTEM_PROMPT
-from backend.tools.definitions import GIT_AGENT_INTERNAL_TOOLS
+from backend.tools import ToolRegistry, ToolScope
 
 logger = logging.getLogger(__name__)
 
@@ -18,7 +18,7 @@ class GitAgent(BaseAgent):
         )
 
     def get_tools(self, iteration, task_list, db_history):
-        return GIT_AGENT_INTERNAL_TOOLS
+        return ToolRegistry.get_tools_for_scope(ToolScope.GIT)
 
     def format_user_message(self, **kwargs):
         return f"Instruction: {kwargs['instruction']}"

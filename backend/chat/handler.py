@@ -14,18 +14,7 @@ from backend.chat.models import SSEEvent, SSEEventType
 from backend.database import db, response_cache
 from backend.logging import log_event
 from backend.task_manager import task_manager
-from backend.tools import (
-    MAIN_ASSISTANT_TOOLS,
-    RESEARCH_TOOL,
-    ADD_USER_PREFERENCE_TOOL,
-    EDIT_USER_PREFERENCE_TOOL,
-    DELETE_USER_PREFERENCE_TOOL,
-    BROWSING_AGENT_TOOL,
-    FILE_SYSTEM_AGENT_TOOL,
-    GIT_AGENT_TOOL
-)
 from backend import config
-from backend.tools.definitions import RUN_CODE_TOOL, RUN_FILE_TOOL, INSTALL_PACKAGES_TOOL, LIST_PACKAGES_TOOL
 
 logger = logging.getLogger(__name__)
 

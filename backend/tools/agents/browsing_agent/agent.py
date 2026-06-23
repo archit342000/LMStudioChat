@@ -7,7 +7,7 @@ from backend.database import db
 from backend import config
 from backend.mcp_client import playwright_client
 from .prompts import BROWSING_AGENT_SYSTEM_PROMPT_TEXT, BROWSING_AGENT_SYSTEM_PROMPT_VISION
-from backend.tools.definitions import BROWSING_AGENT_TOOLS_BASE, BROWSING_AGENT_TOOLS_VISION
+from backend.tools import ToolRegistry, ToolScope
 from backend.tools.agents.base import BaseAgent, AgentConfig
 
 logger = logging.getLogger(__name__)
@@ -55,7 +55,8 @@ class BrowsingAgent(BaseAgent):
         return prompt
 
     def get_tools(self, iteration: int, task_list: Any, db_history: List[Dict]) -> List[Dict]:
-        return BROWSING_AGENT_TOOLS_VISION if self.is_vision else BROWSING_AGENT_TOOLS_BASE
+        scope = ToolScope.BROWSING_VISION if self.is_vision else ToolScope.BROWSING_BASE
+        return ToolRegistry.get_tools_for_scope(scope)
 
     def format_user_message(self, **kwargs) -> str:
         return f"Instruction: {kwargs['query']}"

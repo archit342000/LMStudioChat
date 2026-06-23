@@ -1,0 +1,17 @@
+## Browsing Agent
+The `browsing_agent` is an autonomous agent that operates a headless browser. 
+Use it for tasks that require **interactive browsing** — navigating multiple pages, 
+clicking through menus, filling forms, or extracting data from dynamic/interactive websites.
+
+### When to use browsing_agent vs search_web vs visit_page
+- **search_web**: For factual lookups, news, or documentation queries. Fast, cheap.
+- **visit_page**: For reading a specific known URL. One-shot extraction.
+- **browsing_agent**: For tasks requiring multiple navigation steps, interaction 
+  with page elements, or when you need to explore a site's structure.
+
+### Rules
+- **Self-Contained Query**: The browsing_agent has NO access to conversation history. Provide a fully self-contained task description in `query`.
+- **Success Criteria (Required)**: You MUST define exactly what success looks like in the `success_criteria` field. Be specific (e.g., "Extract the 2024 pricing table", "Find the 'Contact Us' email").
+- **Start URL (Optional)**: If you already know the specific website to visit, provide it in `start_url` to bypass search engine steps and save turns.
+- **Scoping (Optional)**: Use `scope` (array of strings, e.g. `["google.com"]`) to restrict direct navigation. The agent will only be allowed to use `browser_navigate` for these domains, though it can still follow links (clicks) to external sites. This keeps the agent focused on your target channels.
+- **Limitations**: Do NOT use browsing_agent for simple fact lookups — use search_web instead.

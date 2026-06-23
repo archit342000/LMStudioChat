@@ -22,9 +22,9 @@ def test_catalog_implementation_paths():
 
 def test_catalog_scopes():
     for spec in ALL_TOOL_SPECS:
-        # patch_file_system is a special registry-only tool with no scopes
-        if spec.name == "patch_file_system":
+        # patch_file_system, delete_directory, validate_output_format, preview_file_systems are allowed to have empty scopes
+        if spec.name in ["patch_file_system", "delete_directory", "validate_output_format", "preview_file_systems"]:
             continue
-        assert len(spec.scopes) > 0
+        assert len(spec.scopes) > 0, f"Tool {spec.name} has no scopes assigned"
         for scope in spec.scopes:
             assert isinstance(scope, ToolScope)

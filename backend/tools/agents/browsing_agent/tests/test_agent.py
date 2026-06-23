@@ -4,7 +4,7 @@ import uuid
 import json
 
 from backend.tools.agents.browsing_agent.agent import flow_fn
-from backend.tools.definitions import BROWSING_AGENT_TOOLS_BASE, BROWSING_AGENT_TOOLS_VISION, MANAGE_TASK_LIST_TOOL
+from backend.tools import ToolRegistry, ToolScope
 from backend.tools.agents.browsing_agent.prompts import BROWSING_AGENT_SYSTEM_PROMPT_TEXT, BROWSING_AGENT_SYSTEM_PROMPT_VISION
 
 @pytest.fixture
@@ -88,7 +88,7 @@ async def test_flow_fn_first_run_text_model(mock_agent, mock_config, mock_db, mo
     
     # Check if run_inference_step was called with BASE tools
     args, kwargs = mock_agent.run_inference_step.call_args
-    assert kwargs["tools"] == BROWSING_AGENT_TOOLS_BASE
+    assert kwargs["tools"] == ToolRegistry.get_tools_for_scope(ToolScope.BROWSING_BASE)
     assert kwargs["model_name"] == "test-text-model"
     
     assert mock_agent.result == "Browsing Agent completed."
@@ -115,7 +115,7 @@ async def test_flow_fn_first_run_vision_model(mock_agent, mock_config, mock_db, 
 
     # Assertions
     args, kwargs = mock_agent.run_inference_step.call_args
-    assert kwargs["tools"] == BROWSING_AGENT_TOOLS_VISION
+    assert kwargs["tools"] == ToolRegistry.get_tools_for_scope(ToolScope.BROWSING_VISION)
     assert kwargs["model_name"] == "test-vision-model"
     
     # Check screenshot pruning
@@ -203,7 +203,7 @@ async def test_flow_fn_no_task_list(mock_agent, mock_config, mock_db, mock_playw
     
     # Check that tools was restricted to MANAGE_TASK_LIST_TOOL on first call
     args, kwargs = mock_agent.run_inference_step.call_args_list[0]
-    assert kwargs["tools"] == [MANAGE_TASK_LIST_TOOL]
+    assert kwargs["tools"] == [ToolRegistry.get_spec("manage_task_list").to_openai_schema()]
 
 
 @pytest.mark.anyio

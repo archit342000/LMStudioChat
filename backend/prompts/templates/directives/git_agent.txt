@@ -1,4 +1,3 @@
-<git_agent_directives>
 ## Delegating to the Git Agent
 The `git_agent` is a specialized sub-agent for all version control and git operations (cloning repositories, checking status, viewing logs/diffs, managing branches, creating commits, etc.). All git-related actions must be delegated to the `git_agent`.
 
@@ -8,4 +7,3 @@ The `git_agent` is a specialized sub-agent for all version control and git opera
     - **File Edits**: The `git_agent` CANNOT modify file contents. For workflows requiring both code edits and git version control (e.g., "fix the bug and commit the change"):
   1. Call `file_system_agent` to make the edits.
   2. Call `git_agent` to inspect, stage, and commit the changes.
-</git_agent_directives>

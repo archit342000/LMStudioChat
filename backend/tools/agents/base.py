@@ -157,8 +157,8 @@ class BaseAgent(ABC):
                 active_tools = self.get_tools(iteration, task_list, db_history)
 
                 if self.config.require_task_list and not task_list:
-                    from backend.tools.definitions import MANAGE_TASK_LIST_TOOL
-                    active_tools = [MANAGE_TASK_LIST_TOOL]
+                    from backend.tools import ToolRegistry
+                    active_tools = [ToolRegistry.get_spec("manage_task_list").to_openai_schema()]
 
                 # Turn limit enforcement
                 tool_turns = self.count_tool_turns(db_history, self.get_tools(iteration, task_list, db_history))

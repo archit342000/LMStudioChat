@@ -37,9 +37,17 @@ def test_tool_registry_get_tools_for_scope():
     assert "research" in names
 
 def test_tool_registry_get_directives_for_scope():
-    directives = ToolRegistry.get_directives_for_scope(ToolScope.MAIN)
-    assert "Temporal Awareness" in directives
-    assert "Skills Store Tool Rules" in directives
+    # 1. No active_modes passed (all tool directives included)
+    directives_all = ToolRegistry.get_directives_for_scope(ToolScope.MAIN)
+    assert "Temporal Awareness" in directives_all
+    assert "Skills Store Tool Rules" in directives_all
+    assert "Code Execution Tool Guidelines" in directives_all
+
+    # 2. Specific active_modes (filtering out code execution)
+    directives_filtered = ToolRegistry.get_directives_for_scope(ToolScope.MAIN, {"code_execution_mode": False})
+    assert "Temporal Awareness" in directives_filtered
+    assert "Skills Store Tool Rules" in directives_filtered
+    assert "Code Execution Tool Guidelines" not in directives_filtered
 
 def test_tool_registry_get_main_tools():
     # Test with research_mode active

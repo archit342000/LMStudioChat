@@ -64,31 +64,21 @@ class PromptBuilder:
         # 2. Tool-level directives (auto-composed from ToolSpec registry)
         from backend.tools import ToolRegistry
         from backend.tools.spec import ToolScope
-        tool_directives = ToolRegistry.get_directives_for_scope(ToolScope.MAIN)
+        tool_directives = ToolRegistry.get_directives_for_scope(ToolScope.MAIN, self.ctx.active_modes)
         if tool_directives:
             self._sections.append(tool_directives)
 
         # 3. Mode-specific overlays
         if self.ctx.is_research_mode:
-            self._sections.append(PromptLoader.load_template("research_mode_directives"))
+            self._sections.append(PromptLoader.load_template("research_mode_rules"))
         elif self.ctx.is_preferences_mode:
-            self._sections.append(PromptLoader.load_template("user_preferences_directives"))
+            self._sections.append(PromptLoader.load_template("user_preferences_rules"))
             self._add_preferences_block()
 
-        # 4. Mode-conditional agent directives
-        mode_directives = [
-            ('file_system_mode', "file_system_agent_directives"),
-            ('git_mode', "git_agent_directives"),
-            ('code_execution_mode', "code_execution_directives"),
-        ]
-        for mode_key, template_name in mode_directives:
-            if self.ctx.active_modes.get(mode_key):
-                self._sections.append(PromptLoader.load_template(template_name))
-
-        # 5. Standard sections (always)
-        self._sections.append(PromptLoader.load_template("formatting_directives"))
+        # 4. Standard sections (always)
+        self._sections.append(PromptLoader.load_template("formatting_rules"))
         if not self.ctx.is_research_mode:
-            self._sections.append(PromptLoader.load_template("main_ai_task_directives"))
+            self._sections.append(PromptLoader.load_template("main_ai_task_rules"))
         self._sections.append(PromptLoader.load_template("reasoning_template"))
 
         # 6. Persona injection

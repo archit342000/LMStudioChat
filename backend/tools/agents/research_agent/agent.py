@@ -1313,7 +1313,7 @@ class ResearchAgent:
                 raise e
         
         # 2. Tool-Calling Auditor Loop
-        from backend.tools.definitions import READ_FS_FILE_TOOL, REPLACE_FS_TEXT_TOOL, REPLACE_FS_LINES_TOOL, MANAGE_TASK_LIST_TOOL
+        from backend.tools import ToolRegistry
         from .prompts import RESEARCH_AUDITOR_PROMPT, RESEARCH_FINAL_SYNTHESIS_PROMPT
         
         target_marker = EVENT_SYNTHESIS_START
@@ -1352,9 +1352,14 @@ class ResearchAgent:
             # STRICT MECHANICAL ENFORCEMENT: Audit checklist before action.
             # If no task list exists, the auditor physically cannot perform any other action.
             if not task_list:
-                active_tools = [MANAGE_TASK_LIST_TOOL]
+                active_tools = [ToolRegistry.get_spec("manage_task_list").to_openai_schema()]
             else:
-                active_tools = [READ_FS_FILE_TOOL, REPLACE_FS_TEXT_TOOL, REPLACE_FS_LINES_TOOL, MANAGE_TASK_LIST_TOOL]
+                active_tools = [
+                    ToolRegistry.get_spec("read_fs_file").to_openai_schema(),
+                    ToolRegistry.get_spec("replace_fs_text").to_openai_schema(),
+                    ToolRegistry.get_spec("replace_fs_lines").to_openai_schema(),
+                    ToolRegistry.get_spec("manage_task_list").to_openai_schema()
+                ]
                 
                 # Run safety and progress audit
                 from backend.tools.safety import run_safety_audit

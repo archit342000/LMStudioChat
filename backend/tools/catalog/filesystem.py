@@ -13,14 +13,18 @@ CREATE_FS_FILE = ToolSpec(
             },
             "content": {
                 "type": "string",
-                "description": "Initial content for the file_system."
+                "description": "Initial content for the file_system. Optional if clipboard_key is provided."
+            },
+            "clipboard_key": {
+                "type": "string",
+                "description": "Optional. If provided, content is sourced from this clipboard key instead of the 'content' parameter."
             },
             "file_system_type": {
                 "type": "string",
                 "description": "Optional type/status update (e.g. 'research_plan_approved')."
             }
         },
-        "required": ["path", "content"]
+        "required": ["path"]
     },
     implementation="backend.file_system.manager.create_fs_file",
     tool_type=ToolType.PURE,
@@ -54,7 +58,7 @@ DELETE_DIRECTORY = ToolSpec(
     },
     implementation="backend.file_system.manager.delete_directory_tool",
     tool_type=ToolType.PURE,
-    scopes=(ToolScope.FILE_SYSTEM,),
+    scopes=(),
 )
 
 REPLACE_FS_TEXT = ToolSpec(
@@ -66,12 +70,13 @@ REPLACE_FS_TEXT = ToolSpec(
             "path": { "type": "string", "description": "The full relative path of the file_system." },
             "expected_version": { "type": "integer", "description": "Must match current version." },
             "target_text": { "type": "string", "description": "Exact text to find." },
-            "new_content": { "type": "string", "description": "Replacement text. Use empty string to delete." },
+            "new_content": { "type": "string", "description": "Replacement text. Use empty string to delete. Optional if clipboard_key is provided." },
+            "clipboard_key": { "type": "string", "description": "Optional. If provided, new_content is sourced from this clipboard key." },
             "start_line": { "type": "integer", "description": "Optional. Disambiguates duplicate matches." },
             "end_line": { "type": "integer", "description": "Optional. Disambiguates duplicate matches." },
             "allow_multiple": { "type": "boolean", "description": "Optional. If true, replaces all occurrences." }
         },
-        "required": ["path", "expected_version", "target_text", "new_content"]
+        "required": ["path", "expected_version", "target_text"]
     },
     implementation="backend.file_system.manager.replace_fs_text",
     tool_type=ToolType.PURE,
@@ -88,9 +93,10 @@ REPLACE_FS_LINES = ToolSpec(
             "expected_version": { "type": "integer", "description": "Must match current version." },
             "start_line": { "type": "integer", "description": "1-indexed start line." },
             "end_line": { "type": "integer", "description": "1-indexed end line." },
-            "new_content": { "type": "string", "description": "Content to replace the line range with." }
+            "new_content": { "type": "string", "description": "Content to replace the line range with. Optional if clipboard_key is provided." },
+            "clipboard_key": { "type": "string", "description": "Optional. If provided, new_content is sourced from this clipboard key." }
         },
-        "required": ["path", "expected_version", "start_line", "end_line", "new_content"]
+        "required": ["path", "expected_version", "start_line", "end_line"]
     },
     implementation="backend.file_system.manager.replace_fs_lines",
     tool_type=ToolType.PURE,
@@ -213,20 +219,24 @@ FILE_SYSTEM_AGENT = ToolSpec(
     implementation="backend.tools.agents.file_system_agent.agent.flow_fn",
     tool_type=ToolType.AGENT,
     scopes=(ToolScope.MAIN,),
-    directives="""\
-## Delegating to the File System Agent
-The `file_system_agent` is a specialized **Document Manager** strictly for file system lifecycle operations (listing, reading, writing, restructuring, or metadata updates). All operations having anything to do with files must be done through the `file_system_agent`.
-
-### Rules 
-- **Limited Context**: The `file_system_agent` does not have the full context of the conversation so you must pass all necessary information to it. 
-- **Processing Rules**: The `file_system_agent` is not dumb and can process instructions on its own given ample details, it however, has access to only its own knowledge and the files in the file system. It cannot access the internet or any external sources. 
-- **Agent's capabilities**: The `file_system_agent` is the same AI you are, just with a separate conversation history and a different set of tools. It can perform whatever you ask it to do, as long as it pertains to files. You can and should delegate output processing to it to get the final output in a desirable format.
-
-Examples:
-Acceptable instructions: Given the contents of file test_textbook.md, generate a comprehensive set of questions and answers for practice purposes. Each answer must be limited to 50 words. (Works because the agent doesn't have to fetch external information and it can do whatever processing you can do.)
-Unacceptable instructions: Fetch the latest documentation for vLLM and write a python script to deploy an LLM. (Doesn't work because while the agent can write the python script, it cannot fetch latest documentation from the internet.)
-""",
+    requires_mode="file_system_mode",
 )
+
+PREVIEW_FILE_SYSTEMS = ToolSpec(
+    name="preview_file_systems",
+    description="SYSTEM-ONLY TOOL — this tool is automatically invoked by the system and you are FORBIDDEN from calling it. The system will provide file_system inventory as a tool response before your turn. Use the information from the tool response, do not attempt to call this tool.",
+    parameters={
+        "type": "object",
+        "properties": {},
+        "required": []
+    },
+    implementation="backend.tools.catalog.filesystem.preview_file_systems_noop",
+    tool_type=ToolType.PURE,
+    scopes=()
+)
+
+def preview_file_systems_noop(**kwargs):
+    return {"success": True}
 
 SPECS = [
     CREATE_FS_FILE,
@@ -240,5 +250,7 @@ SPECS = [
     READ_FS_FILE,
     LS_FILES,
     PATCH_FILE_SYSTEM,
-    FILE_SYSTEM_AGENT
+    FILE_SYSTEM_AGENT,
+    PREVIEW_FILE_SYSTEMS
 ]
+

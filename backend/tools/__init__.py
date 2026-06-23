@@ -74,13 +74,20 @@ class ToolRegistry:
         return [s.to_openai_schema() for s in cls._specs_list if scope in s.scopes]
 
     @classmethod
-    def get_directives_for_scope(cls, scope: ToolScope) -> str:
+    def get_directives_for_scope(cls, scope: ToolScope, active_modes: Optional[Dict[str, bool]] = None) -> str:
         """Compose all tool usage directives for a scope."""
         cls._load()
-        return "\n\n".join(
-            s.directives.strip() for s in cls._specs_list
-            if scope in s.scopes and s.directives.strip()
-        )
+        directives_list = []
+        for s in cls._specs_list:
+            if scope not in s.scopes:
+                continue
+            if s.requires_mode and active_modes is not None:
+                if not active_modes.get(s.requires_mode):
+                    continue
+            directive = s.directives.strip()
+            if directive:
+                directives_list.append(directive)
+        return "\n\n".join(directives_list)
 
     @classmethod
     def get_main_tools(cls, active_modes: Dict[str, bool]) -> List[Dict]:
@@ -99,35 +106,27 @@ class ToolRegistry:
             tools.append(spec.to_openai_schema())
         return tools
 
-from .definitions import *
+PAGE_BASED_MIME_TYPES = frozenset([
+    "application/pdf",
+])
+
+def get_document_agent_tools(mime_type: str) -> list:
+    """Returns the correct tool set for the document agent based on the file's MIME type."""
+    if mime_type.startswith('image/'):
+        return []
+    
+    base_tools = ToolRegistry.get_tools_for_scope(ToolScope.DOCUMENT_BASE)
+    if mime_type in PAGE_BASED_MIME_TYPES:
+        page_tools = ToolRegistry.get_tools_for_scope(ToolScope.DOCUMENT_PAGE)
+        return base_tools + page_tools
+    else:
+        line_tools = ToolRegistry.get_tools_for_scope(ToolScope.DOCUMENT_LINE)
+        return base_tools + line_tools
 
 __all__ = [
     "ToolRegistry",
-    "ADD_USER_PREFERENCE_TOOL",
-    "EDIT_USER_PREFERENCE_TOOL",
-    "DELETE_USER_PREFERENCE_TOOL",
-
-    "VISIT_PAGE_TOOL",
-    "GET_TIME_TOOL",
-    "VALIDATE_OUTPUT_FORMAT_TOOL",
-    "CREATE_FS_FILE_TOOL",
-    "CREATE_DIRECTORY_TOOL",
-    "DELETE_DIRECTORY_TOOL",
-    "LS_FILES_TOOL",
-    "GREP_FILES_TOOL",
-    "READ_FS_FILE_TOOL",
-    "REPLACE_FS_TEXT_TOOL",
-    "REPLACE_FS_LINES_TOOL",
-    "MOVE_FS_FILE_TOOL",
-    "DELETE_FS_FILE_TOOL",
-    "REQUEST_CLARIFICATION_TOOL",
-    "RESEARCH_TOOL",
-    "FILE_SYSTEM_AGENT_TOOL",
-    "SEARCH_WEB_TOOL",
-    "FILE_SYSTEM_SEARCH_WEB_TOOL",
-    "BROWSING_AGENT_TOOL",
-    "BROWSING_AGENT_TOOLS_BASE",
-    "BROWSING_AGENT_TOOLS_VISION",
-    "FILE_SYSTEM_INTERNAL_TOOLS",
-    "MAIN_ASSISTANT_TOOLS"
+    "ToolScope",
+    "ToolType",
+    "PAGE_BASED_MIME_TYPES",
+    "get_document_agent_tools"
 ]

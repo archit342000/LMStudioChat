@@ -13,6 +13,7 @@
 | `base.py` | Base functionality, logging, and connection helpers. | `BaseMixin` |
 | `callback_ops.py` | Persistence for pending clarification callbacks. | `CallbackOpsMixin` |
 | `chat_ops.py` | CRUD for chats, workspaces, and chat metadata; FK-safe delete ordering. | `ChatOpsMixin` |
+| `clipboard_ops.py` | Operations for chat clipboards. | `ClipboardOpsMixin` |
 | `file_system_ops.py` | Operations for file system artifacts and versions. | `FileSystemOpsMixin` |
 | `history_ops.py` | Logic for weaving message history and turn anchoring. | `HistoryOpsMixin` |
 | `message_ops.py` | CRUD for messages and sub-agent messages. | `MessageOpsMixin` |

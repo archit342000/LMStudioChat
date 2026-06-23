@@ -102,9 +102,18 @@ async def create_fs_file(
     author: str = "system",
     version_comment: str = "Initial version",
     language: str = "markdown",
-    workspace_id: Optional[str] = None
+    workspace_id: Optional[str] = None,
+    clipboard_key: Optional[str] = None
 ) -> Dict[str, Any]:
     """Create a new file_system at a specific path with automatic persistence and locking."""
+    if clipboard_key:
+        if not chat_id:
+            return {"success": False, "error": "chat_id is required to resolve clipboard_key."}
+        resolved = db.clipboard_get(chat_id, clipboard_key)
+        if resolved is None:
+            return {"success": False, "error": f"Clipboard key '{clipboard_key}' not found."}
+        content = resolved
+
     owner_id = chat_id or workspace_id
     if not owner_id:
         return {"success": False, "error": "Either chat_id or workspace_id must be provided."}
@@ -1037,12 +1046,19 @@ async def replace_fs_text(
     path: str,
     expected_version: int,
     target_text: str,
-    new_content: str,
+    new_content: str = "",
     start_line: int = None,
     end_line: int = None,
     allow_multiple: bool = False,
+    clipboard_key: Optional[str] = None,
     **kwargs
 ) -> Dict[str, Any]:
+    if clipboard_key:
+        resolved = db.clipboard_get(chat_id, clipboard_key)
+        if resolved is None:
+            return {"success": False, "error": f"Clipboard key '{clipboard_key}' not found."}
+        new_content = resolved
+
     try:
         if expected_version is not None:
             expected_version = int(expected_version)
@@ -1177,9 +1193,16 @@ async def replace_fs_lines(
     expected_version: int,
     start_line: int,
     end_line: int,
-    new_content: str,
+    new_content: str = "",
+    clipboard_key: Optional[str] = None,
     **kwargs
 ) -> Dict[str, Any]:
+    if clipboard_key:
+        resolved = db.clipboard_get(chat_id, clipboard_key)
+        if resolved is None:
+            return {"success": False, "error": f"Clipboard key '{clipboard_key}' not found."}
+        new_content = resolved
+
     try:
         if expected_version is not None:
             expected_version = int(expected_version)

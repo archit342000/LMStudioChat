@@ -9,7 +9,6 @@ def test_tool_spec_openai_schema():
         implementation="module.path.func",
         tool_type=ToolType.PURE,
         scopes=(ToolScope.MAIN,),
-        directives="Don't use it too much."
     )
     schema = spec.to_openai_schema()
     assert schema == {
@@ -29,7 +28,6 @@ def test_tool_spec_registry_entry():
         implementation="module.path.func",
         tool_type=ToolType.AGENT,
         scopes=(ToolScope.MAIN,),
-        directives="Don't use it too much."
     )
     entry = spec.to_registry_entry()
     assert entry == {
@@ -37,3 +35,12 @@ def test_tool_spec_registry_entry():
         "implementation": "module.path.func",
         "description": "A test tool description."
     }
+
+def test_tool_spec_directives_fallback():
+    spec = ToolSpec(
+        name="non_existent_tool_name_abc123",
+        description="A test tool description.",
+        parameters={"type": "object", "properties": {}, "required": []},
+        implementation="module.path.func",
+    )
+    assert spec.directives == ""

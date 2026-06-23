@@ -27,11 +27,11 @@
     3. **Persistence:** Files are mirrored on disk (current version) and tracked in SQLite (all versions).
     4. **Versioning:** Edits create new versions with parent pointers, allowing for non-linear history navigation (undo/redo).
 
-## 🛠️ Usage & Conventions
 *   **Patterns:** 
     - **Virtualized Hierarchy:** Agents interact with a clean, relative path structure that maps to secure, isolated physical locations.
     - **Channel Serialization:** Prevents the "lost update" problem in a multi-agent or collaborative environment.
     - **Search-Enabled:** Uses FTS5 (via DB sync) to allow fast searching across all artifacts in a session.
+    - **Out-of-band Content Resolution:** File writing and editing tools (`create_fs_file`, `replace_fs_text`, `replace_fs_lines`) support an optional `clipboard_key` parameter to retrieve content directly from the database clipboard, preventing context bloat.
 *   **Conventions:** Never manipulate files in `DATA_DIR/file_systems` directly; always use the `manager` API to keep metadata and versioning in sync.
 *   **Testing:**
     - **Local:** Unit tests in `tests/` ensure strict compliance with the exhaustive 1:1 testing rule, verifying path resolution, FTS5 sync, locking channels, and artifact CRUD operations.
